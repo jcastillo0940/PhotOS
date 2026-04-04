@@ -32,6 +32,6 @@ class User extends Authenticatable
 
     public function isDeveloper(): bool
     {
-        return $this->role === 'developer';
+        return in_array($this->role, ['developer', 'owner'], true);
     }
 }

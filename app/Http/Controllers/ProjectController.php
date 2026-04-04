@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Contract;
 use App\Models\Event;
 use App\Models\Lead;
 use App\Models\Project;
+use App\Models\Contract;
+use App\Support\ContractTemplate;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
 use Illuminate\Http\Request;
@@ -27,6 +28,10 @@ class ProjectController extends Controller
     {
         if (!$project->gallery_token) {
             $project->update(['gallery_token' => Str::random(40)]);
+        }
+
+        if (!$project->gallery_password) {
+            $project->update(['gallery_password' => strtoupper(Str::random(8))]);
         }
 
         $project->load('lead', 'contract', 'invoices', 'photos', 'heroPhoto');
@@ -67,7 +72,7 @@ class ProjectController extends Controller
             'name' => $request->project_name,
             'status' => 'active',
             'gallery_token' => Str::random(40),
-            'gallery_password' => null,
+            'gallery_password' => strtoupper(Str::random(8)),
             'download_limit' => $plan['weekly_download_limit'] ?? null,
             'weekly_download_limit' => $plan['weekly_download_limit'] ?? null,
             'downloads_window_started_at' => now(),
@@ -95,7 +100,7 @@ class ProjectController extends Controller
             'event_date' => $lead->tentative_date,
             'status' => 'pending_payment',
             'gallery_token' => Str::random(40),
-            'gallery_password' => null,
+            'gallery_password' => strtoupper(Str::random(8)),
             'download_limit' => $plan['weekly_download_limit'] ?? null,
             'weekly_download_limit' => $plan['weekly_download_limit'] ?? null,
             'downloads_window_started_at' => now(),
@@ -127,7 +132,7 @@ class ProjectController extends Controller
         Contract::updateOrCreate(
             ['project_id' => $project->id],
             [
-                'content' => "<h1>Photography Service Agreement</h1><p>Client: <strong>{$project->lead->name}</strong></p><p>Event Date: <strong>" . ($project->event_date?->toDateString() ?? 'TBD') . "</strong></p>",
+                'content' => ContractTemplate::defaultTemplateForEventType($project->lead?->event_type),
                 'status' => 'pending',
                 'token' => Str::random(40),
             ]
@@ -138,8 +143,12 @@ class ProjectController extends Controller
     public function publicSignatureView($token)
     {
         $contract = Contract::where('token', $token)->with('project.lead')->firstOrFail();
-        if ($contract->status === 'signed') return Inertia::render('Public/ContractSigned', ['contract' => $contract]);
-        return Inertia::render('Public/SignContract', ['contract' => $contract]);
+        $payload = [
+            'contract' => $contract,
+            'renderedContent' => ContractTemplate::render($contract),
+        ];
+        if ($contract->status === 'signed') return Inertia::render('Public/ContractSigned', $payload);
+        return Inertia::render('Public/SignContract', $payload);
     }
 
     public function signContract(Request $request, $token)
@@ -164,6 +173,8 @@ class ProjectController extends Controller
             'hero_focus_x' => 'nullable|string|max:10',
             'hero_focus_y' => 'nullable|string|max:10',
             'gallery_template_code' => 'nullable|string|max:100',
+            'website_category' => 'nullable|string|max:255',
+            'website_description' => 'nullable|string|max:1500',
         ]);
 
         $payload = [];
@@ -192,6 +203,14 @@ class ProjectController extends Controller
             $payload['gallery_template_code'] = GalleryTemplate::isAllowedForPlan($validated['gallery_template_code'], $project->planDefinition())
                 ? $validated['gallery_template_code']
                 : GalleryTemplate::firstAllowedCode($project->planDefinition());
+        }
+
+        if (array_key_exists('website_category', $validated)) {
+            $payload['website_category'] = $validated['website_category'];
+        }
+
+        if (array_key_exists('website_description', $validated)) {
+            $payload['website_description'] = $validated['website_description'];
         }
 
         if (!empty($payload)) {
@@ -242,4 +261,5 @@ class ProjectController extends Controller
             ->values()
             ->all();
     }
+
 }

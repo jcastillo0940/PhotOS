@@ -1,44 +1,126 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    ChevronLeft, Share2, Zap, BadgeCheck, Clock, MapPin, 
-    FileText, ExternalLink, Calendar, ShieldCheck, Download, 
-    CheckCircle2, Camera, UploadCloud, Save, Trash2, Tags
+import {
+    ArrowUpRight,
+    BadgeCheck,
+    Calendar,
+    Camera,
+    CheckCircle2,
+    ChevronLeft,
+    Clock,
+    Download,
+    ExternalLink,
+    FileText,
+    Globe,
+    MapPin,
+    Share2,
+    Tags,
+    Trash2,
+    UploadCloud,
+    Zap,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
 export default function Show({ project, installationPlan, availableTemplates }) {
-    const [uploadProgress, setUploadProgress] = useState(null);
-    const [isUploading, setIsUploading] = useState(false);
-    const signatureUrl = `${window.location.origin}/sign/${project.contract?.token}`;
-    const [heroPhotoId, setHeroPhotoId] = useState(project.hero_photo_id || project.photos?.[0]?.id || null);
-    const [heroFocus, setHeroFocus] = useState({
+    const [uploadProgress, setUploadProgress] = React.useState(null);
+    const [isUploading, setIsUploading] = React.useState(false);
+    const [heroPhotoId, setHeroPhotoId] = React.useState(project.hero_photo_id || project.photos?.[0]?.id || null);
+    const [heroFocus, setHeroFocus] = React.useState({
         x: parseFloat(project.hero_focus_x || '50%'),
         y: parseFloat(project.hero_focus_y || '50%'),
     });
-    const [photoTagInputs, setPhotoTagInputs] = useState(
-        Object.fromEntries((project.photos || []).map(photo => [
+    const [templateCode, setTemplateCode] = React.useState(project.gallery_template_code || availableTemplates?.[0]?.code || '');
+    const [websiteCategory, setWebsiteCategory] = React.useState(project.website_category || project.lead?.event_type || '');
+    const [websiteDescription, setWebsiteDescription] = React.useState(project.website_description || '');
+    const [photoState, setPhotoState] = React.useState(
+        Object.fromEntries((project.photos || []).map((photo) => [
             photo.id,
-            (photo.tags?.length ? photo.tags : (photo.category ? [photo.category] : [])).join(', '),
+            {
+                tags: (photo.tags?.length ? photo.tags : (photo.category ? [photo.category] : [])).join(', '),
+                show_on_website: !!photo.show_on_website,
+            },
         ]))
     );
-    const heroPhoto = project.photos?.find(p => p.id === heroPhotoId) || project.photos?.[0] || null;
+
+    const photoSaveTimers = React.useRef({});
+    const heroSaveTimer = React.useRef(null);
+    const metaSaveTimer = React.useRef(null);
+    const templateSaveTimer = React.useRef(null);
+
+    const heroPhoto = project.photos?.find((photo) => photo.id === heroPhotoId) || project.photos?.[0] || null;
+    const signatureUrl = `${window.location.origin}/sign/${project.contract?.token}`;
+    const galleryUrl = `${window.location.origin}/gallery/${project.gallery_token}`;
+    const portfolioCount = project.photos?.filter((photo) => photo.show_on_website).length || 0;
     const storageUsedGb = ((project.originals_usage_bytes || 0) / (1024 ** 3)).toFixed(2);
     const storageLimitGb = installationPlan?.storage_limit_gb || 0;
 
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text);
-        alert('¡Link copiado al portapapeles!');
-    };
+    React.useEffect(() => () => {
+        Object.values(photoSaveTimers.current).forEach(clearTimeout);
+        clearTimeout(heroSaveTimer.current);
+        clearTimeout(metaSaveTimer.current);
+        clearTimeout(templateSaveTimer.current);
+    }, []);
 
-    const saveHero = (payload = {}) => {
-        router.put(`/admin/projects/${project.id}`, {
-            hero_photo_id: heroPhotoId,
-            hero_focus_x: `${Math.round((payload.x ?? heroFocus.x))}%`,
-            hero_focus_y: `${Math.round((payload.y ?? heroFocus.y))}%`,
-        }, { preserveScroll: true });
+    React.useEffect(() => {
+        clearTimeout(heroSaveTimer.current);
+        heroSaveTimer.current = setTimeout(() => {
+            router.put(`/admin/projects/${project.id}`, {
+                hero_photo_id: heroPhotoId,
+                hero_focus_x: `${Math.round(heroFocus.x)}%`,
+                hero_focus_y: `${Math.round(heroFocus.y)}%`,
+            }, { preserveScroll: true, preserveState: true });
+        }, 700);
+    }, [heroPhotoId, heroFocus.x, heroFocus.y]);
+
+    React.useEffect(() => {
+        clearTimeout(templateSaveTimer.current);
+        templateSaveTimer.current = setTimeout(() => {
+            router.put(`/admin/projects/${project.id}`, {
+                gallery_template_code: templateCode,
+            }, { preserveScroll: true, preserveState: true });
+        }, 600);
+    }, [templateCode]);
+
+    React.useEffect(() => {
+        clearTimeout(metaSaveTimer.current);
+        metaSaveTimer.current = setTimeout(() => {
+            router.put(`/admin/projects/${project.id}`, {
+                website_category: websiteCategory,
+                website_description: websiteDescription,
+            }, { preserveScroll: true, preserveState: true });
+        }, 900);
+    }, [websiteCategory, websiteDescription]);
+
+    const queuePhotoSave = (photoId, nextState) => {
+        setPhotoState((current) => ({
+            ...current,
+            [photoId]: {
+                ...current[photoId],
+                ...nextState,
+            },
+        }));
+
+        clearTimeout(photoSaveTimers.current[photoId]);
+        photoSaveTimers.current[photoId] = setTimeout(() => {
+            const snapshot = {
+                ...photoState[photoId],
+                ...nextState,
+            };
+            const tags = (snapshot.tags || '')
+                .split(',')
+                .map((tag) => tag.trim())
+                .filter(Boolean);
+
+            const photo = project.photos.find((item) => item.id === photoId);
+
+            router.put(`/admin/projects/${project.id}/photos/${photoId}`, {
+                category: tags[0] || photo?.category || 'General',
+                tags,
+                show_on_website: snapshot.show_on_website,
+            }, { preserveScroll: true, preserveState: true });
+        }, 900);
     };
 
     const handleHeroFocusPick = (event) => {
@@ -46,448 +128,444 @@ export default function Show({ project, installationPlan, availableTemplates }) 
         const x = Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100));
         const y = Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100));
         setHeroFocus({ x, y });
-        saveHero({ x, y });
-    };
-
-    const savePhotoTags = (photo) => {
-        const tags = (photoTagInputs[photo.id] || '').split(',').map(t => t.trim()).filter(Boolean);
-        router.put(`/admin/projects/${project.id}/photos/${photo.id}`, {
-            category: tags[0] || photo.category || 'General',
-            tags,
-        }, { preserveScroll: true });
     };
 
     const deletePhoto = (photo) => {
-        if (!window.confirm('¿Eliminar esta foto del proyecto y del bucket?')) return;
+        if (!window.confirm('Delete this photo from the project and bucket?')) return;
         router.post(`/admin/projects/${project.id}/photos/${photo.id}`, { _method: 'delete' }, { preserveScroll: true });
     };
 
-    const statusLabels = { active: 'Activo', pending_payment: 'Pago pendiente', editing: 'Edición', delivered: 'Entregado' };
-    const statusColors = {
-        active: 'bg-blue-50 text-blue-700 border-blue-100',
-        pending_payment: 'bg-amber-50 text-amber-700 border-amber-100',
-        editing: 'bg-purple-50 text-purple-700 border-purple-100',
-        delivered: 'bg-green-50 text-green-700 border-green-100',
+    const copyToClipboard = async (text) => {
+        await navigator.clipboard.writeText(text);
+        window.alert('Link copied.');
     };
+
+    const statusLabels = { active: 'Activo', pending_payment: 'Pago pendiente', editing: 'Edición', delivered: 'Entregado' };
 
     return (
         <AdminLayout>
-            <div className="flex flex-col space-y-8">
-                <Head title={`Proyecto: ${project.name}`} />
+            <Head title={`Proyecto: ${project.name}`} />
 
-                <Link href="/admin/projects" className="group flex items-center text-slate-500 hover:text-slate-900 transition-all text-sm font-medium w-fit">
-                    <ChevronLeft className="w-4 h-4 mr-1 group-hover:-translate-x-1 transition-transform" />
-                    Volver a Proyectos
+            <div className="space-y-8">
+                <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900">
+                    <ChevronLeft className="h-4 w-4" />
+                    Volver a proyectos
                 </Link>
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main column */}
-                    <div className="lg:col-span-2 space-y-6">
-
-                        {/* Header card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div>
-                                    <h1 className="text-2xl font-bold tracking-tight text-slate-800 mb-3">{project.name}</h1>
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <span className="flex items-center text-slate-500 text-sm gap-1.5">
-                                            <Calendar className="w-4 h-4 text-slate-400" />
-                                            {project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Fecha por definir'}
-                                        </span>
-                                        <span className="flex items-center text-slate-500 text-sm gap-1.5">
-                                            <MapPin className="w-4 h-4 text-slate-400" />
-                                            {project.location || 'Sin ubicación'}
-                                        </span>
-                                        <span className="flex items-center text-slate-500 text-sm gap-1.5">
-                                            <BadgeCheck className="w-4 h-4 text-slate-400" />
-                                            {installationPlan?.name}
-                                        </span>
-                                    </div>
-                                </div>
-                                <span className={clsx("px-3 py-1.5 rounded-full text-xs font-medium border self-start sm:self-center", statusColors[project.status] || 'bg-slate-100 text-slate-600 border-slate-200')}>
-                                    {statusLabels[project.status] || project.status}
-                                </span>
+                <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Project overview</p>
+                            <h1 className="mt-3 text-3xl font-semibold text-slate-900">{project.name}</h1>
+                            <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-500">
+                                <span className="inline-flex items-center gap-2"><Calendar className="h-4 w-4" /> {project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Fecha por definir'}</span>
+                                <span className="inline-flex items-center gap-2"><MapPin className="h-4 w-4" /> {project.location || 'Sin ubicación'}</span>
+                                <span className="inline-flex items-center gap-2"><BadgeCheck className="h-4 w-4" /> {installationPlan?.name}</span>
                             </div>
                         </div>
 
-                        {/* Contract card */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-10 h-10 rounded-xl bg-primary-50 flex items-center justify-center text-primary-600">
-                                    <ShieldCheck className="w-5 h-5" />
-                                </div>
+                        <div className="flex flex-wrap gap-3">
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                                {statusLabels[project.status] || project.status}
+                            </span>
+                            <Link href={`/gallery/${project.gallery_token}`} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                                <ExternalLink className="h-4 w-4" />
+                                Client gallery
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+
+                <div className="grid gap-8 xl:grid-cols-[1.2fr_.8fr]">
+                    <div className="space-y-6">
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                            <div className="mb-6 flex items-center justify-between gap-4">
                                 <div>
-                                    <h3 className="font-bold text-slate-800">Estado Legal</h3>
-                                    <p className="text-xs text-slate-500">Gestión de contratos</p>
+                                    <h2 className="text-xl font-semibold text-slate-900">Contrato</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Versión pública minimalista y editor centralizado.</p>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    {project.contract ? (
+                                        <>
+                                            <Link href="/admin/contracts" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                                                <FileText className="h-4 w-4" />
+                                                Edit contract
+                                            </Link>
+                                            <Link href={`/sign/${project.contract.token}/print`} target="_blank" className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                                                <Download className="h-4 w-4" />
+                                                Print / PDF
+                                            </Link>
+                                        </>
+                                    ) : (
+                                        <button onClick={() => router.post(`/admin/projects/${project.id}/contract`)} className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                                            Generate contract
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 
                             {project.contract ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <div className="flex items-center justify-between mb-3">
-                                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Contrato Digital</span>
-                                            {project.contract.status === 'signed' ? (
-                                                <span className="flex items-center text-green-700 text-xs font-medium gap-1">
-                                                    <BadgeCheck className="w-3.5 h-3.5" /> Firmado
-                                                </span>
-                                            ) : (
-                                                <span className="flex items-center text-amber-600 text-xs font-medium gap-1">
-                                                    <Clock className="w-3.5 h-3.5 animate-pulse" /> Pendiente
-                                                </span>
-                                            )}
-                                        </div>
-                                        <p className="text-sm text-slate-600 mb-4">
-                                            Versión 1.0 — Actualizado {new Date(project.contract.updated_at).toLocaleDateString()}
-                                        </p>
-                                        <div className="flex gap-2">
-                                            <button className="flex-1 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all">
-                                                <FileText className="w-3.5 h-3.5 inline mr-1.5" /> Ver términos
-                                            </button>
-                                            <a href={`/sign/${project.contract.token}`} target="_blank" rel="noreferrer"
-                                               className="w-10 h-10 rounded-xl bg-primary-50 hover:bg-primary-100 flex items-center justify-center text-primary-600 border border-primary-100 transition-all">
-                                                <ExternalLink className="w-4 h-4" />
-                                            </a>
-                                        </div>
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Status</p>
+                                        <p className="mt-3 text-lg font-semibold text-slate-900">{project.contract.status}</p>
+                                        <p className="mt-2 text-sm text-slate-500">Updated {new Date(project.contract.updated_at).toLocaleDateString()}</p>
                                     </div>
-                                    <div className="p-5 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl">
-                                        <Share2 className="w-6 h-6 text-white/30 mb-3" />
-                                        <h4 className="text-white font-semibold mb-1.5">Compartir link de firma</h4>
-                                        <p className="text-white/70 text-xs mb-4">Envía al cliente para finalizar la reserva.</p>
-                                        <button onClick={() => copyToClipboard(signatureUrl)}
-                                            className="w-full py-2.5 bg-white/15 hover:bg-white/25 rounded-xl text-white text-xs font-medium transition-all border border-white/20">
-                                            Copiar link seguro
-                                        </button>
+                                    <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Secure sign link</p>
+                                        <div className="mt-3 flex gap-2">
+                                            <input readOnly value={signatureUrl} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none" />
+                                            <button onClick={() => copyToClipboard(signatureUrl)} className="rounded-xl border border-slate-200 px-3 py-2 text-slate-600">
+                                                <Share2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ) : (
-                                <div className="p-8 border border-dashed border-slate-200 rounded-2xl flex flex-col items-center text-center">
-                                    <FileText className="w-10 h-10 text-slate-300 mb-3" />
-                                    <h4 className="font-semibold text-slate-700 mb-1.5">Sin contrato generado</h4>
-                                    <p className="text-sm text-slate-500 mb-5 max-w-sm">No hay un acuerdo legal vinculante aún. Genera uno para asegurar la reserva.</p>
-                                    <button onClick={() => router.post(`/admin/projects/${project.id}/contract`)}
-                                        className="px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg text-sm font-medium transition-colors">
-                                        + Generar Contrato
-                                    </button>
+                                <div className="rounded-[1.6rem] border border-dashed border-slate-200 px-8 py-14 text-center text-slate-500">
+                                    No contract has been generated yet.
                                 </div>
                             )}
-                        </div>
+                        </section>
 
-                        {/* Plan info */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-bold text-slate-800">Plan Global Activo</h3>
-                                <span className="px-3 py-1 rounded-full bg-primary-50 text-primary-600 text-xs font-medium">
-                                    {installationPlan?.tagline || 'Operación completa'}
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Cobertura</p>
-                                    <h4 className="font-bold text-slate-800 mb-2">{installationPlan?.name}</h4>
-                                    <p className="text-sm text-slate-600 mb-3">{installationPlan?.audience}</p>
-                                    <div className="space-y-1 text-xs text-slate-500">
-                                        <p>Originales usados: {storageUsedGb} GB / {storageLimitGb} GB</p>
-                                        <p>Alta resolución: {project.high_res_available ? 'Disponible' : 'No disponible'}</p>
-                                        <p>Expiran: {project.originals_expires_at ? new Date(project.originals_expires_at).toLocaleDateString() : 'Sin fecha'}</p>
-                                    </div>
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                            <div className="mb-6 flex items-center justify-between">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-slate-900">Plan y límites</h2>
+                                    <p className="mt-1 text-sm text-slate-500">Lo que ve el owner y lo que termina recibiendo el cliente.</p>
                                 </div>
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Plantilla del cliente</p>
-                                    <select
-                                        value={project.gallery_template_code || availableTemplates?.[0]?.code || ''}
-                                        onChange={(e) => router.put(`/admin/projects/${project.id}`, { gallery_template_code: e.target.value }, { preserveScroll: true })}
-                                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-700 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 outline-none transition-all"
-                                    >
-                                        {availableTemplates?.map(t => <option key={t.code} value={t.code}>{t.name}</option>)}
-                                    </select>
-                                    <div className="mt-3 flex flex-wrap gap-1.5">
-                                        {installationPlan?.highlights?.map(item => (
-                                            <span key={item} className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-xs text-slate-600">{item}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Billing */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-                                        <Zap className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800">Facturación e Hitos</h3>
-                                        <p className="text-xs text-slate-500">Control de pagos</p>
-                                    </div>
-                                </div>
-                                <button className="px-4 py-2 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-                                    + Generar factura
-                                </button>
-                            </div>
-                            <div className="space-y-3">
-                                {project.invoices?.length > 0 ? project.invoices.map((inv) => (
-                                    <div key={inv.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                                        <div className="flex items-center gap-4">
-                                            <div className={clsx("w-9 h-9 rounded-xl flex items-center justify-center", inv.status === 'paid' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400')}>
-                                                {inv.status === 'paid' ? <CheckCircle2 className="w-5 h-5" /> : <Clock className="w-5 h-5" />}
-                                            </div>
-                                            <div>
-                                                <p className="text-sm font-semibold text-slate-800">{inv.concept}</p>
-                                                <p className="text-xs text-slate-500">Vence {new Date(inv.due_date).toLocaleDateString()}</p>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-right">
-                                                <p className="font-bold text-slate-800">${inv.amount}</p>
-                                                <p className="text-xs text-slate-500">{inv.status}</p>
-                                            </div>
-                                            {inv.status !== 'paid' && (
-                                                <button onClick={() => router.put(`/admin/invoices/${inv.id}/pay`)}
-                                                    className="px-3 py-1.5 bg-primary-500 text-white rounded-lg text-xs font-medium hover:bg-primary-600 transition-colors">
-                                                    Marcar pagado
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="p-8 border border-dashed border-slate-200 rounded-2xl text-center text-slate-400 text-sm">
-                                        Sin facturas registradas
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Photo gallery */}
-                        <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-8">
-                            <div className="flex items-center justify-between mb-6">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-primary-600">
-                                        <Camera className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-slate-800">Galería de Fotos</h3>
-                                        <p className="text-xs text-slate-500">Entrega y proofing en tiempo real</p>
-                                    </div>
-                                </div>
-                                <Link href={`/gallery/${project.gallery_token}`}
-                                    className="px-4 py-2 border border-slate-200 bg-white rounded-lg text-xs font-medium text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
-                                    Vista pública
+                                <Link href="/admin/limits" className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                                    <ArrowUpRight className="h-4 w-4" />
+                                    View limits
                                 </Link>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Selecciones</p>
-                                    <div className="flex items-center gap-6">
-                                        <div>
-                                            <p className="text-3xl font-bold text-slate-800">{project.photos?.filter(p => p.is_selected).length || 0}</p>
-                                            <p className="text-xs text-primary-600 font-medium">Favoritas</p>
-                                        </div>
-                                        <div className="w-px h-10 bg-slate-200" />
-                                        <div>
-                                            <p className="text-3xl font-bold text-slate-800">{project.photos?.length || 0}</p>
-                                            <p className="text-xs text-slate-500 font-medium">Total</p>
-                                        </div>
-                                    </div>
-                                    <input type="file" multiple accept="image/*" className="hidden" id="photo_upload"
-                                        onChange={e => {
-                                            if (e.target.files.length > 0) {
-                                                setIsUploading(true);
-                                                const formData = new FormData();
-                                                Array.from(e.target.files).forEach(file => formData.append('photos[]', file));
-                                                router.post(`/admin/projects/${project.id}/photos`, formData, {
-                                                    forceFormData: true, preserveScroll: true,
-                                                    onProgress: p => { if (p.percentage) setUploadProgress(p.percentage); },
-                                                    onFinish: () => { setIsUploading(false); setUploadProgress(null); document.getElementById('photo_upload').value = ''; }
-                                                });
-                                            }
-                                        }} />
-                                    <button onClick={() => document.getElementById('photo_upload').click()}
-                                        className="mt-4 w-full py-2.5 bg-primary-500 text-white rounded-xl text-xs font-semibold hover:bg-primary-600 transition-colors">
-                                        Subir fotos
-                                    </button>
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Storage</p>
+                                    <p className="mt-3 text-2xl font-semibold text-slate-900">{storageUsedGb} / {storageLimitGb} GB</p>
+                                    <p className="mt-2 text-sm text-slate-500">Originals available: {project.high_res_available ? 'Yes' : 'No'}</p>
                                 </div>
-                                <div className="p-5 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <div className="flex items-center justify-between mb-3">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Acceso público</p>
-                                        <div className="w-2 h-2 rounded-full bg-green-500 shadow-sm shadow-green-300" />
-                                    </div>
-                                    <p className="text-xs text-slate-500 mb-3">Token seguro — el cliente puede elegir favoritos en tiempo real.</p>
-                                    <div className="flex items-center gap-2">
-                                        <input readOnly value={`${window.location.origin}/gallery/${project.gallery_token}`}
-                                            className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-primary-600 font-mono flex-1 outline-none" />
-                                        <button onClick={() => copyToClipboard(`${window.location.origin}/gallery/${project.gallery_token}`)}
-                                            className="p-2 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-all">
-                                            <Share2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Client quota</p>
+                                    <p className="mt-3 text-2xl font-semibold text-slate-900">{project.is_full_gallery_purchased ? 'Full gallery unlocked' : `${project.weekly_download_limit || installationPlan?.weekly_download_limit || 0} downloads / week`}</p>
+                                    <p className="mt-2 text-sm text-slate-500">Retention: {project.retention_days || installationPlan?.retention_days} days</p>
                                 </div>
                             </div>
 
-                            {/* Photo library */}
-                            {project.photos?.length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-2">
+                                {installationPlan?.highlights?.map((item) => (
+                                    <span key={item} className="rounded-full border border-slate-200 px-3 py-1.5 text-xs text-slate-600">{item}</span>
+                                ))}
+                            </div>
+                        </section>
+
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                            <div className="mb-6 flex items-center justify-between">
                                 <div>
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <Tags className="w-4 h-4 text-slate-400" />
-                                        <h4 className="font-semibold text-sm text-slate-700">Biblioteca de Fotos</h4>
-                                        <span className="text-xs text-slate-400">— tags y gestión</span>
+                                    <h2 className="text-xl font-semibold text-slate-900">Galería y portafolio web</h2>
+                                    <p className="mt-1 text-sm text-slate-500">El cliente ve todas las fotos del proyecto. La web pública solo muestra las que marques.</p>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700">
+                                        Web portfolio: {portfolioCount}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Client gallery link</p>
+                                    <div className="mt-3 flex gap-2">
+                                        <input readOnly value={galleryUrl} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none" />
+                                        <button onClick={() => copyToClipboard(galleryUrl)} className="rounded-xl border border-slate-200 px-3 py-2 text-slate-600">
+                                            <Share2 className="h-4 w-4" />
+                                        </button>
                                     </div>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                        {project.photos.map(photo => (
-                                            <div key={photo.id} className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50">
-                                                <div className="aspect-[4/3]">
-                                                    <img src={photo.url} alt={`Foto ${photo.id}`} className="w-full h-full object-cover" />
+                                    <div className="mt-4">
+                                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Client access code</p>
+                                        <div className="mt-3 flex gap-2">
+                                            <input readOnly value={project.gallery_password || ''} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-slate-700 outline-none" />
+                                            <button onClick={() => copyToClipboard(project.gallery_password || '')} className="rounded-xl border border-slate-200 px-3 py-2 text-slate-600">
+                                                <Share2 className="h-4 w-4" />
+                                            </button>
+                                        </div>
+                                        <p className="mt-2 text-xs text-slate-400">Con este codigo el cliente desbloquea la galeria completa y las descargas en alta resolucion.</p>
+                                    </div>
+                                </div>
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Public website category</p>
+                                    <input
+                                        value={websiteCategory}
+                                        onChange={(event) => setWebsiteCategory(event.target.value)}
+                                        placeholder="Wedding, Portrait, Commercial..."
+                                        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                                    />
+                                    <textarea
+                                        rows={3}
+                                        value={websiteDescription}
+                                        onChange={(event) => setWebsiteDescription(event.target.value)}
+                                        placeholder="Short public description for this collection..."
+                                        className="mt-3 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                                    />
+                                    <p className="mt-2 text-xs text-slate-400">Saved automatically a moment after you stop typing.</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 grid gap-4 lg:grid-cols-[1.2fr_.8fr]">
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <div>
+                                            <h3 className="font-semibold text-slate-900">Hero and template</h3>
+                                            <p className="text-sm text-slate-500">Both save automatically.</p>
+                                        </div>
+                                        <select
+                                            value={templateCode}
+                                            onChange={(event) => setTemplateCode(event.target.value)}
+                                            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                                        >
+                                            {availableTemplates?.map((template) => (
+                                                <option key={template.code} value={template.code}>{template.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div onClick={handleHeroFocusPick} className="relative aspect-[16/9] cursor-crosshair overflow-hidden rounded-[1.3rem] border border-slate-200 bg-white">
+                                        {heroPhoto ? (
+                                            <>
+                                                <img
+                                                    src={heroPhoto.url}
+                                                    alt="Hero preview"
+                                                    className="h-full w-full object-cover"
+                                                    style={{ objectPosition: `${heroFocus.x}% ${heroFocus.y}%` }}
+                                                />
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/15 to-transparent" />
+                                                <div
+                                                    className="absolute h-5 w-5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white shadow-lg"
+                                                    style={{ left: `${heroFocus.x}%`, top: `${heroFocus.y}%` }}
+                                                />
+                                            </>
+                                        ) : (
+                                            <div className="flex h-full items-center justify-center text-sm text-slate-400">Upload photos to pick a hero.</div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <h3 className="font-semibold text-slate-900">Upload & quick stats</h3>
+                                        <Camera className="h-4 w-4 text-slate-400" />
+                                    </div>
+
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <MetricCard label="Selected" value={project.photos?.filter((photo) => photo.is_selected).length || 0} />
+                                        <MetricCard label="Portfolio" value={portfolioCount} />
+                                    </div>
+
+                                    <input
+                                        id="photo_upload"
+                                        type="file"
+                                        multiple
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={(event) => {
+                                            if (event.target.files.length > 0) {
+                                                setIsUploading(true);
+                                                const formData = new FormData();
+                                                Array.from(event.target.files).forEach((file) => formData.append('photos[]', file));
+                                                router.post(`/admin/projects/${project.id}/photos`, formData, {
+                                                    forceFormData: true,
+                                                    preserveScroll: true,
+                                                    onProgress: (progress) => { if (progress.percentage) setUploadProgress(progress.percentage); },
+                                                    onFinish: () => {
+                                                        setIsUploading(false);
+                                                        setUploadProgress(null);
+                                                        document.getElementById('photo_upload').value = '';
+                                                    },
+                                                });
+                                            }
+                                        }}
+                                    />
+
+                                    <button onClick={() => document.getElementById('photo_upload').click()} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                                        <UploadCloud className="h-4 w-4" />
+                                        Upload photos
+                                    </button>
+                                </div>
+                            </div>
+
+                            {project.photos?.length > 0 && (
+                                <div className="mt-6">
+                                    <div className="mb-4 flex items-center gap-2">
+                                        <Tags className="h-4 w-4 text-slate-400" />
+                                        <h3 className="font-semibold text-slate-900">Photo library</h3>
+                                        <span className="text-xs text-slate-400">Tags and website selection autosave after a short pause.</span>
+                                    </div>
+
+                                    <div className="grid gap-4 xl:grid-cols-2">
+                                        {project.photos.map((photo) => (
+                                            <article key={photo.id} className="overflow-hidden rounded-[1.6rem] border border-slate-200 bg-slate-50">
+                                                <div className="aspect-[4/3] overflow-hidden">
+                                                    <img src={photo.url} alt={`Photo ${photo.id}`} className="h-full w-full object-cover" />
                                                 </div>
-                                                <div className="p-4">
-                                                    <div className="flex items-center justify-between mb-3">
-                                                        <p className="text-xs font-semibold text-slate-500">Foto #{photo.id}</p>
-                                                        <button type="button" onClick={() => deletePhoto(photo)}
-                                                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-50 text-red-600 border border-red-100 text-xs font-medium hover:bg-red-100 transition-all">
-                                                            <Trash2 className="w-3.5 h-3.5" /> Eliminar
-                                                        </button>
+                                                <div className="space-y-4 p-4">
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Photo #{photo.id}</p>
+                                                            <p className="mt-1 text-sm text-slate-500">{photo.category || 'General'}</p>
+                                                        </div>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => setHeroPhotoId(photo.id)}
+                                                                className={clsx(
+                                                                    'rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition',
+                                                                    heroPhotoId === photo.id
+                                                                        ? 'bg-slate-900 text-white'
+                                                                        : 'border border-slate-200 bg-white text-slate-700'
+                                                                )}
+                                                            >
+                                                                {heroPhotoId === photo.id ? 'Hero' : 'Use as hero'}
+                                                            </button>
+                                                            <button type="button" onClick={() => deletePhoto(photo)} className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">
+                                                                <Trash2 className="h-3.5 w-3.5" />
+                                                            </button>
+                                                        </div>
                                                     </div>
-                                                    <input type="text"
-                                                        value={photoTagInputs[photo.id] || ''}
-                                                        onChange={e => setPhotoTagInputs(cur => ({ ...cur, [photo.id]: e.target.value }))}
-                                                        placeholder="Ej: ceremonia, familia, retrato"
-                                                        className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs text-slate-700 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 outline-none transition-all"
+
+                                                    <input
+                                                        type="text"
+                                                        value={photoState[photo.id]?.tags || ''}
+                                                        onChange={(event) => queuePhotoSave(photo.id, { tags: event.target.value })}
+                                                        placeholder="wedding, ceremony, couple"
+                                                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
                                                     />
-                                                    <div className="mt-2 flex flex-wrap gap-1.5 min-h-6">
-                                                        {(photoTagInputs[photo.id] || '').split(',').map(t => t.trim()).filter(Boolean).map(tag => (
-                                                            <span key={`${photo.id}-${tag}`} className="px-2 py-0.5 rounded-md bg-primary-50 text-primary-600 text-xs font-medium">{tag}</span>
-                                                        ))}
+
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {(photoState[photo.id]?.tags || '')
+                                                            .split(',')
+                                                            .map((tag) => tag.trim())
+                                                            .filter(Boolean)
+                                                            .map((tag) => (
+                                                                <span key={`${photo.id}-${tag}`} className="rounded-full bg-primary-50 px-2.5 py-1 text-xs text-primary-700">{tag}</span>
+                                                            ))}
                                                     </div>
-                                                    <div className="mt-3 flex gap-2">
-                                                        <button type="button" onClick={() => savePhotoTags(photo)}
-                                                            className="flex items-center gap-1 px-3 py-2 bg-primary-500 text-white rounded-lg text-xs font-medium hover:bg-primary-600 transition-colors">
-                                                            <Save className="w-3.5 h-3.5" /> Guardar
-                                                        </button>
-                                                        <button type="button"
-                                                            onClick={() => { setHeroPhotoId(photo.id); router.put(`/admin/projects/${project.id}`, { hero_photo_id: photo.id, hero_focus_x: `${Math.round(heroFocus.x)}%`, hero_focus_y: `${Math.round(heroFocus.y)}%` }, { preserveScroll: true }); }}
-                                                            className={clsx('px-3 py-2 rounded-lg text-xs font-medium border transition-all',
-                                                                heroPhotoId === photo.id ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50')}>
-                                                            {heroPhotoId === photo.id ? '★ Hero activo' : 'Usar de hero'}
-                                                        </button>
-                                                    </div>
+
+                                                    <label className="flex items-center justify-between rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                                                        <span className="inline-flex items-center gap-2">
+                                                            <Globe className="h-4 w-4 text-slate-400" />
+                                                            Show on website portfolio
+                                                        </span>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!photoState[photo.id]?.show_on_website}
+                                                            onChange={(event) => queuePhotoSave(photo.id, { show_on_website: event.target.checked })}
+                                                            className="h-4 w-4 rounded border-slate-300 text-primary-600"
+                                                        />
+                                                    </label>
                                                 </div>
-                                            </div>
+                                            </article>
                                         ))}
                                     </div>
                                 </div>
                             )}
-
-                            {/* Hero focus picker */}
-                            {project.photos?.length > 0 && (
-                                <div className="mt-6 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h4 className="font-semibold text-sm text-slate-800">Hero de la Galería</h4>
-                                            <p className="text-xs text-slate-500 mt-0.5">Haz clic para definir el punto focal</p>
-                                        </div>
-                                        <button onClick={() => saveHero()} className="px-4 py-2 bg-primary-500 text-white rounded-lg text-xs font-medium hover:bg-primary-600 transition-colors">
-                                            Guardar Hero
-                                        </button>
-                                    </div>
-                                    <div className="grid grid-cols-1 lg:grid-cols-[1.3fr_0.7fr] gap-4">
-                                        <div onClick={handleHeroFocusPick}
-                                            className="relative aspect-[16/9] overflow-hidden rounded-xl border border-slate-200 bg-slate-100 cursor-crosshair">
-                                            {heroPhoto ? (
-                                                <>
-                                                    <img src={heroPhoto.url} alt="Hero preview" className="w-full h-full object-cover"
-                                                        style={{ objectPosition: `${heroFocus.x}% ${heroFocus.y}%` }} />
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
-                                                    <div className="absolute w-5 h-5 rounded-full border-2 border-white shadow-lg -translate-x-1/2 -translate-y-1/2"
-                                                        style={{ left: `${heroFocus.x}%`, top: `${heroFocus.y}%` }} />
-                                                </>
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-slate-400 text-sm">
-                                                    Sube fotos para elegir un hero
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="grid grid-cols-3 gap-2 max-h-[240px] overflow-y-auto">
-                                            {project.photos.map(photo => (
-                                                <button key={photo.id} type="button"
-                                                    onClick={() => { setHeroPhotoId(photo.id); router.put(`/admin/projects/${project.id}`, { hero_photo_id: photo.id, hero_focus_x: `${Math.round(heroFocus.x)}%`, hero_focus_y: `${Math.round(heroFocus.y)}%` }, { preserveScroll: true }); }}
-                                                    className={clsx('relative overflow-hidden rounded-xl border transition-all aspect-square',
-                                                        heroPhotoId === photo.id ? 'border-primary-500 ring-2 ring-primary-500/30' : 'border-slate-200 hover:border-primary-300')}>
-                                                    <img src={photo.url} alt={`Hero ${photo.id}`} className="w-full h-full object-cover" />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                        </section>
                     </div>
 
-                    {/* Sidebar */}
                     <div className="space-y-6">
-                        {/* Roadmap */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-                            <div className="flex items-center gap-2 mb-6">
-                                <Zap className="w-4 h-4 text-primary-500" />
-                                <h3 className="font-semibold text-sm text-slate-800">Hoja de Ruta</h3>
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="flex items-center gap-2">
+                                <Zap className="h-4 w-4 text-primary-500" />
+                                <h2 className="font-semibold text-slate-900">Timeline</h2>
                             </div>
-                            <div className="space-y-5 relative">
-                                <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-slate-100" />
+                            <div className="mt-6 space-y-5">
                                 {[
-                                    { label: 'Contrato creado', desc: 'Cumplimiento automático', done: true },
-                                    { label: 'Firma del cliente', desc: 'Verificación e-signature', done: project.contract?.status === 'signed' },
-                                    { label: 'Logística verificada', desc: 'Agenda actualizada', done: true },
-                                    { label: 'Entrega de galería', desc: 'Preparación fase 5', done: false },
-                                ].map((step, i) => (
-                                    <div key={i} className="flex items-start gap-4 relative z-10">
-                                        <div className={clsx("w-4 h-4 rounded-full border-2 mt-0.5 flex-shrink-0",
-                                            step.done ? 'bg-green-500 border-green-500' : 'bg-white border-slate-200')} />
-                                        <div>
-                                            <p className={clsx("text-sm font-medium leading-none mb-0.5", step.done ? 'text-slate-800' : 'text-slate-400')}>{step.label}</p>
-                                            <p className="text-xs text-slate-400">{step.desc}</p>
-                                        </div>
+                                    { label: 'Contrato creado', done: !!project.contract },
+                                    { label: 'Firma del cliente', done: project.contract?.status === 'signed' },
+                                    { label: 'Galería del cliente activa', done: !!project.gallery_token },
+                                    { label: 'Fotos visibles en la web', done: portfolioCount > 0 },
+                                ].map((item) => (
+                                    <div key={item.label} className="flex items-center gap-3">
+                                        <div className={clsx('h-3 w-3 rounded-full', item.done ? 'bg-emerald-500' : 'bg-slate-200')} />
+                                        <span className={clsx('text-sm', item.done ? 'text-slate-800' : 'text-slate-400')}>{item.label}</span>
                                     </div>
                                 ))}
                             </div>
-                        </div>
+                        </section>
 
-                        {/* Final assets */}
-                        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 text-center">
-                            <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 mx-auto mb-4">
-                                <Download className="w-6 h-6" />
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+                            <div className="mb-4 flex items-center gap-2">
+                                <Clock className="h-4 w-4 text-slate-400" />
+                                <h2 className="font-semibold text-slate-900">Invoices</h2>
                             </div>
-                            <h4 className="font-semibold text-slate-800 mb-1.5">Archivos Finales</h4>
-                            <p className="text-xs text-slate-500 mb-5 leading-relaxed">El acceso a la galería se desbloqueará tras el pago final.</p>
-                            <button disabled className="w-full py-2.5 bg-slate-100 rounded-xl text-xs font-medium text-slate-400 cursor-not-allowed">
-                                Desbloquear acceso
-                            </button>
-                        </div>
+                            <div className="space-y-3">
+                                {project.invoices?.length > 0 ? project.invoices.map((invoice) => (
+                                    <div key={invoice.id} className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-4">
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div>
+                                                <p className="font-semibold text-slate-900">{invoice.concept}</p>
+                                                <p className="mt-1 text-sm text-slate-500">Due {new Date(invoice.due_date).toLocaleDateString()}</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-semibold text-slate-900">${invoice.amount}</p>
+                                                <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{invoice.status}</p>
+                                            </div>
+                                        </div>
+                                        {invoice.status !== 'paid' && (
+                                            <button
+                                                onClick={() => router.put(`/admin/invoices/${invoice.id}/pay`)}
+                                                className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                            >
+                                                <CheckCircle2 className="h-4 w-4" />
+                                                Mark as paid
+                                            </button>
+                                        )}
+                                    </div>
+                                )) : (
+                                    <div className="rounded-[1.5rem] border border-dashed border-slate-200 px-6 py-12 text-center text-sm text-slate-400">
+                                        No invoices yet.
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-6 text-center shadow-sm">
+                            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-50 text-slate-400">
+                                <Download className="h-6 w-6" />
+                            </div>
+                            <h2 className="font-semibold text-slate-900">Client-facing limits</h2>
+                            <p className="mt-3 text-sm leading-7 text-slate-500">
+                                Current gallery template: <strong>{templateCode}</strong>. Weekly downloads: <strong>{project.is_full_gallery_purchased ? 'Unlimited' : (project.weekly_download_limit || installationPlan?.weekly_download_limit || 0)}</strong>.
+                            </p>
+                        </section>
                     </div>
                 </div>
             </div>
 
-            {/* Upload overlay */}
             <AnimatePresence>
                 {isUploading && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-slate-900/80 backdrop-blur-md">
-                        <div className="p-10 bg-white rounded-3xl shadow-2xl text-center w-[380px]">
-                            <UploadCloud className="w-14 h-14 text-primary-500 mx-auto mb-4 animate-pulse" />
-                            <h2 className="text-xl font-bold text-slate-800 mb-1.5">Sincronizando fotos</h2>
-                            <p className="text-sm text-slate-500 mb-6">Subiendo a Cloudflare R2...</p>
-                            <div className="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden">
-                                <motion.div className="bg-primary-500 h-full rounded-full"
-                                    initial={{ width: 0 }} animate={{ width: `${uploadProgress || 0}%` }} />
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
+                        <div className="w-[380px] rounded-[2rem] bg-white p-10 text-center shadow-2xl">
+                            <UploadCloud className="mx-auto mb-4 h-14 w-14 animate-pulse text-primary-500" />
+                            <h2 className="text-xl font-semibold text-slate-900">Uploading photos</h2>
+                            <p className="mt-2 text-sm text-slate-500">Syncing originals and web versions to Cloudflare R2.</p>
+                            <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
+                                <motion.div className="h-full rounded-full bg-primary-500" initial={{ width: 0 }} animate={{ width: `${uploadProgress || 0}%` }} />
                             </div>
-                            <div className="flex justify-between text-xs text-slate-400">
-                                <span>0%</span>
-                                <span className="font-semibold text-primary-600">{Math.round(uploadProgress || 0)}%</span>
-                                <span>100%</span>
-                            </div>
+                            <p className="mt-3 text-sm font-semibold text-primary-600">{Math.round(uploadProgress || 0)}%</p>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
         </AdminLayout>
+    );
+}
+
+function MetricCard({ label, value }) {
+    return (
+        <div className="rounded-[1.2rem] border border-slate-200 bg-white p-4">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{label}</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">{value}</p>
+        </div>
     );
 }

@@ -11,9 +11,7 @@ class SettingsController extends Controller
 {
     public function index()
     {
-        if (Setting::count() === 0) {
-            $this->seedDefaults();
-        }
+        $this->seedDefaults();
 
         return Inertia::render('Admin/Settings/Index', [
             'settings' => Setting::all()->groupBy('group'),
@@ -23,7 +21,7 @@ class SettingsController extends Controller
     public function update(Request $request)
     {
         $allowedKeys = Setting::query()
-            ->whereIn('group', ['storage', 'payment', 'branding'])
+            ->whereIn('group', ['storage', 'payment', 'branding', 'legal'])
             ->pluck('key')
             ->all();
 
@@ -66,11 +64,18 @@ class SettingsController extends Controller
             ['key' => 'tilopay_secret_key', 'group' => 'payment', 'is_secret' => true],
             ['key' => 'platform_watermark_label', 'group' => 'branding', 'is_secret' => false, 'value' => 'PhotOS'],
             ['key' => 'photographer_watermark_path', 'group' => 'branding', 'is_secret' => false, 'value' => null],
+            ['key' => 'photographer_business_name', 'group' => 'legal', 'is_secret' => false, 'value' => 'Mono Studio'],
+            ['key' => 'photographer_document', 'group' => 'legal', 'is_secret' => false, 'value' => 'Cedula / RUC'],
+            ['key' => 'legal_city', 'group' => 'legal', 'is_secret' => false, 'value' => 'Panama'],
+            ['key' => 'jurisdiction_country', 'group' => 'legal', 'is_secret' => false, 'value' => 'Panama'],
+            ['key' => 'default_privacy_fee', 'group' => 'legal', 'is_secret' => false, 'value' => '150'],
         ];
 
         foreach ($defaults as $d) {
-            Setting::create($d);
+            Setting::firstOrCreate(
+                ['key' => $d['key']],
+                $d
+            );
         }
     }
 }
-

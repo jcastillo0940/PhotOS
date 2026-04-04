@@ -17,6 +17,7 @@ class Project extends Model
         'downloads_window_started_at', 'extra_download_quota', 'retention_days', 'storage_limit_bytes',
         'is_full_gallery_purchased', 'full_gallery_price', 'originals_expires_at',
         'hero_photo_id', 'hero_focus_x', 'hero_focus_y', 'gallery_template_code',
+        'website_category', 'website_description',
     ];
 
     protected $casts = [

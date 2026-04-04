@@ -1,51 +1,60 @@
 import React from 'react';
-import { Head } from '@inertiajs/react';
-import { CheckCircle2, ShieldCheck, Download, Mail } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Head, Link } from '@inertiajs/react';
+import { CheckCircle2, Mail, Printer, ShieldCheck } from 'lucide-react';
 
-export default function ContractSigned({ contract }) {
+export default function ContractSigned({ contract, renderedContent }) {
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center p-6 relative overflow-hidden">
-             {/* Aesthetics */}
-             <div className="absolute inset-0 z-0">
-                <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-primary-500/10 blur-[150px] rounded-full" />
-                <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-accent/5 blur-[150px] rounded-full" />
-             </div>
+        <div className="min-h-screen bg-[#f6f3ee] px-6 py-10 text-slate-900 md:px-10">
+            <Head title="Contract Signed" />
 
-             <Head title="Contract Signed & Verified" />
+            <div className="mx-auto max-w-3xl rounded-[2.4rem] border border-slate-200 bg-white p-8 text-center shadow-sm md:p-14">
+                <div className="mx-auto mb-8 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                    <CheckCircle2 className="h-10 w-10" />
+                </div>
 
-             <motion.div 
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="relative z-10 w-full max-w-xl text-center bg-[#111] p-12 md:p-20 rounded-[60px] border border-white/5 shadow-3xl"
-             >
-                 <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-green-500/20 text-green-500 mb-10 border border-green-500/30">
-                     <CheckCircle2 className="w-12 h-12" />
-                 </div>
+                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Signature complete</p>
+                <h1 className="mt-4 text-4xl font-serif text-slate-900 md:text-5xl">Agreement verified</h1>
+                <p className="mx-auto mt-6 max-w-xl text-base leading-8 text-slate-500">
+                    The contract has been signed successfully and is now attached to your project.
+                </p>
 
-                 <h1 className="text-4xl md:text-5xl font-heading font-black tracking-tighter text-white mb-6">Agreement Verified</h1>
-                 <p className="text-[#888] text-lg mb-12 leading-relaxed">
-                     Thank you. Your digital signature has been legally recorded and a confirmation has been sent to your email.
-                 </p>
+                <div className="mt-10 grid gap-4 md:grid-cols-3">
+                    <InfoCard icon={ShieldCheck} label="Contract token" value={`${contract.token.slice(0, 18)}...`} />
+                    <InfoCard icon={Mail} label="Confirmation sent to" value={contract.project?.lead?.email || 'Client email'} />
+                    <InfoCard icon={CheckCircle2} label="Status" value={contract.status} />
+                </div>
 
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center">
-                         <ShieldCheck className="w-6 h-6 text-primary-400 mb-3" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest text-[#444] mb-2">E-Signature ID</span>
-                         <span className="text-white text-xs font-mono font-bold truncate w-full px-4">{contract.token.substring(0, 15)}...</span>
-                     </div>
-                     <div className="p-6 bg-white/5 rounded-3xl border border-white/5 flex flex-col items-center">
-                         <Mail className="w-6 h-6 text-primary-400 mb-3" />
-                         <span className="text-[10px] font-bold uppercase tracking-widest text-[#444] mb-2">Notice Sent To</span>
-                         <span className="text-white text-xs font-bold">{contract.project?.lead?.email || 'Your Email'}</span>
-                     </div>
-                 </div>
+                <div className="prose mx-auto mt-10 max-w-none rounded-[1.6rem] border border-slate-200 bg-slate-50 p-8 text-left prose-slate">
+                    <div dangerouslySetInnerHTML={{ __html: renderedContent }} />
+                </div>
 
-                 <button className="w-full py-5 bg-gradient-to-r from-primary-600 to-primary-400 text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-lg shadow-primary-500/20 mb-6">
-                     Download Copy (PDF)
-                 </button>
-                 <p className="text-[#333] text-[10px] font-bold uppercase tracking-widest">PhotOS Legal Verification Service</p>
-             </motion.div>
+                <div className="mt-10 flex flex-col justify-center gap-3 md:flex-row">
+                    <Link
+                        href={`/sign/${contract.token}/print`}
+                        target="_blank"
+                        className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800"
+                    >
+                        <Printer className="h-4 w-4" />
+                        Print / Save PDF
+                    </Link>
+                    <Link
+                        href={`/gallery/${contract.project?.gallery_token}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-full border border-slate-200 px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-slate-300"
+                    >
+                        Open client gallery
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function InfoCard({ icon: Icon, label, value }) {
+    return (
+        <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+            <Icon className="mx-auto h-5 w-5 text-slate-500" />
+            <p className="mt-3 text-[11px] uppercase tracking-[0.22em] text-slate-400">{label}</p>
+            <p className="mt-2 text-sm font-medium text-slate-900">{value}</p>
         </div>
     );
 }

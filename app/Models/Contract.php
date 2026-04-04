@@ -11,18 +11,21 @@ class Contract extends Model
     use HasFactory;
 
     protected $fillable = [
-        'project_id', 'content', 'status', 'signed_at', 'signature_data', 'token'
+        'project_id', 'content', 'contract_data', 'status', 'signed_at', 'signature_data', 'token'
     ];
 
     protected $casts = [
         'signed_at' => 'datetime',
+        'contract_data' => 'array',
     ];
 
     protected static function boot()
     {
         parent::boot();
         static::creating(function ($contract) {
-            $contract->token = Str::random(40);
+            if (blank($contract->token)) {
+                $contract->token = Str::random(40);
+            }
         });
     }
 

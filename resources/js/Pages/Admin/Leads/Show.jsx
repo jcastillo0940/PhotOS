@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, usePage, Link, router } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { 
     Mail, 
@@ -100,6 +100,27 @@ export default function Show({ lead }) {
                                     </p>
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6">
+                                <div>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Telefono</p>
+                                    <p className="text-sm font-medium text-slate-800">
+                                        {lead.responses?.phone || 'No compartido'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Mensaje</p>
+                                    <p className="text-sm text-slate-600 leading-7">
+                                        {lead.responses?.message || 'Sin mensaje adicional.'}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-2">Documento</p>
+                                    <p className="text-sm font-medium text-slate-800">
+                                        {lead.responses?.client_document || 'No registrado'}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Status + Convert */}
@@ -127,7 +148,11 @@ export default function Show({ lead }) {
                                 </div>
                             </div>
 
-                            <div className="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl shadow-sm p-6 flex flex-col justify-between group cursor-pointer">
+                            <button
+                                type="button"
+                                onClick={() => router.post(`/admin/leads/${lead.id}/convert`)}
+                                className="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl shadow-sm p-6 flex flex-col justify-between group cursor-pointer text-left"
+                            >
                                 <FileText className="w-8 h-8 text-white/30 mb-3" />
                                 <div>
                                     <h3 className="text-white font-bold text-lg mb-1">Convertir a Proyecto</h3>
@@ -136,7 +161,7 @@ export default function Show({ lead }) {
                                         Iniciar <ArrowRight className="ml-1.5 w-3.5 h-3.5" />
                                     </span>
                                 </div>
-                            </div>
+                            </button>
                         </div>
 
                         {/* Timeline */}

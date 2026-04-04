@@ -56,3 +56,8 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+## Shared Hosting Notes
+
+This project uses `public_html/` as the public web root instead of Laravel's default `public/`.
+When deploying to shared hosting such as Hostinger, point the domain or subdomain document root to `public_html/`.

@@ -12,9 +12,12 @@ class EnsureDeveloper
     {
         $user = $request->user();
 
-        abort_unless($user && $user->role === 'developer', 403, 'Solo un usuario developer puede acceder a esta seccion.');
+        abort_unless(
+            $user && in_array($user->role, ['developer', 'owner'], true),
+            403,
+            'Solo un usuario con acceso total puede acceder a esta seccion.'
+        );
 
         return $next($request);
     }
 }
-

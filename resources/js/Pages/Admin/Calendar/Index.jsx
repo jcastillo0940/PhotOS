@@ -1,248 +1,366 @@
-import React, { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import React, { useMemo, useState } from 'react';
+import { Head, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { 
-    Calendar as CalendarIcon, 
-    ChevronLeft, 
-    ChevronRight, 
-    Plus, 
-    X, 
-    Clock, 
-    MapPin, 
-    Lock, 
-    Camera, 
-    MoreHorizontal
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { clsx } from 'clsx';
+
+const MONTHS = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const EVENT_STYLES = {
+    session: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+    blocked: 'border-slate-200 bg-slate-100 text-slate-700',
+    tentative: 'border-amber-200 bg-amber-50 text-amber-700',
+};
 
 export default function Index({ events }) {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDate, setSelectedDate] = useState(null);
+    const [selectedDay, setSelectedDay] = useState(null);
     const [showModal, setShowModal] = useState(false);
+    const [editingEventId, setEditingEventId] = useState(null);
 
-    const { data, setData, post, reset, processing } = useForm({
+    const { data, setData, post, processing, reset } = useForm({
+        id: null,
         title: '',
         start: '',
         end: '',
         type: 'blocked',
     });
 
-    const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
-    const firstDayOfMonth = (year, month) => new Date(year, month, 1).getDay();
-
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    const startingDay = new Date(year, month, 1).getDay();
 
-    const months = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ];
-
-    const prevMonth = () => setCurrentDate(new Date(year, month - 1));
-    const nextMonth = () => setCurrentDate(new Date(year, month + 1));
-
-    const calendarDays = [];
-    const totalDays = daysInMonth(year, month);
-    const startingDay = firstDayOfMonth(year, month);
-
-    // Filter events for current month
-    const getEventsForDay = (day) => {
-        return events.filter(event => {
+    const eventsByDay = useMemo(() => {
+        return events.reduce((carry, event) => {
             const date = new Date(event.start);
-            return date.getDate() === day && date.getMonth() === month && date.getFullYear() === year;
-        });
-    };
+            if (date.getMonth() !== month || date.getFullYear() !== year) {
+                return carry;
+            }
 
-    const handleDayClick = (day) => {
-        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T10:00`;
-        setData({ ...data, start: dateStr, end: dateStr });
-        setSelectedDate(day);
+            const day = date.getDate();
+            carry[day] = carry[day] || [];
+            carry[day].push(event);
+
+            return carry;
+        }, {});
+    }, [events, month, year]);
+
+    const openCreateModal = (day) => {
+        const start = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T10:00`;
+        const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T18:00`;
+
+        setEditingEventId(null);
+        setSelectedDay(day);
+        setData({
+            id: null,
+            title: '',
+            start,
+            end,
+            type: 'blocked',
+        });
         setShowModal(true);
     };
 
-    const submitEvent = (e) => {
-        e.preventDefault();
+    const openEditModal = (event) => {
+        setEditingEventId(event.id);
+        setSelectedDay(new Date(event.start).getDate());
+        setData({
+            id: event.id,
+            title: event.title || '',
+            start: toDateTimeLocal(event.start),
+            end: toDateTimeLocal(event.end),
+            type: event.type || 'blocked',
+        });
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingEventId(null);
+        setSelectedDay(null);
+        reset();
+    };
+
+    const submitEvent = (event) => {
+        event.preventDefault();
         post('/admin/events', {
-            onSuccess: () => {
-                setShowModal(false);
-                reset();
-            }
+            preserveScroll: true,
+            onSuccess: () => closeModal(),
+        });
+    };
+
+    const deleteEvent = (eventId) => {
+        if (!window.confirm('Delete this blocked date or session?')) return;
+
+        router.delete(`/admin/events/${eventId}`, {
+            preserveScroll: true,
+            onSuccess: () => closeModal(),
         });
     };
 
     return (
         <AdminLayout>
-            <div className="flex flex-col h-full space-y-10">
-                <Head title="Master Agenda & Availability" />
-                
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-4xl font-heading font-black tracking-tighter mb-2">Agenda <span className="text-primary-400">Master</span></h1>
-                        <p className="text-[#666] font-medium tracking-wide">Managing sessions and studio availability</p>
-                    </div>
+            <Head title="Agenda" />
 
-                    <div className="flex items-center space-x-6 bg-[#141414] p-2 rounded-[24px] border border-white/5 shadow-2xl">
-                         <div className="flex items-center space-x-4 px-4">
-                             <button onClick={prevMonth} className="p-2 hover:bg-white/5 rounded-xl transition-all"><ChevronLeft className="w-5 h-5" /></button>
-                             <h2 className="text-lg font-heading font-black min-w-[140px] text-center tracking-tighter uppercase">{months[month]} {year}</h2>
-                             <button onClick={nextMonth} className="p-2 hover:bg-white/5 rounded-xl transition-all"><ChevronRight className="w-5 h-5" /></button>
-                         </div>
-                         <button 
-                            onClick={() => setShowModal(true)}
-                            className="bg-primary-500 hover:bg-primary-600 text-white px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest flex items-center shadow-lg shadow-primary-500/20 transition-all"
-                         >
-                             <Plus className="w-4 h-4 mr-2" /> Block Date
-                         </button>
-                    </div>
-                </div>
+            <div className="space-y-8">
+                <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Calendar</p>
+                            <h1 className="mt-3 text-3xl font-semibold text-slate-900">Agenda del estudio</h1>
+                            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
+                                Desde aqui puedes bloquear fechas, editar reservas existentes y mantener una vista clara de disponibilidad
+                                sin crear duplicados por accidente.
+                            </p>
+                        </div>
 
-                {/* Calendar Grid */}
-                <div className="flex-1 bg-[#111]/50 border border-white/5 rounded-[40px] overflow-hidden shadow-3xl flex flex-col min-h-[600px]">
-                    <div className="grid grid-cols-7 border-bottom border-white/5 bg-[#0a0a0a]/50">
-                        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
-                            <div key={day} className="py-4 text-center text-[10px] font-black uppercase tracking-[0.3em] text-[#333]">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
+                                <ChevronLeft className="h-4 w-4" />
+                            </button>
+                            <div className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-900">
+                                {MONTHS[month]} {year}
+                            </div>
+                            <button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
+                                <ChevronRight className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => openCreateModal(new Date().getDate())} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                                <Plus className="h-4 w-4" />
+                                Bloquear fecha
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section className="rounded-[2rem] border border-slate-200 bg-white shadow-sm">
+                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
+                            <div key={day} className="py-4 text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
                                 {day}
                             </div>
                         ))}
                     </div>
 
-                    <div className="flex-1 grid grid-cols-7 auto-rows-fr">
-                        {Array.from({ length: startingDay }).map((_, i) => (
-                            <div key={`empty-${i}`} className="border border-white/[0.02] bg-[#0d0d0d]/30" />
+                    <div className="grid grid-cols-7">
+                        {Array.from({ length: startingDay }).map((_, index) => (
+                            <div key={`empty-${index}`} className="min-h-[150px] border-b border-r border-slate-100 bg-slate-50/60" />
                         ))}
-                        
-                        {Array.from({ length: totalDays }).map((_, i) => {
-                            const day = i + 1;
-                            const dayEvents = getEventsForDay(day);
+
+                        {Array.from({ length: totalDays }).map((_, index) => {
+                            const day = index + 1;
+                            const dayEvents = eventsByDay[day] || [];
                             const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
 
                             return (
-                                <motion.div 
-                                    key={day} 
-                                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.02)' }}
-                                    onClick={() => handleDayClick(day)}
+                                <div
+                                    key={day}
                                     className={clsx(
-                                        "min-h-[120px] p-4 border border-white/[0.03] transition-colors cursor-pointer group flex flex-col items-start relative",
-                                        isToday && "bg-primary-500/5"
+                                        'min-h-[150px] border-b border-r border-slate-100 p-4 transition hover:bg-slate-50',
+                                        isToday && 'bg-primary-50/60'
                                     )}
                                 >
-                                    <span className={clsx(
-                                        "text-sm font-black mb-4",
-                                        isToday ? "text-primary-400" : "text-[#444] group-hover:text-white"
-                                    )}>
-                                        {day}
-                                    </span>
-
-                                    <div className="w-full space-y-1.5 overflow-hidden">
-                                        {dayEvents.map(event => (
-                                            <div 
-                                                key={event.id}
-                                                className={clsx(
-                                                    "px-2 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-widest truncate flex items-center border",
-                                                    event.type === 'session' 
-                                                        ? "bg-primary-500/10 text-primary-400 border-primary-500/20" 
-                                                        : "bg-accent/10 text-accent border-accent/20"
-                                                )}
-                                            >
-                                                {event.type === 'session' ? <Camera className="w-2 h-2 mr-1.5 shrink-0" /> : <Lock className="w-2 h-2 mr-1.5 shrink-0" />}
-                                                {event.title}
-                                            </div>
-                                        ))}
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <button
+                                            onClick={() => openCreateModal(day)}
+                                            className={clsx(
+                                                'flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition',
+                                                isToday ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-700'
+                                            )}
+                                        >
+                                            {day}
+                                        </button>
+                                        <button onClick={() => openCreateModal(day)} className="text-slate-300 transition hover:text-slate-600">
+                                            <Plus className="h-4 w-4" />
+                                        </button>
                                     </div>
 
-                                    {isToday && (
-                                         <div className="absolute top-4 right-4 w-1.5 h-1.5 bg-primary-500 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.8)]" />
-                                    )}
-                                </motion.div>
+                                    <div className="space-y-2">
+                                        {dayEvents.map((event) => (
+                                            <button
+                                                key={event.id}
+                                                onClick={() => openEditModal(event)}
+                                                className={clsx(
+                                                    'w-full rounded-[1rem] border px-3 py-2 text-left transition hover:shadow-sm',
+                                                    EVENT_STYLES[event.type] || EVENT_STYLES.blocked
+                                                )}
+                                            >
+                                                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">{event.type}</p>
+                                                <p className="mt-1 truncate text-sm font-medium">{event.title}</p>
+                                                <p className="mt-1 text-xs opacity-70">{timeRange(event.start, event.end)}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             );
                         })}
                     </div>
-                </div>
+                </section>
+
+                <section className="grid gap-6 lg:grid-cols-3">
+                    <InfoCard icon={CalendarDays} title="Sesiones">
+                        Los eventos ligados a proyectos pueden abrirse y editarse desde esta misma agenda.
+                    </InfoCard>
+                    <InfoCard icon={Lock} title="Bloqueos">
+                        Los bloqueos manuales ya se actualizan sobre el mismo registro cuando editas uno existente.
+                    </InfoCard>
+                    <InfoCard icon={Clock3} title="Flujo">
+                        Un click sobre el dia crea un evento nuevo. Un click sobre una tarjeta existente la edita.
+                    </InfoCard>
+                </section>
             </div>
 
-            {/* Event Modal */}
             <AnimatePresence>
                 {showModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-[#000]/80 backdrop-blur-sm">
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-[#141414] border border-white/5 rounded-[40px] w-full max-w-md p-10 shadow-3xl"
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-6 backdrop-blur-sm">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                            className="w-full max-w-xl rounded-[2rem] bg-white p-8 shadow-2xl"
                         >
-                            <div className="flex items-center justify-between mb-10">
-                                <h3 className="text-2xl font-heading font-black tracking-tighter">Manage Schedule</h3>
-                                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/5 rounded-xl"><X className="w-5 h-5" /></button>
+                            <div className="mb-8 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
+                                        {editingEventId ? 'Editar evento' : 'Nuevo evento'}
+                                    </p>
+                                    <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                                        {editingEventId ? 'Actualizar agenda' : `Bloqueo o reserva para el dia ${selectedDay}`}
+                                    </h2>
+                                </div>
+                                <button onClick={closeModal} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
+                                    <X className="h-4 w-4" />
+                                </button>
                             </div>
 
-                            <form onSubmit={submitEvent} className="space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] uppercase font-black text-[#444] tracking-[0.2em] ml-1">Event Title</label>
-                                    <input 
-                                        type="text" 
-                                        required
+                            <form onSubmit={submitEvent} className="space-y-5">
+                                <div>
+                                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                        Titulo
+                                    </label>
+                                    <input
+                                        type="text"
                                         value={data.title}
-                                        onChange={e => setData('title', e.target.value)}
-                                        placeholder="Studio Maintenance / Outdoor Session"
-                                        className="w-full bg-[#0d0d0d] border border-white/10 rounded-2xl p-4 text-white placeholder-[#222] focus:ring-1 focus:ring-primary-500/50 outline-none"
+                                        onChange={(event) => setData('title', event.target.value)}
+                                        required
+                                        className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
+                                        placeholder="Wedding day coverage"
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
-                                     <div className="space-y-2">
-                                        <label className="text-[10px] uppercase font-black text-[#444] tracking-[0.2em] ml-1">Start Time</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            required
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <div>
+                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                            Inicio
+                                        </label>
+                                        <input
+                                            type="datetime-local"
                                             value={data.start}
-                                            onChange={e => setData('start', e.target.value)}
-                                            className="w-full bg-[#0d0d0d] border border-white/10 rounded-2xl p-4 text-white [color-scheme:dark] text-xs outline-none focus:ring-1 focus:ring-primary-500"
+                                            onChange={(event) => setData('start', event.target.value)}
+                                            required
+                                            className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
                                         />
                                     </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] uppercase font-black text-[#444] tracking-[0.2em] ml-1">End Time</label>
-                                        <input 
-                                            type="datetime-local" 
-                                            required
+                                    <div>
+                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                            Fin
+                                        </label>
+                                        <input
+                                            type="datetime-local"
                                             value={data.end}
-                                            onChange={e => setData('end', e.target.value)}
-                                            className="w-full bg-[#0d0d0d] border border-white/10 rounded-2xl p-4 text-white [color-scheme:dark] text-xs outline-none focus:ring-1 focus:ring-primary-500"
+                                            onChange={(event) => setData('end', event.target.value)}
+                                            required
+                                            className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
                                         />
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] uppercase font-black text-[#444] tracking-[0.2em] ml-1">Event Type</label>
-                                    <div className="flex space-x-3">
-                                        {['session', 'blocked', 'tentative'].map(t => (
-                                            <button 
-                                                key={t}
+                                <div>
+                                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                        Tipo
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        {['session', 'blocked', 'tentative'].map((type) => (
+                                            <button
+                                                key={type}
                                                 type="button"
-                                                onClick={() => setData('type', t)}
+                                                onClick={() => setData('type', type)}
                                                 className={clsx(
-                                                    "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all",
-                                                    data.type === t ? 'bg-primary-500 text-white border-primary-500 shadow-lg' : 'bg-white/5 text-[#444] border-white/5 hover:text-white'
+                                                    'rounded-[1rem] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] transition',
+                                                    data.type === type
+                                                        ? 'border-slate-900 bg-slate-900 text-white'
+                                                        : 'border-slate-200 bg-slate-50 text-slate-600'
                                                 )}
                                             >
-                                                {t}
+                                                {type}
                                             </button>
                                         ))}
                                     </div>
                                 </div>
 
-                                <button 
-                                    className="w-full py-5 bg-gradient-to-r from-primary-600 to-primary-400 text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-xl shadow-primary-500/20 mt-4 active:scale-95 transition-all"
-                                    disabled={processing}
-                                >
-                                    {processing ? 'Saving...' : 'Update Master Schedule'}
-                                </button>
+                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                    {editingEventId ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => deleteEvent(editingEventId)}
+                                            className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Eliminar
+                                        </button>
+                                    ) : <span />}
+
+                                    <div className="flex items-center gap-3">
+                                        <button type="button" onClick={closeModal} className="rounded-full border border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                            Cancelar
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={processing}
+                                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white"
+                                        >
+                                            <Pencil className="h-4 w-4" />
+                                            {processing ? 'Guardando...' : editingEventId ? 'Actualizar' : 'Guardar'}
+                                        </button>
+                                    </div>
+                                </div>
                             </form>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
         </AdminLayout>
+    );
+}
+
+function toDateTimeLocal(value) {
+    if (!value) return '';
+
+    const date = new Date(value);
+    const pad = (part) => String(part).padStart(2, '0');
+
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function timeRange(start, end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+
+    return `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function InfoCard({ icon: Icon, title, children }) {
+    return (
+        <article className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
+                <Icon className="h-5 w-5" />
+            </div>
+            <h3 className="mt-4 text-lg font-semibold text-slate-900">{title}</h3>
+            <p className="mt-2 text-sm leading-7 text-slate-500">{children}</p>
+        </article>
     );
 }

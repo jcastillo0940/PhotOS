@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
-    Cloud, CreditCard, Shield, CheckCircle2, Eye, EyeOff, Save, RotateCcw,
+    Cloud, CreditCard, Shield, CheckCircle2, Eye, EyeOff, Save, RotateCcw, Landmark,
 } from 'lucide-react';
 
 const SettingGroup = ({ title, subtitle, icon: Icon, children }) => (
@@ -126,6 +126,16 @@ export default function Index({ settings }) {
                                 </p>
                             )}
                         </div>
+                    </SettingGroup>
+
+                    <SettingGroup title="Datos legales" subtitle="Base para contratos dinamicos" icon={Landmark}>
+                        {settings.legal?.map(s => (
+                            <SettingField key={s.key} label={s.key}
+                                value={data.settings.find(d => d.key === s.key)?.value}
+                                onChange={(v) => updateValue(s.key, v)}
+                                isSecret={s.is_secret}
+                            />
+                        ))}
                     </SettingGroup>
                 </div>
 

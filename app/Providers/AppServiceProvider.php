@@ -33,6 +33,10 @@ class AppServiceProvider extends ServiceProvider
                 : null,
         ]);
 
+        Inertia::share('flash', fn () => [
+            'success' => session('success'),
+        ]);
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
                 $r2Key = \App\Models\Setting::get('r2_key');

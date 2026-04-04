@@ -15,6 +15,8 @@ class SuperAdminSeeder extends Seeder
             [
                 'name' => 'Studio Superadmin',
                 'password' => Hash::make('admin2026'),
+                'role' => 'developer',
+                'email_verified_at' => now(),
             ]
         );
     }

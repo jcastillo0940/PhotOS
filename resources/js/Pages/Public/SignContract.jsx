@@ -1,159 +1,179 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { Head, useForm } from '@inertiajs/react';
-import { Camera, ShieldCheck, PenTool, Eraser, CheckCircle2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useRef, useState } from 'react';
+import { Head, Link, useForm } from '@inertiajs/react';
+import { CheckCircle2, Eraser, PenTool, Printer, ShieldCheck } from 'lucide-react';
+import { clsx } from 'clsx';
 
-export default function SignContract({ contract }) {
+export default function SignContract({ contract, renderedContent }) {
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
-    const { data, setData, post, processing, recentlySuccessful } = useForm({
+    const { data, setData, post, processing } = useForm({
         signature_data: '',
     });
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
+        const ctx = canvas?.getContext('2d');
+
+        if (!ctx) return;
+
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
     }, []);
 
-    const startDrawing = (e) => {
+    const pointFromEvent = (event) => {
+        const canvas = canvasRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const source = event.touches?.[0] || event;
+
+        return {
+            x: source.clientX - rect.left,
+            y: source.clientY - rect.top,
+        };
+    };
+
+    const startDrawing = (event) => {
         setIsDrawing(true);
-        draw(e);
+        const ctx = canvasRef.current.getContext('2d');
+        const point = pointFromEvent(event);
+        ctx.beginPath();
+        ctx.moveTo(point.x, point.y);
+    };
+
+    const draw = (event) => {
+        if (!isDrawing) return;
+        const ctx = canvasRef.current.getContext('2d');
+        const point = pointFromEvent(event);
+        ctx.lineTo(point.x, point.y);
+        ctx.stroke();
     };
 
     const stopDrawing = () => {
-        setIsDrawing(false);
-        const canvas = canvasRef.current;
-        setData('signature_data', canvas.toDataURL());
-    };
-
-    const draw = (e) => {
         if (!isDrawing) return;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        const rect = canvas.getBoundingClientRect();
-        const x = (e.clientX || e.touches[0].clientX) - rect.left;
-        const y = (e.clientY || e.touches[0].clientY) - rect.top;
-
-        ctx.lineTo(x, y);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(x, y);
+        setIsDrawing(false);
+        setData('signature_data', canvasRef.current.toDataURL());
     };
 
     const clearSignature = () => {
         const canvas = canvasRef.current;
         const ctx = canvas.getContext('2d');
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.beginPath();
         setData('signature_data', '');
     };
 
-    const submitSignature = (e) => {
-        e.preventDefault();
+    const submit = (event) => {
+        event.preventDefault();
         post(`/sign/${contract.token}`);
     };
 
     return (
-        <div className="min-h-screen bg-[#0a0a0a] text-white p-6 relative overflow-hidden flex items-center justify-center">
-             {/* Background blur */}
-             <div className="absolute inset-0 z-0">
-                <div className="absolute top-1/4 -right-1/4 w-96 h-96 bg-primary-500/10 blur-[150px] rounded-full" />
-                <div className="absolute bottom-1/4 -left-1/4 w-96 h-96 bg-accent/5 blur-[150px] rounded-full" />
-            </div>
+        <div className="min-h-screen bg-[#f6f3ee] px-6 py-10 text-slate-900 md:px-10">
+            <Head title="Review and Sign Contract" />
 
-            <Head title="Sign Professional Services Agreement" />
+            <div className="mx-auto grid max-w-7xl gap-8 xl:grid-cols-[1.15fr_.85fr]">
+                <section className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm md:p-12">
+                    <div className="mb-10 flex items-center justify-between gap-4 border-b border-slate-200 pb-8">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">PhotOS Contracts</p>
+                            <h1 className="mt-3 text-4xl font-serif text-slate-900">Service Agreement</h1>
+                        </div>
+                        <Link
+                            href={`/sign/${contract.token}/print`}
+                            target="_blank"
+                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-slate-300"
+                        >
+                            <Printer className="h-4 w-4" />
+                            Print / PDF
+                        </Link>
+                    </div>
 
-            <motion.div 
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative z-10 w-full max-w-4xl bg-[#111] border border-white/5 rounded-[40px] shadow-3xl overflow-hidden flex flex-col md:flex-row h-[90vh] md:h-auto"
-            >
-                {/* Left: Document View */}
-                <div className="flex-1 p-8 md:p-12 overflow-y-auto no-scrollbar bg-[#0d0d0d]">
-                    <div className="flex items-center space-x-3 mb-10">
-                        <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center">
-                            <ShieldCheck className="w-6 h-6 text-white" />
+                    <div className="mb-8 grid gap-4 rounded-[1.7rem] bg-slate-50 p-6 text-sm text-slate-600 md:grid-cols-3">
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Client</p>
+                            <p className="mt-2 font-medium text-slate-900">{contract.project?.lead?.name}</p>
                         </div>
                         <div>
-                             <h1 className="text-xl font-heading font-black tracking-tight leading-none">PhotOS Legal</h1>
-                             <p className="text-[10px] text-[#444] uppercase font-bold tracking-[0.2em] mt-1">E-Signature Platform</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Project</p>
+                            <p className="mt-2 font-medium text-slate-900">{contract.project?.name}</p>
+                        </div>
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Status</p>
+                            <p className="mt-2 font-medium text-slate-900">{contract.status}</p>
                         </div>
                     </div>
 
-                    <div className="prose prose-invert max-w-none text-white/70 leading-relaxed font-light" 
-                         dangerouslySetInnerHTML={{ __html: contract.content }}>
+                    <div className="prose max-w-none prose-slate" dangerouslySetInnerHTML={{ __html: renderedContent }} />
+                </section>
+
+                <aside className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm md:p-10">
+                    <div className="mb-8 flex items-center gap-3">
+                        <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
+                            <ShieldCheck className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Electronic signature</p>
+                            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Finalize agreement</h2>
+                        </div>
                     </div>
-                </div>
 
-                {/* Right: Signature Panel */}
-                <div className="w-full md:w-[400px] p-8 bg-[#141414] border-l border-white/5 flex flex-col justify-between">
-                     <div>
-                        <h2 className="text-2xl font-heading font-black tracking-tighter mb-4">Finalize Agreement</h2>
-                        <p className="text-sm text-[#666] leading-loose mb-10">
-                            By signing below, you agree to the terms provided by the photographer. This is a legally binding electronic signature.
-                        </p>
+                    <p className="text-sm leading-7 text-slate-500">
+                        Review the contract, sign below, and keep a printable copy for your records.
+                    </p>
 
-                        <div className="space-y-4">
-                            <label className="text-[10px] uppercase font-black text-[#444] tracking-[0.3em] block">Draw Your Signature</label>
-                            <div className="relative bg-[#0d0d0d] rounded-2xl border border-dashed border-white/10 group overflow-hidden">
-                                <canvas 
-                                    ref={canvasRef}
-                                    width={336}
-                                    height={200}
-                                    className="cursor-crosshair w-full h-[200px]"
-                                    onMouseDown={startDrawing}
-                                    onMouseMove={draw}
-                                    onMouseUp={stopDrawing}
-                                    onMouseLeave={stopDrawing}
-                                    onTouchStart={startDrawing}
-                                    onTouchMove={draw}
-                                    onTouchEnd={stopDrawing}
-                                />
-                                { !data.signature_data && (
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center text-[#222] pointer-events-none transition-opacity group-hover:opacity-100">
-                                        <PenTool className="w-10 h-10 mb-2 opacity-5" />
-                                        <p className="text-[10px] uppercase tracking-widest font-black opacity-20">Sign Here</p>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex justify-end">
-                                <button 
-                                    onClick={clearSignature}
-                                    className="text-[10px] font-bold uppercase tracking-widest text-[#444] hover:text-accent transition-colors flex items-center"
-                                >
-                                    <Eraser className="w-3 h-3 mr-2" /> Clear Signature
-                                </button>
-                            </div>
-                        </div>
-                     </div>
-
-                     <div className="mt-12 space-y-4">
-                        <div className="p-4 bg-primary-500/5 rounded-2xl flex items-center space-x-4 border border-primary-500/10">
-                            <CheckCircle2 className="w-5 h-5 text-primary-400" />
-                            <p className="text-[10px] text-primary-400/70 font-medium leading-normal italic">
-                                Your IP and Timestamp will be recorded upon submission for legal verification.
-                            </p>
-                        </div>
-                        <form onSubmit={submitSignature}>
-                            <button 
-                                disabled={processing || !data.signature_data}
-                                className={clsx(
-                                    "w-full py-5 rounded-2xl text-xs font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center",
-                                    (processing || !data.signature_data) 
-                                        ? "bg-white/5 text-[#333] cursor-not-allowed" 
-                                        : "bg-gradient-to-r from-primary-600 to-primary-400 text-white shadow-lg shadow-primary-500/20 active:scale-95"
-                                )}
-                            >
-                                {processing ? 'Verifying...' : 'Finalize & Sign Now'}
+                    <div className="mt-8 rounded-[1.8rem] border border-slate-200 bg-slate-50 p-5">
+                        <div className="mb-4 flex items-center justify-between">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Signature</p>
+                            <button type="button" onClick={clearSignature} className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                <Eraser className="h-3.5 w-3.5" />
+                                Clear
                             </button>
-                        </form>
-                     </div>
-                </div>
-            </motion.div>
+                        </div>
+
+                        <div className="relative overflow-hidden rounded-[1.4rem] border border-dashed border-slate-300 bg-white">
+                            <canvas
+                                ref={canvasRef}
+                                width={520}
+                                height={220}
+                                className="h-[220px] w-full cursor-crosshair"
+                                onMouseDown={startDrawing}
+                                onMouseMove={draw}
+                                onMouseUp={stopDrawing}
+                                onMouseLeave={stopDrawing}
+                                onTouchStart={startDrawing}
+                                onTouchMove={draw}
+                                onTouchEnd={stopDrawing}
+                            />
+
+                            {!data.signature_data && (
+                                <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-slate-300">
+                                    <PenTool className="mb-3 h-8 w-8" />
+                                    <p className="text-[11px] uppercase tracking-[0.24em]">Sign here</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-8 rounded-[1.6rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+                        Your signature timestamp and contract token will be recorded for verification.
+                    </div>
+
+                    <form onSubmit={submit} className="mt-8">
+                        <button
+                            disabled={processing || !data.signature_data}
+                            className={clsx(
+                                'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] transition',
+                                processing || !data.signature_data
+                                    ? 'cursor-not-allowed bg-slate-200 text-slate-400'
+                                    : 'bg-slate-900 text-white hover:bg-slate-800'
+                            )}
+                        >
+                            <CheckCircle2 className="h-4 w-4" />
+                            {processing ? 'Signing...' : 'Sign contract'}
+                        </button>
+                    </form>
+                </aside>
+            </div>
         </div>
     );
 }

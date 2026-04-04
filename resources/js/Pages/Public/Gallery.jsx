@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useMemo, useState } from 'react';
-import { Head, router } from '@inertiajs/react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
     Heart,
     Maximize2,
@@ -15,139 +15,170 @@ import { clsx } from 'clsx';
 
 const TEMPLATE_STYLES = {
     'cinematic-dark': {
-        page: 'bg-[#050505] text-white',
+        page: 'bg-[#030303] text-white selection:bg-white/20',
         header: 'text-white',
-        heroOverlay: 'bg-gradient-to-t from-black via-black/45 to-transparent',
-        heroHeight: 'h-[76vh] md:h-[92vh]',
-        title: 'text-5xl md:text-8xl tracking-tight text-white',
-        subtitle: 'text-primary-200/80',
-        filterActive: 'bg-white text-black border-white',
-        filterIdle: 'bg-white/5 text-[#777] border-white/5 hover:text-white hover:bg-white/10',
-        card: 'bg-[#151515] border border-white/5',
-        footer: 'text-[#222]',
+        heroOverlay: 'bg-gradient-to-t from-[#030303] via-[#030303]/40 to-transparent',
+        heroHeight: 'h-[80vh] md:h-[95vh]',
+        title: 'text-6xl md:text-9xl font-black tracking-tighter leading-[0.9]',
+        subtitle: 'text-white/60 font-medium tracking-wide',
+        filterActive: 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]',
+        filterIdle: 'bg-white/5 text-white/40 border-white/5 hover:text-white hover:bg-white/10 hover:border-white/10',
+        card: 'bg-[#0a0a0a] border border-white/5 ring-1 ring-white/5',
+        footer: 'text-white/20',
     },
     'editorial-frame': {
-        page: 'bg-[#e9e1d6] text-[#1f1914]',
-        header: 'text-[#f5efe7]',
-        heroOverlay: 'bg-[linear-gradient(to_top,rgba(24,18,14,0.35),rgba(24,18,14,0.08),rgba(24,18,14,0.18))]',
-        heroHeight: 'h-[74vh] md:h-[88vh]',
-        title: 'text-5xl md:text-7xl tracking-tight text-[#fff8f2]',
-        subtitle: 'text-[#efe5d7]',
-        filterActive: 'bg-[#1f1914] text-white border-[#1f1914]',
-        filterIdle: 'bg-white/60 text-[#6c5d53] border-[#d7cabd] hover:bg-white hover:text-[#1f1914]',
-        card: 'bg-[#f8f3ed] border border-[#dfd4c8]',
-        footer: 'text-[#8c7d70]',
+        page: 'bg-[#fcfaf7] text-[#1a1612] selection:bg-[#1a1612]/10',
+        header: 'text-[#1a1612]',
+        heroOverlay: 'bg-gradient-to-t from-[#1a1612]/20 via-transparent to-transparent',
+        heroHeight: 'h-[75vh] md:h-[90vh]',
+        title: 'text-5xl md:text-8xl font-black tracking-tight leading-tight',
+        subtitle: 'text-[#1a1612]/60 font-serif italic',
+        filterActive: 'bg-[#1a1612] text-white border-[#1a1612] shadow-xl',
+        filterIdle: 'bg-white text-[#1a1612]/40 border-[#e5dfd9] hover:bg-[#1a1612]/5 hover:text-[#1a1612]',
+        card: 'bg-white border border-[#e5dfd9] shadow-sm',
+        footer: 'text-[#1a1612]/20',
     },
     'split-story': {
-        page: 'bg-[#f7f3eb] text-[#171717]',
+        page: 'bg-[#faf9f6] text-[#171717] selection:bg-[#b59c6b]/20',
         header: 'text-[#171717]',
         heroOverlay: 'bg-transparent',
-        heroHeight: 'h-[52vh] md:h-[68vh]',
-        title: 'text-4xl md:text-6xl tracking-tight text-[#171717]',
-        subtitle: 'text-[#78684d]',
-        filterActive: 'bg-[#b59c6b] text-white border-[#b59c6b]',
-        filterIdle: 'bg-white text-[#8f8068] border-[#e3d8c6] hover:border-[#b59c6b] hover:text-[#171717]',
-        card: 'bg-white border border-[#ebe2d6]',
+        heroHeight: 'h-[60vh] md:h-[75vh]',
+        title: 'text-5xl md:text-7xl font-black tracking-tight',
+        subtitle: 'text-[#78684d] font-medium leading-relaxed',
+        filterActive: 'bg-[#b59c6b] text-white border-[#b59c6b] shadow-lg shadow-[#b59c6b]/20',
+        filterIdle: 'bg-white text-[#8f8068] border-[#e3d8c6] hover:border-[#b59c6b] hover:text-[#b59c6b]',
+        card: 'bg-white border border-[#ebe2d6] shadow-sm',
         footer: 'text-[#b9ab97]',
     },
     'minimal-grid': {
-        page: 'bg-[#f8f8f6] text-[#111111]',
+        page: 'bg-white text-[#111111] selection:bg-black/10',
         header: 'text-[#111111]',
-        heroOverlay: 'bg-gradient-to-t from-white/80 via-transparent to-transparent',
-        heroHeight: 'h-[44vh] md:h-[58vh]',
-        title: 'text-4xl md:text-6xl tracking-tight text-[#111111]',
-        subtitle: 'text-[#555555]',
+        heroOverlay: 'bg-gradient-to-t from-white via-transparent to-transparent',
+        heroHeight: 'h-[50vh] md:h-[65vh]',
+        title: 'text-5xl md:text-8xl font-black tracking-tighter',
+        subtitle: 'text-[#666] font-normal leading-relaxed',
         filterActive: 'bg-[#111111] text-white border-[#111111]',
-        filterIdle: 'bg-white text-[#666666] border-[#e4e4e1] hover:border-[#111111] hover:text-[#111111]',
-        card: 'bg-white border border-[#ecebe7]',
-        footer: 'text-[#b7b7b2]',
+        filterIdle: 'bg-white text-[#666] border-[#eee] hover:border-[#111111] hover:text-[#111111]',
+        card: 'bg-white border border-[#f0f0f0] shadow-sm',
+        footer: 'text-[#ccc]',
     },
     'mono-story': {
-        page: 'bg-[#111111] text-white',
+        page: 'bg-black text-white selection:bg-white/10',
         header: 'text-white',
-        heroOverlay: 'bg-gradient-to-t from-black via-black/40 to-transparent',
-        heroHeight: 'h-[76vh] md:h-[90vh]',
-        title: 'text-5xl md:text-8xl tracking-tight text-white',
-        subtitle: 'text-white/70',
+        heroOverlay: 'bg-gradient-to-t from-black via-transparent to-transparent',
+        heroHeight: 'h-[80vh] md:h-[95vh]',
+        title: 'text-6xl md:text-9xl font-black tracking-tight uppercase',
+        subtitle: 'text-white/50 tracking-[0.2em] font-light',
         filterActive: 'bg-white text-black border-white',
-        filterIdle: 'bg-white/5 text-[#999] border-white/10 hover:text-white hover:bg-white/10',
-        card: 'bg-[#181818] border border-white/10',
-        footer: 'text-[#444]',
+        filterIdle: 'bg-white/5 text-white/40 border-white/5 hover:bg-white/10 hover:text-white',
+        card: 'bg-[#080808] border border-white/10',
+        footer: 'text-white/10',
     },
     'sunset-split': {
-        page: 'bg-[#fcf6ef] text-[#22160f]',
-        header: 'text-[#22160f]',
+        page: 'bg-[#fffcf9] text-[#2d1b0e] selection:bg-[#d89a57]/20',
+        header: 'text-[#2d1b0e]',
         heroOverlay: 'bg-transparent',
-        heroHeight: 'h-[52vh] md:h-[68vh]',
-        title: 'text-4xl md:text-6xl tracking-tight text-[#22160f]',
-        subtitle: 'text-[#8b5c34]',
-        filterActive: 'bg-[#d89a57] text-white border-[#d89a57]',
-        filterIdle: 'bg-white text-[#8c6c54] border-[#eddac5] hover:border-[#d89a57] hover:text-[#22160f]',
-        card: 'bg-white border border-[#efdfcc]',
-        footer: 'text-[#c49b73]',
+        heroHeight: 'h-[60vh] md:h-[75vh]',
+        title: 'text-5xl md:text-8xl font-black tracking-tight text-[#2d1b0e]',
+        subtitle: 'text-[#8c6c54] font-medium italic',
+        filterActive: 'bg-[#d89a57] text-white border-[#d89a57] shadow-lg shadow-[#d89a57]/20',
+        filterIdle: 'bg-white text-[#8c6c54] border-[#f3e5d8] hover:border-[#d89a57] hover:text-[#d89a57]',
+        card: 'bg-white border border-[#f3e5d8] shadow-sm',
+        footer: 'text-[#d89a57]/30',
     },
 };
 
-const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome }) => (
+const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome, allowSelection }) => (
     <motion.div
         layout
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ opacity: 1, scale: 1 }}
-        whileHover={{ y: -4 }}
-        className={clsx('group relative overflow-hidden rounded-[24px] cursor-zoom-in w-full shadow-xl', cardClass)}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        whileHover={{ y: -8, transition: { duration: 0.3, ease: 'easeOut' } }}
+        className={clsx('group relative overflow-hidden rounded-[32px] cursor-zoom-in w-full transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]', cardClass)}
     >
-        <img
-            src={photo.url}
-            alt="Gallery Shot"
-            className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105 block"
-            onClick={onClick}
-            loading="lazy"
-            draggable={false}
-            onContextMenu={(e) => e.preventDefault()}
-        />
+        <div className="overflow-hidden aspect-auto">
+            <img
+                src={photo.url}
+                alt="Gallery Shot"
+                className="w-full h-auto object-cover transition-transform duration-1000 group-hover:scale-110 block"
+                onClick={onClick}
+                loading="lazy"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+            />
+        </div>
+        
         <div className={clsx(
-            'absolute inset-x-0 bottom-0 py-6 px-5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-between',
-            showDarkChrome ? 'bg-gradient-to-t from-black/80 via-black/30 to-transparent text-white' : 'bg-gradient-to-t from-white/90 via-white/60 to-transparent text-[#111]'
+            'absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none',
+            showDarkChrome ? 'bg-black/20' : 'bg-black/5'
+        )} />
+
+        <div className={clsx(
+            'absolute inset-x-0 bottom-0 py-8 px-6 opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all duration-500 flex items-center justify-between z-10',
+            showDarkChrome ? 'bg-gradient-to-t from-black via-black/40 to-transparent text-white' : 'bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white'
         )}>
-            <div className="flex items-center space-x-3">
-                <button
-                    onClick={(e) => { e.stopPropagation(); onToggleHeart(photo); }}
-                    className={clsx(
-                        'p-3 rounded-full backdrop-blur-md transition-all',
-                        photo.is_selected
-                            ? 'bg-accent/80 text-white'
-                            : showDarkChrome
-                                ? 'bg-white/10 text-white hover:bg-white/20'
-                                : 'bg-black/10 text-[#111] hover:bg-black/15'
-                    )}
+            <div className="flex items-center space-x-3 pointer-events-auto">
+                {allowSelection && (
+                    <button
+                        onClick={(e) => { e.stopPropagation(); onToggleHeart(photo); }}
+                        className={clsx(
+                            'p-4 rounded-full backdrop-blur-xl transition-all duration-300 transform active:scale-95',
+                            photo.is_selected
+                                ? 'bg-accent text-white shadow-lg shadow-accent/40'
+                                : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
+                        )}
+                    >
+                        <Heart className={clsx('w-4.5 h-4.5', photo.is_selected && 'fill-current')} />
+                    </button>
+                )}
+                <button 
+                    onClick={onClick}
+                    className="p-4 rounded-full backdrop-blur-xl bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-all transform active:scale-95"
                 >
-                    <Heart className={clsx('w-4 h-4', photo.is_selected && 'fill-current')} />
-                </button>
-                <button className={clsx('p-3 rounded-full backdrop-blur-md transition-all', showDarkChrome ? 'bg-white/10 text-white hover:bg-white/20' : 'bg-black/10 text-[#111] hover:bg-black/15')}>
-                    <Maximize2 className="w-4 h-4" />
+                    <Maximize2 className="w-4.5 h-4.5" />
                 </button>
             </div>
-            <div className="text-right">
-                <p className={clsx('text-[10px] uppercase font-bold tracking-widest leading-none', showDarkChrome ? 'text-white/50' : 'text-black/40')}>Photo ID</p>
-                <p className="text-xs font-mono font-bold leading-none mt-1">#{photo.id}</p>
+            <div className="text-right pointer-events-none">
+                <p className="text-[9px] uppercase font-bold tracking-[0.2em] text-white/50 leading-none">Reference</p>
+                <p className="text-sm font-heading font-black leading-none mt-1.5">{photo.id.toString().padStart(4, '0')}</p>
             </div>
         </div>
-        {photo.is_selected && (
-            <div className="absolute top-4 left-4 p-2 bg-accent shadow-xl shadow-accent/20 rounded-full text-white">
-                <Heart className="w-4 h-4 fill-current" />
+
+        {allowSelection && photo.is_selected && (
+            <div className="absolute top-6 left-6 p-2.5 bg-accent shadow-2xl shadow-accent/40 rounded-full text-white z-20">
+                <Heart className="w-5 h-5 fill-current" />
             </div>
         )}
     </motion.div>
 );
 
-function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery }) {
+function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, galleryTemplate, isDarkChrome }) {
     if (!heroPhoto) return null;
 
     if (templateCode === 'split-story' || templateCode === 'sunset-split') {
         return (
-            <section className="px-8 md:px-16 pt-12 md:pt-16">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <section className="px-5 pt-5 md:px-8 md:pt-8">
+                <div className="grid min-h-[100svh] grid-cols-1 gap-6 lg:grid-cols-2 lg:gap-8 items-stretch">
                     <div className="bg-white border border-[#ebe2d6] rounded-[40px] p-10 md:p-16 flex flex-col justify-center shadow-[0_20px_80px_rgba(181,156,107,0.12)]">
+                        <div className="mb-12 flex items-center justify-between gap-4">
+                            <div className="flex items-center space-x-4">
+                                <div className="flex h-10 w-10 items-center justify-center rounded-xl border bg-white border-black/5">
+                                    <Camera className="h-5 w-5 text-[#171717]" />
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className="mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none text-black/35">
+                                        {galleryTemplate?.name || 'Portfolio'}
+                                    </span>
+                                    <span className="text-xs text-[#666]">
+                                        {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button onClick={shareGallery} className="flex items-center rounded-full border border-black/10 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-[#444] transition-all hover:border-black/30 hover:text-[#111]">
+                                <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                            </button>
+                        </div>
                         <div className="w-14 h-14 rounded-2xl bg-[#f0e6d6] border border-[#e1d3bc] flex items-center justify-center mb-8">
                             <Camera className="w-6 h-6 text-[#8c7340]" />
                         </div>
@@ -158,7 +189,7 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery })
                             <Share2 className="w-4 h-4 mr-2" /> Compartir galeria
                         </button>
                     </div>
-                    <div className="bg-[#f3ede2] rounded-[40px] p-6 md:p-8 shadow-[0_20px_80px_rgba(181,156,107,0.12)]">
+                    <div className="bg-[#f3ede2] rounded-[40px] p-4 md:p-6 shadow-[0_20px_80px_rgba(181,156,107,0.12)]">
                         <div className="overflow-hidden rounded-[28px] h-full min-h-[320px]">
                             <img
                                 src={heroPhoto.url}
@@ -175,9 +206,28 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery })
 
     if (templateCode === 'minimal-grid') {
         return (
-            <section className="px-8 md:px-16 pt-10 md:pt-14">
+            <section className="px-5 pt-5 md:px-8 md:pt-8">
                 <div className="overflow-hidden rounded-[34px] border border-[#e9e9e3] bg-white">
-                    <div className={clsx('relative overflow-hidden', styles.heroHeight)}>
+                    <div className="flex items-center justify-between gap-4 border-b border-[#ecebe7] px-6 py-5 md:px-8">
+                        <div className="flex items-center space-x-4">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border bg-white border-black/5">
+                                <Camera className="h-5 w-5 text-[#171717]" />
+                            </div>
+                            <div className="flex flex-col">
+                                <span className="mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none text-black/35">
+                                    {galleryTemplate?.name || 'Portfolio'}
+                                </span>
+                                <span className="text-xs text-[#666]">
+                                    {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                                </span>
+                            </div>
+                        </div>
+
+                        <button onClick={shareGallery} className="flex items-center rounded-full border border-black/10 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-[#444] transition-all hover:border-black/30 hover:text-[#111]">
+                            <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                        </button>
+                    </div>
+                    <div className={clsx('relative overflow-hidden min-h-[72svh] md:min-h-[100svh]', styles.heroHeight)}>
                         <img
                             src={heroPhoto.url}
                             alt="Gallery Cover"
@@ -202,21 +252,67 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery })
     }
 
     return (
-        <section className={clsx('relative w-full overflow-hidden border-b', styles.heroHeight, templateCode === 'editorial-frame' ? 'border-[#d9cdbf]' : 'border-white/5')}>
-            <img
-                src={heroPhoto.url}
-                alt="Gallery Cover"
-                className="w-full h-full object-cover"
-                style={{ objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}` }}
-            />
-            <div className={clsx('absolute inset-0', styles.heroOverlay)} />
-            {templateCode === 'editorial-frame' && <div className="absolute inset-6 md:inset-10 border border-[#efe5d7]/70" />}
+        <section className={clsx('relative w-full overflow-hidden border-b min-h-[100svh]', templateCode === 'editorial-frame' ? 'border-[#d9cdbf]' : 'border-white/5')}>
+            {/* Focal Point / Bokeh Effect Container */}
+            <div className="absolute inset-0 z-0 overflow-hidden bg-black">
+                {/* 1. Base blurred layer */}
+                <img
+                    src={heroPhoto.url}
+                    alt=""
+                    className="absolute inset-0 h-full w-full object-cover blur-[10px] scale-105 opacity-60"
+                    style={{ 
+                        objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}`
+                    }}
+                />
+                
+                {/* 2. Sharp Focal layer with Mask */}
+                <img
+                    src={heroPhoto.url}
+                    alt="Gallery Cover"
+                    className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
+                    style={{ 
+                        objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}`,
+                        WebkitMaskImage: `radial-gradient(circle at ${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}, black 15%, transparent 65%)`,
+                        maskImage: `radial-gradient(circle at ${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}, black 15%, transparent 65%)`
+                    }}
+                />
+            </div>
 
-            <div className="absolute inset-0 px-8 md:px-16 flex flex-col items-center justify-center text-center">
-                <p className={clsx('font-black text-[10px] uppercase tracking-[0.4em] mb-4', styles.subtitle)}>{project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Exclusive Gallery'}</p>
-                <h1 className={clsx('font-heading font-black drop-shadow-2xl', styles.title)}>{project.name}</h1>
-                <p className={clsx('mt-6 max-w-2xl mx-auto text-sm md:text-base font-medium tracking-wide', styles.subtitle)}>Explora la galeria completa. Las descargas de alta calidad se gestionan de forma privada con tu fotografo.</p>
-                <button onClick={shareGallery} className={clsx('mt-8 inline-flex items-center px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all', templateCode === 'editorial-frame' ? 'border-[#f5efe7] text-[#f5efe7] hover:bg-[#f5efe7] hover:text-[#1f1914]' : 'border-white/20 bg-black/20 text-white hover:bg-black/40')}>
+            {/* High Contrast Overlay for Text Readability */}
+            <div className={clsx(
+                'absolute inset-0 z-1',
+                templateCode === 'editorial-frame' 
+                    ? 'bg-gradient-to-b from-[#1a1612]/60 via-transparent to-[#1a1612]/80' 
+                    : 'bg-gradient-to-b from-black/40 via-transparent to-black/90'
+            )} />
+
+            <div className="absolute inset-x-0 top-0 z-20 px-5 pt-5 md:px-8 md:pt-8">
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center space-x-4">
+                        <div className={clsx('flex h-10 w-10 items-center justify-center rounded-xl border backdrop-blur-md', isDarkChrome ? 'bg-white/10 border-white/10' : 'bg-white border-black/5')}>
+                            <Camera className={clsx('h-5 w-5', isDarkChrome ? 'text-white' : 'text-[#171717]')} />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className={clsx('mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none', isDarkChrome ? 'text-white/55' : 'text-black/35')}>
+                                {galleryTemplate?.name || 'Portfolio'}
+                            </span>
+                            <span className={clsx('text-xs', isDarkChrome ? 'text-white/80' : 'text-[#666]')}>
+                                {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                            </span>
+                        </div>
+                    </div>
+
+                    <button onClick={shareGallery} className={clsx('flex items-center rounded-full border px-5 py-2.5 text-[10px] font-black uppercase tracking-widest backdrop-blur-md transition-all', isDarkChrome ? 'bg-black/30 border-white/10 text-[#ddd] hover:text-white hover:bg-black/50' : 'bg-white border-black/10 text-[#444] hover:border-black/30 hover:text-[#111]')}>
+                        <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                    </button>
+                </div>
+            </div>
+
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-5 pt-24 text-center md:px-12 md:pt-28">
+                <p className={clsx('font-black text-[10px] uppercase tracking-[0.4em] mb-4 text-white/70 shadow-sm', styles.subtitle)}>{project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Exclusive Gallery'}</p>
+                <h1 className={clsx('font-heading font-black drop-shadow-2xl text-4xl sm:text-5xl md:text-7xl lg:text-8xl max-w-6xl text-white', styles.title)}>{project.name}</h1>
+                <p className={clsx('mt-8 max-w-2xl mx-auto text-sm md:text-base font-medium tracking-wide text-white/80', styles.subtitle)}>Explora la galeria completa. Las descargas de alta calidad se gestionan de forma privada con tu fotografo.</p>
+                <button onClick={shareGallery} className={clsx('mt-10 inline-flex items-center px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all', templateCode === 'editorial-frame' ? 'border-[#f5efe7] text-[#f5efe7] hover:bg-[#f5efe7] hover:text-[#1f1914]' : 'border-white/20 bg-white/10 text-white hover:bg-white hover:text-black')}>
                     <Share2 className="w-4 h-4 mr-2" /> Compartir galeria
                 </button>
             </div>
@@ -224,7 +320,8 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery })
     );
 }
 
-export default function Gallery({ project, photos, galleryTemplate }) {
+export default function Gallery({ project, photos, galleryTemplate, access }) {
+    const { flash, errors } = usePage().props;
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [filter, setFilter] = useState('All');
     const templateCode = galleryTemplate?.code || 'cinematic-dark';
@@ -232,6 +329,10 @@ export default function Gallery({ project, photos, galleryTemplate }) {
     const categories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.tags?.length ? photo.tags : [photo.category]).filter(Boolean))], [photos]);
     const heroPhoto = photos.find(photo => photo.id === project.hero_photo_id) || photos[0];
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
+    const isClientView = access?.mode === 'client';
+    const unlockForm = useForm({
+        gallery_access_code: '',
+    });
 
     useEffect(() => {
         const preventDownloads = (event) => {
@@ -258,6 +359,8 @@ export default function Gallery({ project, photos, galleryTemplate }) {
     }, []);
 
     const toggleHeart = (photo) => {
+        if (!access?.can_select_favorites) return;
+
         router.post(`/gallery/photo/${photo.id}/toggle`, {}, {
             preserveScroll: true,
         });
@@ -281,7 +384,6 @@ export default function Gallery({ project, photos, galleryTemplate }) {
     const filteredPhotos = filter === 'All'
         ? photos
         : photos.filter(photo => (photo.tags?.length ? photo.tags : [photo.category]).includes(filter));
-
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
         if (index < photos.length - 1) setSelectedPhoto(photos[index + 1]);
@@ -296,22 +398,6 @@ export default function Gallery({ project, photos, galleryTemplate }) {
         <div className={clsx('min-h-screen selection:bg-accent/30 selection:text-white pb-24', styles.page)}>
             <Head title={`Gallery: ${project.name}`} />
 
-            <header className="px-8 md:px-16 py-6 flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                    <div className={clsx('w-10 h-10 rounded-xl flex items-center justify-center border', isDarkChrome ? 'bg-white/10 border-white/10' : 'bg-white border-black/5')}>
-                        <Camera className={clsx('w-5 h-5', isDarkChrome ? 'text-white' : 'text-[#171717]')} />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className={clsx('font-heading font-black text-[10px] uppercase tracking-[0.3em] leading-none mb-1', isDarkChrome ? 'text-white/50' : 'text-black/35')}>{galleryTemplate?.name || 'Portfolio'}</span>
-                        <span className={clsx('text-xs', isDarkChrome ? 'text-white/70' : 'text-[#666]')}>{project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}</span>
-                    </div>
-                </div>
-
-                <button onClick={shareGallery} className={clsx('flex items-center px-5 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all border', isDarkChrome ? 'bg-black/30 border-white/10 text-[#ddd] hover:text-white hover:bg-black/50' : 'bg-white border-black/10 text-[#444] hover:border-black/30 hover:text-[#111]')}>
-                    <Share2 className="w-3.5 h-3.5 mr-2" /> Share
-                </button>
-            </header>
-
             {photos.length > 0 && heroPhoto && (
                 <GalleryHero
                     templateCode={templateCode}
@@ -319,48 +405,148 @@ export default function Gallery({ project, photos, galleryTemplate }) {
                     heroPhoto={heroPhoto}
                     project={project}
                     shareGallery={shareGallery}
+                    galleryTemplate={galleryTemplate}
+                    isDarkChrome={isDarkChrome}
                 />
             )}
 
-            <section className="pt-12 px-8 md:px-16 pb-10 flex items-center justify-center space-x-3 overflow-x-auto no-scrollbar">
-                {categories.map(cat => (
-                    <button
-                        key={cat}
-                        onClick={() => setFilter(cat)}
-                        className={clsx(
-                            'px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border whitespace-nowrap',
-                            filter === cat ? styles.filterActive : styles.filterIdle
+            <section className="px-5 pt-8 md:px-8 lg:px-10 xl:px-12">
+                <div className={clsx(
+                    'mx-auto max-w-[1320px] rounded-[2rem] border px-5 py-5 md:px-6',
+                    isDarkChrome ? 'border-white/10 bg-white/5' : 'border-black/10 bg-white/70'
+                )}>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                        <div>
+                            <p className={clsx('text-[10px] font-black uppercase tracking-[0.28em]', isDarkChrome ? 'text-white/45' : 'text-black/35')}>
+                                {isClientView ? 'Client gallery unlocked' : 'Public portfolio view'}
+                            </p>
+                            <p className={clsx('mt-2 max-w-2xl text-sm leading-7', isDarkChrome ? 'text-white/75' : 'text-[#5c4939]')}>
+                                {isClientView
+                                    ? 'Estas viendo la galeria completa del cliente. Aqui se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
+                                    : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Para ver la galeria completa del cliente necesitas el codigo de acceso.'}
+                            </p>
+                            {typeof access?.public_photo_count === 'number' && typeof access?.client_photo_count === 'number' && (
+                                <p className={clsx('mt-2 text-xs uppercase tracking-[0.2em]', isDarkChrome ? 'text-white/45' : 'text-[#8b6d54]')}>
+                                    {isClientView ? `${access.client_photo_count} fotos visibles` : `${access.public_photo_count} fotos publicas visibles`}
+                                </p>
+                            )}
+                        </div>
+
+                        {!isClientView && (
+                            <form
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    unlockForm.post(`/gallery/${project.gallery_token}/unlock`, {
+                                        preserveScroll: true,
+                                    });
+                                }}
+                                className="flex w-full max-w-md flex-col gap-3 md:flex-row"
+                            >
+                                <input
+                                    type="text"
+                                    value={unlockForm.data.gallery_access_code}
+                                    onChange={(event) => unlockForm.setData('gallery_access_code', event.target.value.toUpperCase())}
+                                    placeholder={access?.has_password ? 'Codigo del cliente' : 'Sin codigo configurado'}
+                                    disabled={!access?.has_password || unlockForm.processing}
+                                    className={clsx(
+                                        'w-full rounded-full border px-5 py-3 text-sm outline-none',
+                                        isDarkChrome
+                                            ? 'border-white/15 bg-black/20 text-white placeholder:text-white/35'
+                                            : 'border-black/10 bg-white text-[#241b16] placeholder:text-[#9b8877]'
+                                    )}
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={!access?.has_password || unlockForm.processing}
+                                    className={clsx(
+                                        'rounded-full px-6 py-3 text-xs font-black uppercase tracking-[0.2em] transition',
+                                        isDarkChrome
+                                            ? 'bg-white text-black disabled:bg-white/20 disabled:text-white/45'
+                                            : 'bg-[#241b16] text-white disabled:bg-[#d5c6b8] disabled:text-white/70'
+                                    )}
+                                >
+                                    {unlockForm.processing ? 'Validando' : 'Desbloquear'}
+                                </button>
+                            </form>
                         )}
-                    >
-                        {cat}
-                    </button>
-                ))}
+                    </div>
+
+                    {(flash?.success || errors?.gallery_access_code) && (
+                        <div className={clsx(
+                            'mt-4 rounded-[1.4rem] border px-4 py-3 text-sm',
+                            errors?.gallery_access_code
+                                ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                : isDarkChrome
+                                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
+                                    : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+                        )}>
+                            {errors?.gallery_access_code || flash?.success}
+                        </div>
+                    )}
+                </div>
             </section>
 
-            <main className="px-8 md:px-16 mt-4">
-                <div className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-4 md:gap-6 space-y-4 md:space-y-6">
-                    <AnimatePresence mode="popLayout">
-                        {filteredPhotos.map((photo) => (
-                            <div key={photo.id} className="break-inside-avoid">
-                                <PhotoCard
-                                    photo={photo}
-                                    onClick={() => setSelectedPhoto(photo)}
-                                    onToggleHeart={toggleHeart}
-                                    cardClass={styles.card}
-                                    showDarkChrome={isDarkChrome}
-                                />
-                            </div>
+            <div className="w-full max-w-[1920px] mx-auto flex flex-col items-center">
+                <section className="w-full px-5 pb-12 pt-16 flex items-center justify-center">
+                    <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                        {categories.map(cat => (
+                            <motion.button
+                                key={cat}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setFilter(cat)}
+                                className={clsx(
+                                    'px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.25em] transition-all border whitespace-nowrap',
+                                    filter === cat ? styles.filterActive : styles.filterIdle
+                                )}
+                            >
+                                {cat}
+                            </motion.button>
                         ))}
-                    </AnimatePresence>
-                </div>
-
-                {filteredPhotos.length === 0 && (
-                    <div className="py-40 text-center">
-                        <LayoutGrid className="w-16 h-16 text-[#c9c1b7] mx-auto mb-6" />
-                        <p className="font-black uppercase tracking-[0.4em] text-xs text-[#a59886]">No hay fotos en este filtro</p>
                     </div>
-                )}
-            </main>
+                </section>
+
+                <main className="w-full px-5 md:px-10 lg:px-12 xl:px-16 pb-32">
+                    <div
+                        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-8 lg:gap-12 justify-center place-items-center"
+                    >
+                        <AnimatePresence mode="popLayout" initial={false}>
+                            {filteredPhotos.map((photo) => (
+                                <motion.div 
+                                    key={photo.id} 
+                                    layout
+                                    initial={{ opacity: 0, y: 30 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, scale: 0.9 }}
+                                    className="w-full max-w-[500px]"
+                                >
+                                    <PhotoCard
+                                        photo={photo}
+                                        onClick={() => setSelectedPhoto(photo)}
+                                        onToggleHeart={toggleHeart}
+                                        cardClass={styles.card}
+                                        showDarkChrome={isDarkChrome}
+                                        allowSelection={!!access?.can_select_favorites}
+                                    />
+                                </motion.div>
+                            ))}
+                        </AnimatePresence>
+                    </div>
+
+                    {filteredPhotos.length === 0 && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="py-60 text-center w-full"
+                        >
+                            <div className="w-24 h-24 bg-white/5 border border-white/5 rounded-full flex items-center justify-center mx-auto mb-10">
+                                <LayoutGrid className="w-10 h-10 text-white/10" />
+                            </div>
+                            <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografías disponibles</p>
+                        </motion.div>
+                    )}
+                </main>
+            </div>
 
             <footer className={clsx('mt-24 px-16 text-center', styles.footer)}>
                 <p className="text-[10px] uppercase font-black tracking-[0.6em] mb-4 italic">Artisan Processing and Delivery Platform</p>
@@ -413,30 +599,34 @@ export default function Gallery({ project, photos, galleryTemplate }) {
                             <div className="flex items-center space-x-4">
                                 <button
                                     onClick={() => toggleHeart(selectedPhoto)}
+                                    disabled={!access?.can_select_favorites}
                                     className={clsx(
                                         'px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest',
-                                        selectedPhoto.is_selected ? 'bg-accent text-white shadow-xl shadow-accent/20' : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
+                                        !access?.can_select_favorites
+                                            ? 'bg-white/5 text-[#666] border border-white/10 cursor-not-allowed'
+                                            : selectedPhoto.is_selected
+                                                ? 'bg-accent text-white shadow-xl shadow-accent/20'
+                                                : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
                                     )}
                                 >
                                     <Heart className={clsx('w-4 h-4 mr-2', selectedPhoto.is_selected && 'fill-current')} />
-                                    {selectedPhoto.is_selected ? 'In Selection' : 'Add to Selection'}
+                                    {access?.can_select_favorites
+                                        ? (selectedPhoto.is_selected ? 'In Selection' : 'Add to Selection')
+                                        : 'Seleccion solo cliente'}
                                 </button>
-                                <a
-                                    href={selectedPhoto.high_res_available ? `/gallery/photo/${selectedPhoto.id}/download` : undefined}
-                                    onClick={(event) => {
-                                        if (!selectedPhoto.high_res_available) {
-                                            event.preventDefault();
-                                        }
-                                    }}
-                                    className={clsx(
-                                        'px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest',
-                                        selectedPhoto.high_res_available
-                                            ? 'bg-white text-black hover:bg-[#f3f3f3]'
-                                            : 'bg-white/5 text-[#666] border border-white/10 cursor-not-allowed'
-                                    )}
-                                >
-                                    {selectedPhoto.high_res_available ? 'Descargar original' : 'Periodo de descarga finalizado'}
-                                </a>
+                                {selectedPhoto.high_res_available && access?.can_download_originals && (
+                                    <a
+                                        href={`/gallery/photo/${selectedPhoto.id}/download`}
+                                        className="px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest bg-white text-black hover:bg-[#f3f3f3]"
+                                    >
+                                        Descargar original
+                                    </a>
+                                )}
+                                {!access?.can_download_originals && (
+                                    <div className="px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest bg-white/5 text-[#666] border border-white/10">
+                                        Descargas solo para cliente
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </motion.div>
@@ -445,4 +635,3 @@ export default function Gallery({ project, photos, galleryTemplate }) {
         </div>
     );
 }
-

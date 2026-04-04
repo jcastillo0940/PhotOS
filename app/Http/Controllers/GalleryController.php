@@ -25,21 +25,54 @@ class GalleryController extends Controller
 
         $project->syncDownloadWindow();
         $project->refresh()->load('photos');
+        $hasClientAccess = $this->hasClientGalleryAccess($request, $project);
+        $visiblePhotos = $hasClientAccess
+            ? $project->photos
+            : $project->photos->where('show_on_website', true)->values();
 
         return Inertia::render('Public/Gallery', [
             'project' => [
                 ...$project->toArray(),
                 'originals_expired' => $project->originalsExpired(),
-                'high_res_available' => $project->highResAvailable(),
+                'high_res_available' => $hasClientAccess && $project->highResAvailable(),
             ],
-            'photos' => $project->photos->map(fn (Photo $photo) => $this->serializePhoto($photo))->values(),
+            'photos' => $visiblePhotos->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess))->values(),
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
+            'access' => [
+                'mode' => $hasClientAccess ? 'client' : 'public',
+                'can_unlock' => !$hasClientAccess,
+                'has_password' => filled($project->gallery_password),
+                'can_download_originals' => $hasClientAccess && $project->highResAvailable(),
+                'can_select_favorites' => $hasClientAccess,
+                'public_photo_count' => $project->photos->where('show_on_website', true)->count(),
+                'client_photo_count' => $project->photos->count(),
+            ],
         ]);
     }
 
     public function unlock(Request $request, $token)
     {
-        return redirect()->route('public.gallery.show', $token, 303);
+        $project = Project::where('gallery_token', $token)->firstOrFail();
+
+        if (blank($project->gallery_password)) {
+            return back(status: 303)->withErrors([
+                'gallery_access_code' => 'Esta galeria aun no tiene un codigo de acceso configurado.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'gallery_access_code' => 'required|string|max:255',
+        ]);
+
+        if (!hash_equals((string) $project->gallery_password, trim((string) $validated['gallery_access_code']))) {
+            return back(status: 303)->withErrors([
+                'gallery_access_code' => 'El codigo de acceso no es correcto.',
+            ]);
+        }
+
+        $request->session()->put($this->gallerySessionKey($project), true);
+
+        return redirect()->route('public.gallery.show', $token, 303)->with('success', 'Galeria completa desbloqueada.');
     }
 
     public function upload(Request $request, Project $project)
@@ -115,6 +148,7 @@ class GalleryController extends Controller
 
     public function toggleHeart(Photo $photo)
     {
+        abort_unless($this->hasClientGalleryAccess(request(), $photo->project), 403);
         $photo->update(['is_selected' => !$photo->is_selected]);
 
         return redirect()->back(status: 303);
@@ -126,12 +160,14 @@ class GalleryController extends Controller
 
         $validated = $request->validate([
             'category' => 'nullable|string|max:255',
+            'show_on_website' => 'nullable|boolean',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
         ]);
 
         $photo->update([
             'category' => $validated['category'] ?? $photo->category,
+            'show_on_website' => (bool) ($validated['show_on_website'] ?? $photo->show_on_website),
             'tags' => collect($validated['tags'] ?? [])
                 ->map(fn ($tag) => trim((string) $tag))
                 ->filter()
@@ -168,6 +204,7 @@ class GalleryController extends Controller
     {
         $project = $photo->project;
         abort_unless($project, 404);
+        abort_unless($this->hasClientGalleryAccess(request(), $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
 
         if ($project->originalsExpired() || !$photo->original_path) {
             abort(403, 'Periodo de descarga de alta resolucion finalizado.');
@@ -260,14 +297,32 @@ class GalleryController extends Controller
         imagedestroy($image);
     }
 
-    private function serializePhoto(Photo $photo): array
+    private function serializePhoto(Photo $photo, bool $hasClientAccess): array
     {
         return [
             ...$photo->toArray(),
             'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url,
             'thumbnail_url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->thumbnail_url,
-            'high_res_available' => (bool) $photo->original_path && !$photo->project?->originalsExpired(),
+            'high_res_available' => $hasClientAccess && (bool) $photo->original_path && !$photo->project?->originalsExpired(),
         ];
+    }
+
+    private function hasClientGalleryAccess(Request $request, ?Project $project): bool
+    {
+        if (!$project) {
+            return false;
+        }
+
+        if ($request->user()) {
+            return true;
+        }
+
+        return (bool) $request->session()->get($this->gallerySessionKey($project), false);
+    }
+
+    private function gallerySessionKey(Project $project): string
+    {
+        return 'gallery_client_access.'.$project->gallery_token;
     }
 
     private function temporaryUrlOrFallback(string $path): string
@@ -396,6 +451,4 @@ class GalleryController extends Controller
         return true;
     }
 }
-
-
 

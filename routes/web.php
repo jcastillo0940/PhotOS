@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\HomeController;
+use App\Http\Controllers\ContractController;
+use App\Http\Controllers\LimitsController;
 use App\Http\Controllers\LeadController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\InvoiceController;
@@ -9,12 +12,12 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\AuthController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-// Public: Lead Capture// Public: Photo Intake
-Route::get('/', [LeadController::class, 'captureView'])->name('capture');
+// Public: Studio Website
+Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 
 // Auth: Studio Access
@@ -26,6 +29,14 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard.alias');
+    Route::get('/website', [WebsiteController::class, 'index'])->name('admin.website');
+    Route::put('/website', [WebsiteController::class, 'update'])->name('admin.website.update');
+    Route::get('/contracts', [ContractController::class, 'index'])->name('admin.contracts');
+    Route::get('/contracts/{contract}/edit', [ContractController::class, 'edit'])->name('admin.contracts.edit');
+    Route::put('/contracts/{contract}', [ContractController::class, 'update'])->name('admin.contracts.update');
+    Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->name('admin.contracts.print');
+    Route::get('/contracts/{contract}', [ContractController::class, 'show'])->name('admin.contracts.show');
+    Route::get('/limits', [LimitsController::class, 'index'])->name('admin.limits');
 
     
     // Master Calendar
@@ -42,6 +53,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     });
     
     Route::get('/leads', [LeadController::class, 'index'])->name('admin.leads');
+    Route::get('/leads/create', [LeadController::class, 'create'])->name('admin.leads.create');
+    Route::post('/leads', [LeadController::class, 'store'])->name('admin.leads.store');
     Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('admin.leads.show');
     Route::put('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('admin.leads.status');
     
@@ -64,6 +77,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
 // Public: Contracts & Signatures
 Route::get('/sign/{token}', [ProjectController::class, 'publicSignatureView'])->name('public.contract.view');
 Route::post('/sign/{token}', [ProjectController::class, 'signContract'])->name('public.contract.sign');
+Route::get('/sign/{token}/print', [ContractController::class, 'publicPrint'])->name('public.contract.print');
 
 // Public: Professional Gallery
 Route::get('/gallery/{token}', [GalleryController::class, 'show'])->name('public.gallery.show');

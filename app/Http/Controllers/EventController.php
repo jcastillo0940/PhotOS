@@ -18,13 +18,19 @@ class EventController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'id' => 'nullable|integer|exists:events,id',
             'title' => 'required|string|max:255',
             'start' => 'required|date',
             'end' => 'required|date',
             'type' => 'required|string|in:session,blocked,tentative',
         ]);
 
-        Event::create($validated);
+        $event = isset($validated['id'])
+            ? Event::findOrFail($validated['id'])
+            : new Event();
+
+        $event->fill(collect($validated)->except('id')->all());
+        $event->save();
 
         return redirect()->back()->with('success', 'Calendar updated.');
     }
