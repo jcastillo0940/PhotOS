@@ -1,18 +1,32 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
+import { buildSlots } from '@/lib/availability';
 import { ChevronLeft, Save } from 'lucide-react';
 
-export default function Create() {
+export default function Create({ eventTypes = [], busyCalendarEvents = [], businessHours, availabilitySettings }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
-        event_type: '',
+        event_type: eventTypes[0] || '',
         tentative_date: '',
+        tentative_time: '',
         phone: '',
         client_document: '',
         message: '',
     });
+
+    const availableSlots = React.useMemo(
+        () => buildSlots(data.tentative_date, busyCalendarEvents, businessHours, availabilitySettings),
+        [data.tentative_date, busyCalendarEvents, businessHours, availabilitySettings],
+    );
+
+    React.useEffect(() => {
+        if (!availableSlots.includes(data.tentative_time)) {
+            setData('tentative_time', availableSlots[0] || '');
+        }
+    }, [availableSlots]);
 
     const submit = (event) => {
         event.preventDefault();
@@ -39,10 +53,32 @@ export default function Create() {
                     <div className="grid gap-5 md:grid-cols-2">
                         <Field label="Nombre" value={data.name} onChange={(value) => setData('name', value)} error={errors.name} />
                         <Field label="Email" type="email" value={data.email} onChange={(value) => setData('email', value)} error={errors.email} />
-                        <Field label="Tipo de evento" value={data.event_type} onChange={(value) => setData('event_type', value)} error={errors.event_type} />
-                        <Field label="Fecha tentativa" type="date" value={data.tentative_date} onChange={(value) => setData('tentative_date', value)} error={errors.tentative_date} />
+                        <SelectField label="Tipo de evento" value={data.event_type} onChange={(value) => setData('event_type', value)} error={errors.event_type} options={eventTypes} />
                         <Field label="Telefono" value={data.phone} onChange={(value) => setData('phone', value)} error={errors.phone} />
                         <Field label="Documento cliente" value={data.client_document} onChange={(value) => setData('client_document', value)} error={errors.client_document} />
+                    </div>
+
+                    <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
+                        <AvailabilityCalendar
+                            label="Fecha tentativa"
+                            value={data.tentative_date}
+                            onChange={(value) => setData('tentative_date', value)}
+                            error={errors.tentative_date}
+                            busyEvents={busyCalendarEvents}
+                            businessHours={businessHours}
+                            availabilitySettings={availabilitySettings}
+                            helperText="El calendario bloquea automaticamente los dias sin cupos segun la configuracion del estudio."
+                        />
+
+                        <SelectField
+                            label="Hora disponible"
+                            value={data.tentative_time}
+                            onChange={(value) => setData('tentative_time', value)}
+                            error={errors.tentative_time}
+                            options={availableSlots}
+                            placeholder={data.tentative_date ? 'Selecciona una hora disponible' : 'Selecciona una fecha primero'}
+                            disabled={!data.tentative_date || availableSlots.length === 0}
+                        />
                     </div>
 
                     <div className="mt-5">
@@ -81,6 +117,26 @@ function Field({ label, value, onChange, error, type = 'text' }) {
                 onChange={(event) => onChange(event.target.value)}
                 className="w-full rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400"
             />
+            {error && <p className="text-xs text-rose-600">{error}</p>}
+        </label>
+    );
+}
+
+function SelectField({ label, value, onChange, error, options = [], placeholder = 'Selecciona una opcion', disabled = false }) {
+    return (
+        <label className="space-y-2">
+            <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
+            <select
+                value={value}
+                disabled={disabled}
+                onChange={(event) => onChange(event.target.value)}
+                className="w-full rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 disabled:opacity-60"
+            >
+                <option value="">{placeholder}</option>
+                {options.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                ))}
+            </select>
             {error && <p className="text-xs text-rose-600">{error}</p>}
         </label>
     );

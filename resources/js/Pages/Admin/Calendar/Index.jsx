@@ -16,11 +16,12 @@ const EVENT_STYLES = {
     tentative: 'border-amber-200 bg-amber-50 text-amber-700',
 };
 
-export default function Index({ events }) {
+export default function Index({ events, eventTypes = [] }) {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [selectedDay, setSelectedDay] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [editingEventId, setEditingEventId] = useState(null);
+    const [selectedEventType, setSelectedEventType] = useState('Todos');
 
     const { data, setData, post, processing, reset } = useForm({
         id: null,
@@ -35,8 +36,15 @@ export default function Index({ events }) {
     const totalDays = new Date(year, month + 1, 0).getDate();
     const startingDay = new Date(year, month, 1).getDay();
 
+    const filteredEvents = useMemo(() => {
+        return events.filter((event) => {
+            const label = event.project?.lead?.event_type || event.title || '';
+            return selectedEventType === 'Todos' || label.includes(selectedEventType);
+        });
+    }, [events, selectedEventType]);
+
     const eventsByDay = useMemo(() => {
-        return events.reduce((carry, event) => {
+        return filteredEvents.reduce((carry, event) => {
             const date = new Date(event.start);
             if (date.getMonth() !== month || date.getFullYear() !== year) {
                 return carry;
@@ -48,7 +56,7 @@ export default function Index({ events }) {
 
             return carry;
         }, {});
-    }, [events, month, year]);
+    }, [filteredEvents, month, year]);
 
     const openCreateModal = (day) => {
         const start = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T10:00`;
@@ -120,6 +128,15 @@ export default function Index({ events }) {
                         </div>
 
                         <div className="flex items-center gap-3">
+                            <select
+                                value={selectedEventType}
+                                onChange={(event) => setSelectedEventType(event.target.value)}
+                                className="rounded-full border border-slate-200 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
+                            >
+                                {['Todos', ...eventTypes].map((type) => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
                             <button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
                                 <ChevronLeft className="h-4 w-4" />
                             </button>
@@ -191,6 +208,9 @@ export default function Index({ events }) {
                                             >
                                                 <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">{event.type} · {event.status || 'pending'}</p>
                                                 <p className="mt-1 truncate text-sm font-medium">{event.title}</p>
+                                                <p className="mt-1 truncate text-[11px] uppercase tracking-[0.18em] opacity-70">
+                                                    {event.project?.lead?.event_type || 'Sin tipo'}
+                                                </p>
                                                 <p className="mt-1 text-xs opacity-70">{timeRange(event.start, event.end)}</p>
                                             </button>
                                         ))}

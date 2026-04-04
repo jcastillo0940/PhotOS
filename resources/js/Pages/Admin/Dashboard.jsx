@@ -14,8 +14,10 @@ import {
     Target,
     Settings,
     Layers3,
+    Briefcase,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { useMemo, useState } from 'react';
 
 const StatCard = ({ title, value, icon: Icon, color, trend, trendLabel }) => (
     <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
@@ -51,8 +53,16 @@ const QuickAction = ({ title, href, icon: Icon, description }) => (
     </Link>
 );
 
-export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary }) {
+export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary, eventTypes = [], eventReports = [] }) {
     const currentPlan = plans?.find(plan => plan.code === currentPlanCode) || plans?.[0];
+    const [selectedEventType, setSelectedEventType] = useState('Todos');
+    const visibleReports = useMemo(() => {
+        if (selectedEventType === 'Todos') {
+            return eventReports;
+        }
+
+        return eventReports.filter((report) => report.type === selectedEventType);
+    }, [eventReports, selectedEventType]);
 
     return (
         <AdminLayout>
@@ -139,6 +149,47 @@ export default function Dashboard({ stats, system, plans, currentPlanCode, techn
                                 ))}
                             </div>
                         </div>
+
+                        <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
+                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
+                                <div>
+                                    <h3 className="text-lg font-bold tracking-tight text-slate-800">Reportes por tipo de evento</h3>
+                                    <p className="text-sm text-slate-500 mt-1">La misma taxonomía del CRM y la agenda se refleja aquí para leer el negocio sin mezclar categorías.</p>
+                                </div>
+                                <select
+                                    value={selectedEventType}
+                                    onChange={(event) => setSelectedEventType(event.target.value)}
+                                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none"
+                                >
+                                    {['Todos', ...eventTypes].map((type) => (
+                                        <option key={type} value={type}>{type}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {visibleReports.map((report) => (
+                                    <div key={report.type} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
+                                        <div className="flex items-center justify-between gap-4 mb-4">
+                                            <div>
+                                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-500">Tipo de evento</p>
+                                                <h4 className="mt-1 text-lg font-semibold text-slate-800">{report.type}</h4>
+                                            </div>
+                                            <div className="h-11 w-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-500">
+                                                <Briefcase className="w-5 h-5" />
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <MetricPill label="Leads" value={report.leads_count} />
+                                            <MetricPill label="Proyectos" value={report.projects_count} />
+                                            <MetricPill label="Eventos próximos" value={report.upcoming_events_count} />
+                                            <MetricPill label="Ingresos" value={`$${Number(report.revenue || 0).toLocaleString()}`} />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
                     <div className="space-y-6">
@@ -160,3 +211,10 @@ export default function Dashboard({ stats, system, plans, currentPlanCode, techn
         </AdminLayout>
     );
 }
+
+const MetricPill = ({ label, value }) => (
+    <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
+        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{label}</p>
+        <p className="mt-1 text-base font-semibold text-slate-800">{value}</p>
+    </div>
+);

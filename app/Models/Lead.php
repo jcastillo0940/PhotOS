@@ -43,4 +43,5 @@ class Lead extends Model
 
     public function client() { return $this->belongsTo(Client::class); }
     public function project() { return $this->hasOne(Project::class); }
+    public function crmTasks() { return $this->hasMany(CrmTask::class); }
 }

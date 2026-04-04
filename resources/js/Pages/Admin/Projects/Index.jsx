@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
@@ -34,9 +34,18 @@ const StatusBadge = ({ status }) => {
     );
 };
 
-export default function Index({ projects, installationPlan }) {
+export default function Index({ projects, installationPlan, eventTypes = [] }) {
     const [showDirectForm, setShowDirectForm] = useState(false);
+    const [selectedEventType, setSelectedEventType] = useState('Todos');
     const { data, setData, post, processing, reset } = useForm({ client_name: '', project_name: '' });
+
+    const filteredProjects = useMemo(() => {
+        if (selectedEventType === 'Todos') {
+            return projects;
+        }
+
+        return projects.filter((project) => project.lead?.event_type === selectedEventType);
+    }, [projects, selectedEventType]);
 
     const submitDirect = (e) => {
         e.preventDefault();
@@ -58,14 +67,25 @@ export default function Index({ projects, installationPlan }) {
                         <h1 className="text-2xl font-bold tracking-tight text-slate-800 mb-1">Proyectos</h1>
                         <p className="text-sm text-slate-500">Plan activo: <span className="font-medium text-slate-700">{installationPlan?.name}</span></p>
                     </div>
-                    <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-100 shadow-sm text-right">
-                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-0.5">Plan</p>
-                        <p className="text-sm font-semibold text-slate-700">{installationPlan?.price_label}</p>
+                    <div className="flex items-center gap-3">
+                        <select
+                            value={selectedEventType}
+                            onChange={(event) => setSelectedEventType(event.target.value)}
+                            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm"
+                        >
+                            {['Todos', ...eventTypes].map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
+                        <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-100 shadow-sm text-right">
+                            <p className="text-xs text-slate-400 uppercase tracking-wider mb-0.5">Plan</p>
+                            <p className="text-sm font-semibold text-slate-700">{installationPlan?.price_label}</p>
+                        </div>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {projects.map((project, i) => (
+                    {filteredProjects.map((project, i) => (
                         <motion.div
                             key={project.id}
                             initial={{ opacity: 0, y: 16 }}
@@ -83,6 +103,10 @@ export default function Index({ projects, installationPlan }) {
                                 <h3 className="text-base font-semibold text-slate-800 mb-3 group-hover:text-primary-600 transition-colors">{project.name}</h3>
                                 <div className="flex flex-col space-y-2">
                                     <div className="flex items-center text-slate-400 text-xs gap-2">
+                                        <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                                        {project.lead?.event_type || 'Sin tipo de evento'}
+                                    </div>
+                                    <div className="flex items-center text-slate-400 text-xs gap-2">
                                         <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
                                         {project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Fecha por definir'}
                                     </div>
@@ -91,7 +115,7 @@ export default function Index({ projects, installationPlan }) {
                                         {project.location || 'Sin ubicación'}
                                     </div>
                                     <div className="flex items-center text-slate-400 text-xs gap-2">
-                                        <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" />
+                                        <Briefcase className="w-3.5 h-3.5 flex-shrink-0" />
                                         {installationPlan?.name}
                                     </div>
                                 </div>

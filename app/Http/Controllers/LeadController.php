@@ -7,7 +7,10 @@ use App\Mail\LeadNpsMail;
 use App\Models\AccountStatement;
 use App\Models\Client;
 use App\Models\Lead;
+use App\Support\CalendarAvailability;
+use App\Support\EventTypeSettings;
 use App\Support\LeadBriefingTemplate;
+use App\Services\CrmAutomationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -15,9 +18,18 @@ use Inertia\Inertia;
 
 class LeadController extends Controller
 {
+    public function __construct(
+        private readonly CrmAutomationService $automationService,
+    ) {}
+
     public function create()
     {
-        return Inertia::render('Admin/Leads/Create');
+        return Inertia::render('Admin/Leads/Create', [
+            'eventTypes' => EventTypeSettings::get(),
+            'busyCalendarEvents' => CalendarAvailability::busyEvents(),
+            'businessHours' => CalendarAvailability::businessHours(),
+            'availabilitySettings' => CalendarAvailability::settings(),
+        ]);
     }
 
     public function index()
@@ -28,6 +40,7 @@ class LeadController extends Controller
                 ->latest()
                 ->get()
                 ->map(fn (Lead $lead) => $this->serializeLead($lead)),
+            'eventTypes' => EventTypeSettings::get(),
         ]);
     }
 
@@ -76,10 +89,21 @@ class LeadController extends Controller
             'email' => 'required|email|max:255',
             'event_type' => 'required|string',
             'tentative_date' => 'nullable|date',
+            'tentative_time' => 'nullable|required_with:tentative_date|date_format:H:i',
             'phone' => 'nullable|string|max:50',
             'message' => 'nullable|string|max:2000',
             'client_document' => 'nullable|string|max:255',
         ]);
+
+        if (!empty($validated['tentative_date']) && !empty($validated['tentative_time'])) {
+            $availableSlots = CalendarAvailability::availableSlotsForDate($validated['tentative_date']);
+
+            if (!in_array($validated['tentative_time'], $availableSlots, true)) {
+                return redirect()->back()
+                    ->withErrors(['tentative_time' => 'La hora seleccionada ya no esta disponible para esa fecha.'])
+                    ->withInput();
+            }
+        }
 
         $client = Client::firstOrCreate(
             ['email' => $validated['email']],
@@ -99,9 +123,12 @@ class LeadController extends Controller
                 'phone' => $validated['phone'] ?? null,
                 'message' => $validated['message'] ?? null,
                 'client_document' => $validated['client_document'] ?? null,
+                'tentative_time' => $validated['tentative_time'] ?? null,
             ],
             'status' => 'lead',
         ]);
+
+        $this->automationService->runImmediate('lead_created', $lead);
 
         if ($request->routeIs('admin.leads.store')) {
             return redirect()->route('admin.leads.show', $lead)->with('success', 'Lead creado correctamente.');

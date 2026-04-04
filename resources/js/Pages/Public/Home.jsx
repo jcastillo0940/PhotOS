@@ -1,5 +1,7 @@
 import React from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
+import { buildSlots } from '@/lib/availability';
 import {
     ArrowRight,
     Calendar,
@@ -29,7 +31,7 @@ const scrollToTarget = (target) => {
     element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
-export default function Home({ homepage, portfolioPhotos = [], portfolioCategories = [] }) {
+export default function Home({ homepage, portfolioPhotos = [], portfolioCategories = [], eventTypes = [], busyCalendarEvents = [], businessHours, availabilitySettings }) {
     const { flash } = usePage().props;
     const [mobileOpen, setMobileOpen] = React.useState(false);
     const [activeCategory, setActiveCategory] = React.useState('All');
@@ -37,8 +39,9 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
         name: '',
         email: '',
         phone: '',
-        event_type: 'Wedding',
+        event_type: eventTypes[0] || '',
         tentative_date: '',
+        tentative_time: '',
         message: '',
     });
 
@@ -47,6 +50,16 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
     const filteredPortfolio = activeCategory === 'All'
         ? portfolioPhotos
         : portfolioPhotos.filter((photo) => photo.category === activeCategory);
+    const availableSlots = React.useMemo(
+        () => buildSlots(data.tentative_date, busyCalendarEvents, businessHours, availabilitySettings),
+        [data.tentative_date, busyCalendarEvents, businessHours, availabilitySettings],
+    );
+
+    React.useEffect(() => {
+        if (!availableSlots.includes(data.tentative_time)) {
+            setData('tentative_time', availableSlots[0] || '');
+        }
+    }, [availableSlots]);
 
     const submit = (event) => {
         event.preventDefault();
@@ -57,8 +70,9 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                     name: '',
                     email: '',
                     phone: '',
-                    event_type: 'Wedding',
+                    event_type: eventTypes[0] || '',
                     tentative_date: '',
+                    tentative_time: '',
                     message: '',
                 });
             },
@@ -385,20 +399,17 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                             </div>
 
                             <div className="rounded-[2.6rem] bg-white p-8 shadow-[0_24px_60px_rgba(60,40,24,.1)] md:p-10">
-                                <div className="mb-8 flex items-center justify-between gap-6">
-                                    <div>
-                                        <p className="text-[11px] uppercase tracking-[0.32em] text-[#8b6d54]">Lead form</p>
-                                        <h3
-                                            className="mt-3 text-3xl text-[#241b16]"
-                                            style={{ fontFamily: 'Fraunces, Georgia, serif' }}
-                                        >
-                                            {homepage.contact.form_heading}
-                                        </h3>
+                                    <div className="mb-8 flex items-center justify-between gap-6">
+                                        <div>
+                                            <p className="text-[11px] uppercase tracking-[0.32em] text-[#8b6d54]">Lead form</p>
+                                            <h3
+                                                className="mt-3 text-3xl text-[#241b16]"
+                                                style={{ fontFamily: 'Fraunces, Georgia, serif' }}
+                                            >
+                                                {homepage.contact.form_heading}
+                                            </h3>
+                                        </div>
                                     </div>
-                                    <Link href="/login" className="text-xs uppercase tracking-[0.26em] text-[#8b6d54] transition hover:text-[#241b16]">
-                                        Admin access
-                                    </Link>
-                                </div>
 
                                 {(flash?.success || recentlySuccessful) && (
                                     <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
@@ -441,18 +452,32 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                                             value={data.event_type}
                                             error={errors.event_type}
                                             onChange={(value) => setData('event_type', value)}
-                                            options={['Wedding', 'Portrait', 'Commercial', 'Event', 'Other']}
+                                            options={eventTypes}
                                         />
                                     </div>
 
-                                    <Field
-                                        label="Tentative date"
-                                        icon={Calendar}
-                                        type="date"
-                                        value={data.tentative_date}
-                                        error={errors.tentative_date}
-                                        onChange={(value) => setData('tentative_date', value)}
-                                    />
+                                    <div className="grid gap-5 md:grid-cols-[1.15fr_.85fr]">
+                                        <AvailabilityCalendar
+                                            label="Tentative date"
+                                            value={data.tentative_date}
+                                            onChange={(value) => setData('tentative_date', value)}
+                                            error={errors.tentative_date}
+                                            busyEvents={busyCalendarEvents}
+                                            businessHours={businessHours}
+                                            availabilitySettings={availabilitySettings}
+                                            helperText="Selecciona un dia con disponibilidad real y luego una hora libre."
+                                            tone="public"
+                                        />
+                                        <SelectField
+                                            label="Available time"
+                                            value={data.tentative_time}
+                                            error={errors.tentative_time}
+                                            onChange={(value) => setData('tentative_time', value)}
+                                            options={availableSlots}
+                                            placeholder={data.tentative_date ? 'Select an available time' : 'Select a date first'}
+                                            disabled={!data.tentative_date || availableSlots.length === 0}
+                                        />
+                                    </div>
 
                                     <div className="space-y-2">
                                         <label className="text-xs uppercase tracking-[0.24em] text-[#8b6d54]">Message</label>
@@ -498,13 +523,10 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
 
             <footer className="border-t border-[#e8ddd2] bg-[#f9f6f1] px-6 py-8 md:px-10">
                 <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm text-[#7a6658] md:flex-row md:items-center md:justify-between">
-                    <div>
-                        <p className="uppercase tracking-[0.28em]">{homepage.brand.name}</p>
-                        <p className="mt-2 text-[#9b8877]">{homepage.brand.tagline}</p>
-                    </div>
+                    <p>Desarrollado por PixelPRO</p>
                     <Link href="/login" className="inline-flex items-center gap-2 uppercase tracking-[0.22em] text-[#8b6d54] transition hover:text-[#241b16]">
                         <Grip className="h-4 w-4" />
-                        Access admin
+                        Login
                     </Link>
                 </div>
             </footer>
@@ -529,16 +551,18 @@ function Field({ label, icon: Icon, error, onChange, ...props }) {
     );
 }
 
-function SelectField({ label, error, onChange, options, ...props }) {
+function SelectField({ label, error, onChange, options, placeholder = 'Select', disabled = false, ...props }) {
     return (
         <div className="space-y-2">
             <label className="text-xs uppercase tracking-[0.24em] text-[#8b6d54]">{label}</label>
             <div className="rounded-[1.5rem] border border-[#e6dbcf] bg-[#faf6f1] px-4 py-4">
                 <select
                     {...props}
+                    disabled={disabled}
                     onChange={(event) => onChange(event.target.value)}
-                    className="w-full bg-transparent text-sm text-[#241b16] outline-none"
+                    className="w-full bg-transparent text-sm text-[#241b16] outline-none disabled:opacity-60"
                 >
+                    <option value="">{placeholder}</option>
                     {options.map((option) => (
                         <option key={option} value={option}>
                             {option}

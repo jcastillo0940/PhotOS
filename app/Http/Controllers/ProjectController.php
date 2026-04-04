@@ -9,8 +9,10 @@ use App\Models\Contract;
 use App\Models\Client;
 use App\Models\Setting;
 use App\Support\ContractTemplate;
+use App\Support\EventTypeSettings;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
+use App\Services\CrmAutomationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -18,11 +20,16 @@ use Inertia\Inertia;
 
 class ProjectController extends Controller
 {
+    public function __construct(
+        private readonly CrmAutomationService $automationService,
+    ) {}
+
     public function index()
     {
         return Inertia::render('Admin/Projects/Index', [
             'projects' => Project::with('lead', 'contract')->latest()->get(),
             'installationPlan' => InstallationPlan::current(),
+            'eventTypes' => EventTypeSettings::get(),
         ]);
     }
 
@@ -97,6 +104,8 @@ class ProjectController extends Controller
             'gallery_template_code' => GalleryTemplate::firstAllowedCode($plan),
         ]);
 
+        $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
+
         return redirect()->route('admin.projects.show', $project, 303);
     }
 
@@ -148,6 +157,7 @@ class ProjectController extends Controller
         }
 
         $this->generateContract($project);
+        $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
 
         return redirect()->route('admin.projects.show', $project, 303);
     }

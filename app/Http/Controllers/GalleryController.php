@@ -7,6 +7,7 @@ use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Support\GalleryTemplate;
+use App\Services\CrmAutomationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +16,10 @@ use Inertia\Inertia;
 
 class GalleryController extends Controller
 {
+    public function __construct(
+        private readonly CrmAutomationService $automationService,
+    ) {}
+
     public function show(Request $request, $token)
     {
         $project = Project::where('gallery_token', $token)->firstOrFail();
@@ -150,6 +155,8 @@ class GalleryController extends Controller
         ]);
 
         Storage::disk('local')->deleteDirectory($tempMasterDirectory);
+
+        $this->automationService->runImmediate('gallery_published', $project->load('lead', 'client'));
 
         return redirect()->back(status: 303)->with('success', 'Fotos originales y versiones web sincronizadas en Cloudflare R2.');
     }

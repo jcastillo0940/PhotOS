@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Photo;
+use App\Support\CalendarAvailability;
+use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
@@ -47,6 +49,10 @@ class HomeController extends Controller
             'homepage' => $homepage,
             'portfolioPhotos' => $portfolioPhotos,
             'portfolioCategories' => $portfolioCategories,
+            'eventTypes' => EventTypeSettings::get(),
+            'busyCalendarEvents' => CalendarAvailability::busyEvents(),
+            'businessHours' => CalendarAvailability::businessHours(),
+            'availabilitySettings' => CalendarAvailability::settings(),
         ]);
     }
 

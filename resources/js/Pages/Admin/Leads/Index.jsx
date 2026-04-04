@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Head, useForm, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { 
@@ -112,13 +112,25 @@ const Column = ({ title, leads, status, dotColor }) => (
     </div>
 );
 
-export default function Index({ leads }) {
+export default function Index({ leads, eventTypes = [] }) {
+    const [selectedEventType, setSelectedEventType] = useState('Todos');
+    const [search, setSearch] = useState('');
     const columns = [
         { title: 'Nuevos Leads', status: 'lead', dotColor: 'bg-blue-500' },
         { title: 'Calificados', status: 'qualified', dotColor: 'bg-amber-500' },
         { title: 'Proyecto Activo', status: 'project', dotColor: 'bg-green-500' },
         { title: 'Archivados', status: 'lost', dotColor: 'bg-slate-400' }
     ];
+    const availableTypes = ['Todos', ...eventTypes];
+
+    const filteredLeads = useMemo(() => {
+        return leads.filter((lead) => {
+            const matchesType = selectedEventType === 'Todos' || lead.event_type === selectedEventType;
+            const haystack = `${lead.name} ${lead.email} ${lead.event_type}`.toLowerCase();
+            const matchesSearch = !search || haystack.includes(search.toLowerCase());
+            return matchesType && matchesSearch;
+        });
+    }, [leads, selectedEventType, search]);
 
     return (
         <AdminLayout>
@@ -159,13 +171,24 @@ export default function Index({ leads }) {
                             <span className="text-xs font-medium">Por fecha</span>
                         </button>
                         <div className="w-px h-4 bg-slate-200" />
-                        <span className="text-xs text-slate-400 font-medium">Total: {leads.length} leads</span>
+                        <span className="text-xs text-slate-400 font-medium">Total: {filteredLeads.length} leads</span>
+                        <select
+                            value={selectedEventType}
+                            onChange={(event) => setSelectedEventType(event.target.value)}
+                            className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 focus:outline-none"
+                        >
+                            {availableTypes.map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
                         <input 
                             type="text"
+                            value={search}
+                            onChange={(event) => setSearch(event.target.value)}
                             placeholder="Buscar..." 
                             className="pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 transition-all w-48"
                         />
@@ -180,7 +203,7 @@ export default function Index({ leads }) {
                             title={col.title} 
                             status={col.status}
                             dotColor={col.dotColor}
-                            leads={leads.filter(l => l.status === col.status)}
+                            leads={filteredLeads.filter(l => l.status === col.status)}
                         />
                     ))}
                 </div>

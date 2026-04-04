@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Bell,
+    Bot,
     Calendar,
     Camera,
     FileText,
@@ -73,6 +74,7 @@ export default function AdminLayout({ children }) {
                     <NavItem href="/admin/leads" icon={Target} label="Leads" active={url.startsWith('/admin/leads')} />
                     <NavItem href="/admin/projects" icon={Users} label="Colecciones" active={url.startsWith('/admin/projects')} />
                     <NavItem href="/admin/calendar" icon={Calendar} label="Agenda" active={url === '/admin/calendar'} />
+                    <NavItem href="/admin/automations" icon={Bot} label="Automatizaciones" active={url.startsWith('/admin/automations')} />
                     <NavItem href="/admin/website" icon={Globe} label="Sitio web" active={url === '/admin/website'} />
                     <NavItem href="/admin/contracts" icon={FileText} label="Contratos" active={url.startsWith('/admin/contracts')} />
                     <NavItem href="/admin/limits" icon={Gauge} label="Limites" active={url === '/admin/limits'} />

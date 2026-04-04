@@ -15,6 +15,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BookingController;
+use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ClientAccountingController;
 use App\Http\Controllers\ClientDashboardController;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +36,12 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard.alias');
     Route::get('/website', [WebsiteController::class, 'index'])->name('admin.website');
+    Route::get('/automations', [AutomationController::class, 'index'])->name('admin.automations');
+    Route::post('/automations', [AutomationController::class, 'store'])->name('admin.automations.store');
+    Route::put('/automations/{automationRule}', [AutomationController::class, 'update'])->name('admin.automations.update');
+    Route::delete('/automations/{automationRule}', [AutomationController::class, 'destroy'])->name('admin.automations.delete');
+    Route::post('/automations/run', [AutomationController::class, 'run'])->name('admin.automations.run');
+    Route::put('/crm-tasks/{crmTask}/complete', [AutomationController::class, 'completeTask'])->name('admin.crm-tasks.complete');
     Route::put('/website', [WebsiteController::class, 'update'])->name('admin.website.update');
     Route::get('/contracts', [ContractController::class, 'index'])->name('admin.contracts');
     Route::get('/contracts/{contract}/edit', [ContractController::class, 'edit'])->name('admin.contracts.edit');
@@ -51,7 +58,11 @@ Route::prefix('admin')->middleware('auth')->group(function () {
 
     // Global Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings');
-    Route::put('/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
+    Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('admin.settings.integrations');
+    Route::put('/settings/integrations', [SettingsController::class, 'updateIntegrations'])->name('admin.settings.integrations.update');
+    Route::get('/settings/tests', [SettingsController::class, 'tests'])->name('admin.settings.tests');
+    Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('admin.settings.billing');
+    Route::put('/settings/billing', [SettingsController::class, 'updateBilling'])->name('admin.settings.billing.update');
     Route::get('/settings/branding', [SettingsController::class, 'branding'])->name('admin.settings.branding');
     Route::post('/settings/branding', [SettingsController::class, 'updateBranding'])->name('admin.settings.branding.update');
     Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');

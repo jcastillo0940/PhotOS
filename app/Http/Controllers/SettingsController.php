@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
-use App\Support\InstallationPlan;
-use App\Support\HomepageSettings;
 use App\Services\Billing\AlanubeService;
+use App\Support\EventTypeSettings;
+use App\Support\HomepageSettings;
+use App\Support\InstallationPlan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
@@ -21,9 +22,38 @@ class SettingsController extends Controller
     {
         $this->seedDefaults();
 
-        return Inertia::render('Admin/Settings/Index', [
-            'settings' => Setting::all()->groupBy('group'),
+        return Inertia::render('Admin/Settings/Index');
+    }
+
+    public function integrations()
+    {
+        $this->seedDefaults();
+
+        return Inertia::render('Admin/Settings/Integrations', [
+            'settings' => Setting::query()
+                ->whereIn('group', ['storage', 'payment', 'einvoice', 'smtp'])
+                ->get()
+                ->groupBy('group'),
         ]);
+    }
+
+    public function billing()
+    {
+        $this->seedDefaults();
+
+        return Inertia::render('Admin/Settings/Billing', [
+            'settings' => Setting::query()
+                ->whereIn('key', ['tax_itbms_enabled', 'tax_itbms_rate', 'alanube_enabled', 'lead_schedule_blocks_hours', 'lead_parallel_capacity'])
+                ->get()
+                ->keyBy('key'),
+        ]);
+    }
+
+    public function tests()
+    {
+        $this->seedDefaults();
+
+        return Inertia::render('Admin/Settings/Tests');
     }
 
     public function branding()
@@ -32,18 +62,20 @@ class SettingsController extends Controller
 
         return Inertia::render('Admin/Settings/Branding', [
             'settings' => Setting::query()
-                ->where('group', 'app_branding')
+                ->whereIn('group', ['app_branding', 'legal', 'branding', 'studio'])
                 ->get()
                 ->keyBy('key'),
         ]);
     }
 
-    public function update(Request $request)
+    public function updateIntegrations(Request $request)
     {
-        $allowedKeys = Setting::query()
-            ->whereIn('group', ['storage', 'payment', 'branding', 'legal', 'billing', 'einvoice', 'smtp'])
-            ->pluck('key')
-            ->all();
+        $allowedKeys = [
+            'r2_key', 'r2_secret', 'r2_bucket', 'r2_endpoint',
+            'paypal_client_id', 'paypal_secret', 'tilopay_api_key', 'tilopay_secret_key',
+            'alanube_email', 'alanube_api_url', 'alanube_api_key',
+            'smtp_enabled', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_scheme', 'smtp_from_address', 'smtp_from_name',
+        ];
 
         $settings = $request->validate([
             'settings' => 'required|array',
@@ -57,22 +89,26 @@ class SettingsController extends Controller
             }
         }
 
-        $currentBusinessName = collect($settings['settings'])->firstWhere('key', 'photographer_business_name')['value'] ?? null;
+        return redirect()->back()->with('success', 'Integraciones actualizadas.');
+    }
 
-        if (filled($currentBusinessName)) {
-            $this->syncStudioIdentity($currentBusinessName, Setting::get('app_tagline', 'Admin platform'));
-        }
+    public function updateBilling(Request $request)
+    {
+        $validated = $request->validate([
+            'tax_itbms_enabled' => 'nullable|boolean',
+            'tax_itbms_rate' => 'required|numeric|min:0|max:100',
+            'alanube_enabled' => 'nullable|boolean',
+            'lead_schedule_blocks_hours' => 'nullable|boolean',
+            'lead_parallel_capacity' => 'required|integer|min:1|max:20',
+        ]);
 
-        if ($request->hasFile('photographer_watermark')) {
-            $request->validate([
-                'photographer_watermark' => 'image|mimes:png,webp|max:4096',
-            ]);
+        Setting::set('tax_itbms_enabled', ($validated['tax_itbms_enabled'] ?? false) ? '1' : '0', 'billing');
+        Setting::set('tax_itbms_rate', (string) $validated['tax_itbms_rate'], 'billing');
+        Setting::set('alanube_enabled', ($validated['alanube_enabled'] ?? false) ? '1' : '0', 'einvoice');
+        Setting::set('lead_schedule_blocks_hours', ($validated['lead_schedule_blocks_hours'] ?? false) ? '1' : '0', 'booking');
+        Setting::set('lead_parallel_capacity', (string) $validated['lead_parallel_capacity'], 'booking');
 
-            $path = $request->file('photographer_watermark')->store('branding', 'public');
-            Setting::set('photographer_watermark_path', $path, 'branding');
-        }
-
-        return redirect()->back()->with('success', 'Configuration updated successfully.');
+        return redirect()->back()->with('success', 'Configuracion de facturacion actualizada.');
     }
 
     public function updateBranding(Request $request)
@@ -80,14 +116,25 @@ class SettingsController extends Controller
         $request->validate([
             'app_name' => 'required|string|max:255',
             'app_tagline' => 'nullable|string|max:255',
+            'photographer_document' => 'nullable|string|max:255',
+            'legal_city' => 'nullable|string|max:255',
+            'jurisdiction_country' => 'nullable|string|max:255',
+            'platform_watermark_label' => 'nullable|string|max:255',
+            'event_types' => 'nullable|string',
             'app_logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:4096',
             'app_favicon' => 'nullable|file|mimes:png,ico,svg,webp|max:2048',
+            'photographer_watermark' => 'nullable|image|mimes:png,webp|max:4096',
         ]);
 
         $appName = $request->string('app_name')->toString();
         $appTagline = $request->string('app_tagline')->toString();
 
         $this->syncStudioIdentity($appName, $appTagline);
+        Setting::set('photographer_document', $request->string('photographer_document')->toString(), 'legal');
+        Setting::set('legal_city', $request->string('legal_city')->toString(), 'legal');
+        Setting::set('jurisdiction_country', $request->string('jurisdiction_country')->toString(), 'legal');
+        Setting::set('platform_watermark_label', $request->string('platform_watermark_label')->toString(), 'branding');
+        Setting::set('event_types', $request->string('event_types')->toString(), 'studio');
 
         if ($request->hasFile('app_logo')) {
             $path = $request->file('app_logo')->store('branding/app', 'public');
@@ -97,6 +144,11 @@ class SettingsController extends Controller
         if ($request->hasFile('app_favicon')) {
             $path = $request->file('app_favicon')->store('branding/app', 'public');
             Setting::set('app_favicon_path', $path, 'app_branding');
+        }
+
+        if ($request->hasFile('photographer_watermark')) {
+            $path = $request->file('photographer_watermark')->store('branding', 'public');
+            Setting::set('photographer_watermark_path', $path, 'branding');
         }
 
         return redirect()->back()->with('success', 'Branding actualizado.');
@@ -217,6 +269,7 @@ class SettingsController extends Controller
             ['key' => 'tilopay_secret_key', 'group' => 'payment', 'is_secret' => true],
             ['key' => 'platform_watermark_label', 'group' => 'branding', 'is_secret' => false, 'value' => 'PhotOS'],
             ['key' => 'photographer_watermark_path', 'group' => 'branding', 'is_secret' => false, 'value' => null],
+            ['key' => 'event_types', 'group' => 'studio', 'is_secret' => false, 'value' => implode("\n", EventTypeSettings::defaults())],
             ['key' => 'photographer_business_name', 'group' => 'legal', 'is_secret' => false, 'value' => 'Mono Studio'],
             ['key' => 'photographer_document', 'group' => 'legal', 'is_secret' => false, 'value' => 'Cedula / RUC'],
             ['key' => 'legal_city', 'group' => 'legal', 'is_secret' => false, 'value' => 'Panama'],
@@ -225,6 +278,8 @@ class SettingsController extends Controller
             ['key' => 'tax_itbms_enabled', 'group' => 'billing', 'is_secret' => false, 'value' => '1'],
             ['key' => 'tax_itbms_rate', 'group' => 'billing', 'is_secret' => false, 'value' => '7'],
             ['key' => 'alanube_enabled', 'group' => 'einvoice', 'is_secret' => false, 'value' => '0'],
+            ['key' => 'lead_schedule_blocks_hours', 'group' => 'booking', 'is_secret' => false, 'value' => '1'],
+            ['key' => 'lead_parallel_capacity', 'group' => 'booking', 'is_secret' => false, 'value' => '1'],
             ['key' => 'alanube_email', 'group' => 'einvoice', 'is_secret' => false, 'value' => ''],
             ['key' => 'alanube_api_url', 'group' => 'einvoice', 'is_secret' => false, 'value' => ''],
             ['key' => 'alanube_api_key', 'group' => 'einvoice', 'is_secret' => true, 'value' => ''],

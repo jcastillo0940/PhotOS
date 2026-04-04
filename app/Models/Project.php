@@ -44,6 +44,7 @@ class Project extends Model
     public function purchases() { return $this->hasMany(Purchase::class); }
     public function downloadLogs() { return $this->hasMany(DownloadLog::class); }
     public function accountStatements() { return $this->hasMany(AccountStatement::class); }
+    public function crmTasks() { return $this->hasMany(CrmTask::class); }
 
     public function planDefinition(): array
     {

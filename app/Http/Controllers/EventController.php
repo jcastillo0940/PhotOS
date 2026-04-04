@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Support\EventTypeSettings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,7 +12,8 @@ class EventController extends Controller
     public function index()
     {
         return Inertia::render('Admin/Calendar/Index', [
-            'events' => Event::with('project')->get(),
+            'events' => Event::with('project.lead')->get(),
+            'eventTypes' => EventTypeSettings::get(),
         ]);
     }
 
