@@ -34,6 +34,12 @@ export default function Login() {
                 </div>
 
                 <form onSubmit={submit} className="space-y-5 rounded-3xl border border-slate-100 bg-white p-8 shadow-sm">
+                    {errors.auth && (
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {errors.auth}
+                        </div>
+                    )}
+
                     <div className="space-y-1.5">
                         <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500">
                             Email
@@ -48,7 +54,6 @@ export default function Login() {
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-primary-300 focus:ring-2 focus:ring-primary-500/20"
                             />
                         </div>
-                        {errors.email && <p className="text-xs text-red-500">{errors.email}</p>}
                     </div>
 
                     <div className="space-y-1.5">
@@ -65,7 +70,6 @@ export default function Login() {
                                 className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm text-slate-800 outline-none transition-all placeholder:text-slate-400 focus:border-primary-300 focus:ring-2 focus:ring-primary-500/20"
                             />
                         </div>
-                        {errors.password && <p className="text-xs text-red-500">{errors.password}</p>}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -93,7 +97,7 @@ export default function Login() {
                 <div className="mt-8 flex items-center justify-center gap-5 text-slate-400">
                     <div className="flex items-center gap-1.5">
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        <span className="text-xs">Cifrado global</span>
+                        <span className="text-xs">Sesion protegida</span>
                     </div>
                     <div className="h-3 w-px bg-slate-300" />
                     <div className="flex items-center gap-1.5">

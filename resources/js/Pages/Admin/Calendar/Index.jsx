@@ -189,7 +189,7 @@ export default function Index({ events }) {
                                                     EVENT_STYLES[event.type] || EVENT_STYLES.blocked
                                                 )}
                                             >
-                                                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">{event.type}</p>
+                                                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">{event.type} · {event.status || 'pending'}</p>
                                                 <p className="mt-1 truncate text-sm font-medium">{event.title}</p>
                                                 <p className="mt-1 text-xs opacity-70">{timeRange(event.start, event.end)}</p>
                                             </button>

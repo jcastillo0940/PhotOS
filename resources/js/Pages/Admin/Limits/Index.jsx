@@ -12,7 +12,7 @@ const ICONS = {
     retention_days: Lock,
 };
 
-export default function Index({ plans, currentPlanCode, currentPlan, technicalSummary }) {
+export default function Index({ plans, currentPlanCode, currentPlan }) {
     const comparisons = [
         {
             key: 'storage_limit_gb',
@@ -125,34 +125,32 @@ export default function Index({ plans, currentPlanCode, currentPlan, technicalSu
                     ))}
                 </section>
 
-                <section className="grid gap-6 xl:grid-cols-[1.1fr_.9fr]">
+                <section className="grid gap-6 xl:grid-cols-2">
                     <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                        <h2 className="text-xl font-semibold text-slate-900">Resumen tecnico para owner</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">Consumo y operacion del fotografo</h2>
                         <div className="mt-6 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Costo estimado</p>
-                                <p className="mt-3 text-2xl font-semibold text-slate-900">{technicalSummary?.hosting_cost_label}</p>
+                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Storage por evento</p>
+                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlan?.storage_limit_gb} GB</p>
                             </div>
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Plan actual</p>
-                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlan?.estimated_cost_label}</p>
+                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Descargas por cliente</p>
+                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlan?.weekly_download_limit} / semana</p>
                             </div>
                         </div>
 
                         <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Bucket layout</p>
-                            <div className="mt-4 flex flex-wrap gap-2">
-                                {technicalSummary?.bucket_layout?.map((entry) => (
-                                    <span key={entry} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600">
-                                        {entry}
-                                    </span>
-                                ))}
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Que debes vigilar</p>
+                            <div className="mt-4 space-y-3">
+                                <p className="text-sm leading-7 text-slate-600">Cada proyecto debe mantenerse dentro del storage contratado para no frenar nuevas subidas.</p>
+                                <p className="text-sm leading-7 text-slate-600">La ventana de retencion define cuanto tiempo permanecen disponibles los originales de alta resolucion.</p>
+                                <p className="text-sm leading-7 text-slate-600">El limite de descargas semanal impacta directamente la experiencia del cliente y conviene revisarlo por proyecto.</p>
                             </div>
                         </div>
                     </article>
 
                     <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                        <h2 className="text-xl font-semibold text-slate-900">Como se traduce para el cliente</h2>
+                        <h2 className="text-xl font-semibold text-slate-900">Lectura para el cliente</h2>
                         <div className="mt-6 space-y-4">
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
                                 <p className="text-sm text-slate-600">
@@ -168,20 +166,9 @@ export default function Index({ plans, currentPlanCode, currentPlan, technicalSu
                             </div>
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
                                 <p className="text-sm text-slate-600">
-                                    Los contratos y la web del fotografo pueden mantenerse minimalistas, pero la operacion
-                                    interna sigue mostrando el detalle exacto del paquete para evitar dudas.
+                                    En cada proyecto el fotografo debe poder ver su consumo actual para decidir si necesita liberar espacio,
+                                    ampliar cuotas o cerrar la ventana de originales.
                                 </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Notas del sistema</p>
-                            <div className="mt-4 space-y-3">
-                                {technicalSummary?.notes?.map((note) => (
-                                    <p key={note} className="text-sm leading-7 text-slate-600">
-                                        {note}
-                                    </p>
-                                ))}
                             </div>
                         </div>
                     </article>

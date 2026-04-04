@@ -13,10 +13,18 @@ class HomepageSettings
 
     public static function defaults(): array
     {
+        $businessName = 'MONO Studio';
+        $tagline = 'Portraits, weddings, and stories shaped by light.';
+
+        if (Schema::hasTable('settings')) {
+            $businessName = Setting::get('app_name', Setting::get('photographer_business_name', $businessName)) ?: $businessName;
+            $tagline = Setting::get('app_tagline', $tagline) ?: $tagline;
+        }
+
         return [
             'brand' => [
-                'name' => 'MONO Studio',
-                'tagline' => 'Portraits, weddings, and stories shaped by light.',
+                'name' => $businessName,
+                'tagline' => $tagline,
             ],
             'sections_order' => ['hero', 'about', 'gallery', 'featured', 'contact'],
             'hero' => [

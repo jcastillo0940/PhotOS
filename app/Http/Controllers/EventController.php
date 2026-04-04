@@ -23,13 +23,25 @@ class EventController extends Controller
             'start' => 'required|date',
             'end' => 'required|date',
             'type' => 'required|string|in:session,blocked,tentative',
+            'status' => 'nullable|string|in:pending,confirmed,paid,blocked,cancelled',
+            'payment_status' => 'nullable|string|in:unpaid,partial,paid,waived',
         ]);
 
         $event = isset($validated['id'])
             ? Event::findOrFail($validated['id'])
             : new Event();
 
-        $event->fill(collect($validated)->except('id')->all());
+        $payload = collect($validated)->except('id')->all();
+        $payload['status'] = $validated['status']
+            ?? match ($validated['type']) {
+                'blocked' => 'blocked',
+                'session' => 'confirmed',
+                default => 'pending',
+            };
+        $payload['payment_status'] = $validated['payment_status'] ?? 'unpaid';
+        $payload['source'] = $event->exists ? $event->source : 'admin';
+
+        $event->fill($payload);
         $event->save();
 
         return redirect()->back()->with('success', 'Calendar updated.');

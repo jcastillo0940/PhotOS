@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     GripVertical,
@@ -178,19 +178,17 @@ export default function Index({ homepage, homepagePreview }) {
                     </aside>
 
                     <div className="space-y-6">
-                        <Panel title="Branding" icon={Type} description="Nombre y tagline visibles en la landing.">
+                        <Panel title="Branding" icon={Type} description="El nombre del estudio y tagline ahora se administran desde configuracion de branding para mantener una sola fuente de verdad.">
                             <div className="grid gap-5 md:grid-cols-2">
-                                <TextField
-                                    label="Brand name"
-                                    value={content.brand.name}
-                                    onChange={(value) => updateAtPath(['brand', 'name'], value)}
-                                />
-                                <TextField
-                                    label="Tagline"
-                                    value={content.brand.tagline}
-                                    onChange={(value) => updateAtPath(['brand', 'tagline'], value)}
-                                />
+                                <ReadOnlyField label="Brand name" value={content.brand.name} />
+                                <ReadOnlyField label="Tagline" value={content.brand.tagline} />
                             </div>
+                            <Link
+                                href="/admin/settings/branding"
+                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                            >
+                                Ir a branding
+                            </Link>
                         </Panel>
 
                         <Panel title="Hero" icon={LayoutTemplate} description="Seccion principal con imagen, titular y llamadas a la accion.">
@@ -343,6 +341,17 @@ function TextField({ label, value, onChange }) {
                 onChange={(event) => onChange(event.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white"
             />
+        </div>
+    );
+}
+
+function ReadOnlyField({ label, value }) {
+    return (
+        <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">{label}</label>
+            <div className="w-full rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-700">
+                {value || '-'}
+            </div>
         </div>
     );
 }

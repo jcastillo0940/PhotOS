@@ -1,5 +1,5 @@
 import React from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowUpRight,
@@ -23,7 +23,8 @@ import {
 import { AnimatePresence, motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
-export default function Show({ project, installationPlan, availableTemplates }) {
+export default function Show({ project, installationPlan, availableTemplates, billingSettings }) {
+    const { flash } = usePage().props;
     const [uploadProgress, setUploadProgress] = React.useState(null);
     const [isUploading, setIsUploading] = React.useState(false);
     const [heroPhotoId, setHeroPhotoId] = React.useState(project.hero_photo_id || project.photos?.[0]?.id || null);
@@ -43,6 +44,13 @@ export default function Show({ project, installationPlan, availableTemplates }) 
             },
         ]))
     );
+    const invoiceForm = useForm({
+        amount: '',
+        concept: '',
+        due_date: '',
+        itbms_enabled: !!billingSettings?.itbms_enabled,
+        alanube_enabled: !!billingSettings?.alanube_enabled,
+    });
 
     const photoSaveTimers = React.useRef({});
     const heroSaveTimer = React.useRef(null);
@@ -55,6 +63,7 @@ export default function Show({ project, installationPlan, availableTemplates }) 
     const portfolioCount = project.photos?.filter((photo) => photo.show_on_website).length || 0;
     const storageUsedGb = ((project.originals_usage_bytes || 0) / (1024 ** 3)).toFixed(2);
     const storageLimitGb = installationPlan?.storage_limit_gb || 0;
+    const storageUsagePercent = storageLimitGb > 0 ? Math.min(100, Math.round((Number(storageUsedGb) / storageLimitGb) * 100)) : 0;
 
     React.useEffect(() => () => {
         Object.values(photoSaveTimers.current).forEach(clearTimeout);
@@ -174,6 +183,11 @@ export default function Show({ project, installationPlan, availableTemplates }) 
                             </Link>
                         </div>
                     </div>
+                    {(flash?.success || flash?.error) && (
+                        <div className={`mt-5 rounded-[1.2rem] border px-4 py-3 text-sm ${flash?.error ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                            {flash?.error || flash?.success}
+                        </div>
+                    )}
                 </section>
 
                 <div className="grid gap-8 xl:grid-cols-[1.2fr_.8fr]">
@@ -245,11 +259,15 @@ export default function Show({ project, installationPlan, availableTemplates }) 
                                     <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Storage</p>
                                     <p className="mt-3 text-2xl font-semibold text-slate-900">{storageUsedGb} / {storageLimitGb} GB</p>
                                     <p className="mt-2 text-sm text-slate-500">Originals available: {project.high_res_available ? 'Yes' : 'No'}</p>
+                                    <p className="mt-1 text-sm text-slate-500">Usage: {storageUsagePercent}%</p>
                                 </div>
                                 <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
                                     <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">Client quota</p>
                                     <p className="mt-3 text-2xl font-semibold text-slate-900">{project.is_full_gallery_purchased ? 'Full gallery unlocked' : `${project.weekly_download_limit || installationPlan?.weekly_download_limit || 0} downloads / week`}</p>
                                     <p className="mt-2 text-sm text-slate-500">Retention: {project.retention_days || installationPlan?.retention_days} days</p>
+                                    <p className="mt-1 text-sm text-slate-500">
+                                        Remaining this window: {project.remaining_weekly_downloads === null ? 'Unlimited' : project.remaining_weekly_downloads}
+                                    </p>
                                 </div>
                             </div>
 
@@ -498,6 +516,74 @@ export default function Show({ project, installationPlan, availableTemplates }) 
                                 <Clock className="h-4 w-4 text-slate-400" />
                                 <h2 className="font-semibold text-slate-900">Invoices</h2>
                             </div>
+                            <form
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    invoiceForm.post(`/admin/projects/${project.id}/invoices`, {
+                                        preserveScroll: true,
+                                        onSuccess: () => invoiceForm.reset('amount', 'concept', 'due_date'),
+                                    });
+                                }}
+                                className="mb-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
+                            >
+                                <div className="grid gap-3 md:grid-cols-3">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={invoiceForm.data.amount}
+                                        onChange={(event) => invoiceForm.setData('amount', event.target.value)}
+                                        placeholder="Monto base"
+                                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={invoiceForm.data.concept}
+                                        onChange={(event) => invoiceForm.setData('concept', event.target.value)}
+                                        placeholder="Concepto"
+                                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                                    />
+                                    <input
+                                        type="date"
+                                        value={invoiceForm.data.due_date}
+                                        onChange={(event) => invoiceForm.setData('due_date', event.target.value)}
+                                        className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                                    />
+                                </div>
+                                <div className="mt-4 flex flex-wrap items-center gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => invoiceForm.setData('itbms_enabled', !invoiceForm.data.itbms_enabled)}
+                                        className={clsx(
+                                            'rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition',
+                                            invoiceForm.data.itbms_enabled ? 'bg-slate-900 text-white' : 'border border-slate-200 bg-white text-slate-700'
+                                        )}
+                                    >
+                                        {invoiceForm.data.itbms_enabled ? `ITBMS ${billingSettings?.itbms_rate || 7}% activo` : 'Sin ITBMS'}
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => invoiceForm.setData('alanube_enabled', !invoiceForm.data.alanube_enabled)}
+                                        disabled={!billingSettings?.alanube_enabled}
+                                        className={clsx(
+                                            'rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] transition',
+                                            invoiceForm.data.alanube_enabled
+                                                ? 'bg-primary-500 text-white'
+                                                : 'border border-slate-200 bg-white text-slate-700',
+                                            !billingSettings?.alanube_enabled && 'cursor-not-allowed opacity-50'
+                                        )}
+                                    >
+                                        {invoiceForm.data.alanube_enabled ? 'Alanube activo' : 'Alanube inactivo'}
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        disabled={invoiceForm.processing}
+                                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white"
+                                    >
+                                        {invoiceForm.processing ? 'Creando...' : 'Crear factura'}
+                                    </button>
+                                </div>
+                            </form>
                             <div className="space-y-3">
                                 {project.invoices?.length > 0 ? project.invoices.map((invoice) => (
                                     <div key={invoice.id} className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-4">
@@ -507,9 +593,79 @@ export default function Show({ project, installationPlan, availableTemplates }) 
                                                 <p className="mt-1 text-sm text-slate-500">Due {new Date(invoice.due_date).toLocaleDateString()}</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="font-semibold text-slate-900">${invoice.amount}</p>
+                                                <p className="font-semibold text-slate-900">${invoice.total || invoice.amount}</p>
                                                 <p className="text-xs uppercase tracking-[0.18em] text-slate-400">{invoice.status}</p>
                                             </div>
+                                        </div>
+                                        <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-400">
+                                            Subtotal ${invoice.subtotal || invoice.amount} · ITBMS ${invoice.tax_amount || 0} · Alanube {invoice.alanube_status || 'disabled'}
+                                        </p>
+                                        {(invoice.alanube_document_id || invoice.alanube_legal_status || invoice.alanube_cufe) && (
+                                            <div className="mt-2 rounded-[1rem] border border-primary-100 bg-primary-50 px-3 py-3 text-xs text-primary-800">
+                                                <p>Documento: {invoice.alanube_document_id || 'n/a'}</p>
+                                                <p>Estado legal: {invoice.alanube_legal_status || 'n/a'}</p>
+                                                <p className="break-all">CUFE: {invoice.alanube_cufe || 'n/a'}</p>
+                                            </div>
+                                        )}
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                            <button
+                                                onClick={() => router.put(`/admin/invoices/${invoice.id}/toggle-tax`)}
+                                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                            >
+                                                {invoice.itbms_enabled ? 'Quitar 7%' : 'Aplicar 7%'}
+                                            </button>
+                                            <button
+                                                onClick={() => {
+                                                    const amount = window.prompt('Monto del pago parcial', invoice.balance_due || invoice.total || invoice.amount);
+                                                    if (!amount) return;
+                                                    router.post(`/admin/invoices/${invoice.id}/payments`, {
+                                                        amount,
+                                                        method: 'manual',
+                                                        reference: `MANUAL-${invoice.invoice_number || invoice.id}`,
+                                                    }, { preserveScroll: true });
+                                                }}
+                                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                            >
+                                                Registrar pago
+                                            </button>
+                                            <button
+                                                onClick={() => router.post(`/admin/invoices/${invoice.id}/alanube`, {}, { preserveScroll: true })}
+                                                disabled={!invoice.alanube_enabled}
+                                                className={clsx(
+                                                    'inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em]',
+                                                    invoice.alanube_enabled
+                                                        ? 'border border-primary-200 bg-primary-50 text-primary-700'
+                                                        : 'border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed'
+                                                )}
+                                            >
+                                                {invoice.alanube_status === 'submitted' ? 'Alanube enviado' : 'Enviar a Alanube'}
+                                            </button>
+                                            {invoice.alanube_xml_url && (
+                                                <a
+                                                    href={invoice.alanube_xml_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                                >
+                                                    Ver XML
+                                                </a>
+                                            )}
+                                            {invoice.alanube_qr_url && (
+                                                <a
+                                                    href={invoice.alanube_qr_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                                >
+                                                    Ver QR
+                                                </a>
+                                            )}
+                                            <a
+                                                href={`/admin/invoices/${invoice.id}/pdf`}
+                                                className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700"
+                                            >
+                                                Descargar PDF
+                                            </a>
                                         </div>
                                         {invoice.status !== 'paid' && (
                                             <button

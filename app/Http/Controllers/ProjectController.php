@@ -6,6 +6,8 @@ use App\Models\Event;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Contract;
+use App\Models\Client;
+use App\Models\Setting;
 use App\Support\ContractTemplate;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
@@ -44,9 +46,15 @@ class ProjectController extends Controller
                 'heroPhoto' => $project->heroPhoto ? $this->serializePhotoForAdmin($project->heroPhoto) : null,
                 'originals_usage_bytes' => $project->originalsUsageBytes(),
                 'high_res_available' => $project->highResAvailable(),
+                'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
             ],
             'installationPlan' => InstallationPlan::current(),
             'availableTemplates' => $this->availableTemplatesForCurrentPlan(),
+            'billingSettings' => [
+                'itbms_enabled' => filter_var(Setting::get('tax_itbms_enabled', '1'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+                'itbms_rate' => (float) Setting::get('tax_itbms_rate', '7'),
+                'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+            ],
         ]);
     }
 
@@ -57,7 +65,13 @@ class ProjectController extends Controller
             'project_name' => 'required|string|max:255',
         ]);
 
+        $client = Client::firstOrCreate(
+            ['email' => strtolower(str_replace(' ', '', $request->client_name)) . '@client.local'],
+            ['full_name' => $request->client_name]
+        );
+
         $lead = Lead::create([
+            'client_id' => $client->id,
             'name' => $request->client_name,
             'email' => strtolower(str_replace(' ', '', $request->client_name)) . '-' . rand(100,999) . '@upload.dummy',
             'event_type' => 'Direct Upload',
@@ -68,6 +82,7 @@ class ProjectController extends Controller
 
         $project = Project::create([
             'lead_id' => $lead->id,
+            'client_id' => $client->id,
             'owner_user_id' => $request->user()?->id,
             'name' => $request->project_name,
             'status' => 'active',
@@ -93,8 +108,18 @@ class ProjectController extends Controller
 
         $plan = InstallationPlan::current();
 
+        $client = $lead->client ?: Client::firstOrCreate(
+            ['email' => $lead->email],
+            ['full_name' => $lead->name]
+        );
+
+        if (!$lead->client_id) {
+            $lead->update(['client_id' => $client->id]);
+        }
+
         $project = Project::create([
             'lead_id' => $lead->id,
+            'client_id' => $client->id,
             'owner_user_id' => request()->user()?->id,
             'name' => 'Project: ' . $lead->name . ' (' . $lead->event_type . ')',
             'event_date' => $lead->tentative_date,

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Setting;
 use App\Support\HomepageSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -41,6 +42,8 @@ class WebsiteController extends Controller
         abort_unless(is_array($decoded), 422, 'Invalid homepage payload.');
 
         $content = HomepageSettings::sanitize($decoded);
+        $content['brand']['name'] = Setting::get('app_name', Setting::get('photographer_business_name', $content['brand']['name'] ?? 'PhotOS'));
+        $content['brand']['tagline'] = Setting::get('app_tagline', $content['brand']['tagline'] ?? 'Admin platform');
 
         if ($request->hasFile('hero_image')) {
             $content['hero']['image_path'] = $this->storeImageInR2($request->file('hero_image'), 'hero');

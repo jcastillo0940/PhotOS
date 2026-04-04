@@ -12,7 +12,7 @@ class Project extends Model
     use HasFactory;
 
     protected $fillable = [
-        'lead_id', 'owner_user_id', 'name', 'status', 'event_date', 'location', 'package_details', 'roadmap',
+        'lead_id', 'client_id', 'owner_user_id', 'name', 'status', 'event_date', 'location', 'package_details', 'roadmap',
         'gallery_token', 'gallery_password', 'download_limit', 'weekly_download_limit', 'downloads_used_in_window',
         'downloads_window_started_at', 'extra_download_quota', 'retention_days', 'storage_limit_bytes',
         'is_full_gallery_purchased', 'full_gallery_price', 'originals_expires_at',
@@ -35,6 +35,7 @@ class Project extends Model
     ];
 
     public function lead() { return $this->belongsTo(Lead::class); }
+    public function client() { return $this->belongsTo(Client::class); }
     public function owner() { return $this->belongsTo(User::class, 'owner_user_id'); }
     public function contract() { return $this->hasOne(Contract::class); }
     public function invoices() { return $this->hasMany(Invoice::class); }
@@ -42,6 +43,7 @@ class Project extends Model
     public function heroPhoto() { return $this->belongsTo(Photo::class, 'hero_photo_id'); }
     public function purchases() { return $this->hasMany(Purchase::class); }
     public function downloadLogs() { return $this->hasMany(DownloadLog::class); }
+    public function accountStatements() { return $this->hasMany(AccountStatement::class); }
 
     public function planDefinition(): array
     {

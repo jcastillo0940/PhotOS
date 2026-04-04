@@ -13,7 +13,6 @@ class LimitsController extends Controller
             'plans' => array_values(InstallationPlan::all()),
             'currentPlanCode' => InstallationPlan::code(),
             'currentPlan' => InstallationPlan::current(),
-            'technicalSummary' => config('photography_plans.technical_summary', []),
         ]);
     }
 }

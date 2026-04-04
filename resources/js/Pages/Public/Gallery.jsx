@@ -320,7 +320,7 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
     );
 }
 
-export default function Gallery({ project, photos, galleryTemplate, access }) {
+export default function Gallery({ project, photos, galleryTemplate, access, pagination, galleryTitle }) {
     const { flash, errors } = usePage().props;
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [filter, setFilter] = useState('All');
@@ -396,7 +396,7 @@ export default function Gallery({ project, photos, galleryTemplate, access }) {
 
     return (
         <div className={clsx('min-h-screen selection:bg-accent/30 selection:text-white pb-24', styles.page)}>
-            <Head title={`Gallery: ${project.name}`} />
+            <Head title={galleryTitle || `Gallery: ${project.name}`} />
 
             {photos.length > 0 && heroPhoto && (
                 <GalleryHero
@@ -420,6 +420,9 @@ export default function Gallery({ project, photos, galleryTemplate, access }) {
                             <p className={clsx('text-[10px] font-black uppercase tracking-[0.28em]', isDarkChrome ? 'text-white/45' : 'text-black/35')}>
                                 {isClientView ? 'Client gallery unlocked' : 'Public portfolio view'}
                             </p>
+                            <h2 className={clsx('mt-2 text-xl font-black leading-tight md:text-2xl', isDarkChrome ? 'text-white' : 'text-[#241b16]')}>
+                                {galleryTitle || 'Selected work: A gallery shaped by emotion, landscape, and movement'}
+                            </h2>
                             <p className={clsx('mt-2 max-w-2xl text-sm leading-7', isDarkChrome ? 'text-white/75' : 'text-[#5c4939]')}>
                                 {isClientView
                                     ? 'Estas viendo la galeria completa del cliente. Aqui se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
@@ -544,6 +547,44 @@ export default function Gallery({ project, photos, galleryTemplate, access }) {
                             </div>
                             <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografías disponibles</p>
                         </motion.div>
+                    )}
+
+                    {!!pagination?.last_page && pagination.last_page > 1 && (
+                        <div className="mt-12 flex flex-wrap items-center justify-center gap-3">
+                            <button
+                                type="button"
+                                disabled={pagination.current_page <= 1}
+                                onClick={() => router.get(window.location.pathname, { page: pagination.current_page - 1 }, { preserveState: true, preserveScroll: true })}
+                                className={clsx(
+                                    'rounded-full px-5 py-3 text-xs font-black uppercase tracking-[0.18em] transition',
+                                    pagination.current_page <= 1
+                                        ? 'cursor-not-allowed opacity-40 border border-white/10'
+                                        : isDarkChrome
+                                            ? 'border border-white/15 text-white hover:bg-white/10'
+                                            : 'border border-black/10 text-[#241b16] hover:bg-black hover:text-white'
+                                )}
+                            >
+                                Anterior
+                            </button>
+                            <div className={clsx('rounded-full px-5 py-3 text-xs font-black uppercase tracking-[0.18em]', isDarkChrome ? 'bg-white/5 text-white/70' : 'bg-black/5 text-[#5c4939]')}>
+                                Pagina {pagination.current_page} de {pagination.last_page}
+                            </div>
+                            <button
+                                type="button"
+                                disabled={!pagination.has_more_pages}
+                                onClick={() => router.get(window.location.pathname, { page: pagination.current_page + 1 }, { preserveState: true, preserveScroll: true })}
+                                className={clsx(
+                                    'rounded-full px-5 py-3 text-xs font-black uppercase tracking-[0.18em] transition',
+                                    !pagination.has_more_pages
+                                        ? 'cursor-not-allowed opacity-40 border border-white/10'
+                                        : isDarkChrome
+                                            ? 'border border-white/15 text-white hover:bg-white/10'
+                                            : 'border border-black/10 text-[#241b16] hover:bg-black hover:text-white'
+                                )}
+                            >
+                                Siguiente
+                            </button>
+                        </div>
                     )}
                 </main>
             </div>

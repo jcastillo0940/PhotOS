@@ -37,6 +37,7 @@ export default function AdminLayout({ children }) {
     const { url, props } = usePage();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const user = props.auth?.user;
+    const branding = props.branding || {};
     const isElevatedUser = ['developer', 'owner'].includes(user?.role);
 
     return (
@@ -48,16 +49,20 @@ export default function AdminLayout({ children }) {
             >
                 <div className="mb-4 flex-shrink-0 p-6">
                     <div className="flex items-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500">
-                            <Camera className="h-4 w-4 text-white" />
-                        </div>
+                        {branding.app_logo_url ? (
+                            <img src={branding.app_logo_url} alt={branding.app_name || 'App logo'} className="h-8 w-8 rounded-full object-cover" />
+                        ) : (
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-500">
+                                <Camera className="h-4 w-4 text-white" />
+                            </div>
+                        )}
                         {isSidebarOpen && (
                             <motion.span
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 className="ml-3 text-lg font-semibold tracking-tight text-slate-800"
                             >
-                                PhotOS Admin
+                                {branding.app_name || 'PhotOS'}
                             </motion.span>
                         )}
                     </div>

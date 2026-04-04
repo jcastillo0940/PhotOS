@@ -73,6 +73,15 @@ const LeadCard = ({ lead }) => (
         >
             Ver detalles <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
         </Link>
+
+        {(lead.client_id || lead.project_id) && (
+            <Link
+                href={`/admin/leads/${lead.id}/accounting`}
+                className="mt-2 w-full flex items-center justify-center py-2 text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-all"
+            >
+                Ver facturacion
+            </Link>
+        )}
     </motion.div>
 );
 

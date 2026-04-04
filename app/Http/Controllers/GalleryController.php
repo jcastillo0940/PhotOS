@@ -7,6 +7,7 @@ use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Support\GalleryTemplate;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -16,27 +17,25 @@ class GalleryController extends Controller
 {
     public function show(Request $request, $token)
     {
-        $project = Project::where('gallery_token', $token)->with('photos')->firstOrFail();
+        $project = Project::where('gallery_token', $token)->firstOrFail();
 
-        if ($project->photos->isEmpty()) {
+        if ($project->photos()->count() === 0) {
             $this->seedMockPhotos($project);
-            $project->refresh()->load('photos');
         }
 
         $project->syncDownloadWindow();
-        $project->refresh()->load('photos');
+        $project->refresh();
         $hasClientAccess = $this->hasClientGalleryAccess($request, $project);
-        $visiblePhotos = $hasClientAccess
-            ? $project->photos
-            : $project->photos->where('show_on_website', true)->values();
+        $visiblePhotos = $this->paginatePhotos($request, $project, $hasClientAccess);
+        $allPhotos = $project->photos()->get();
 
         return Inertia::render('Public/Gallery', [
             'project' => [
-                ...$project->toArray(),
+                ...collect($project->toArray())->except(['gallery_password'])->all(),
                 'originals_expired' => $project->originalsExpired(),
                 'high_res_available' => $hasClientAccess && $project->highResAvailable(),
             ],
-            'photos' => $visiblePhotos->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess))->values(),
+            'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess))->values(),
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
             'access' => [
                 'mode' => $hasClientAccess ? 'client' : 'public',
@@ -44,9 +43,18 @@ class GalleryController extends Controller
                 'has_password' => filled($project->gallery_password),
                 'can_download_originals' => $hasClientAccess && $project->highResAvailable(),
                 'can_select_favorites' => $hasClientAccess,
-                'public_photo_count' => $project->photos->where('show_on_website', true)->count(),
-                'client_photo_count' => $project->photos->count(),
+                'public_photo_count' => $allPhotos->where('show_on_website', true)->count(),
+                'client_photo_count' => $allPhotos->count(),
+                'is_owner_session' => $this->isOwnerViewing($request, $project),
             ],
+            'pagination' => [
+                'current_page' => $visiblePhotos->currentPage(),
+                'last_page' => $visiblePhotos->lastPage(),
+                'per_page' => $visiblePhotos->perPage(),
+                'total' => $visiblePhotos->total(),
+                'has_more_pages' => $visiblePhotos->hasMorePages(),
+            ],
+            'galleryTitle' => 'Selected work: A gallery shaped by emotion, landscape, and movement',
         ]);
     }
 
@@ -313,16 +321,37 @@ class GalleryController extends Controller
             return false;
         }
 
-        if ($request->user()) {
+        if ($this->isOwnerViewing($request, $project)) {
             return true;
         }
 
         return (bool) $request->session()->get($this->gallerySessionKey($project), false);
     }
 
+    private function isOwnerViewing(Request $request, Project $project): bool
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return false;
+        }
+
+        return $project->owner_user_id === $user->id || $user->isDeveloper();
+    }
+
     private function gallerySessionKey(Project $project): string
     {
         return 'gallery_client_access.'.$project->gallery_token;
+    }
+
+    private function paginatePhotos(Request $request, Project $project, bool $hasClientAccess): LengthAwarePaginator
+    {
+        $perPage = $hasClientAccess ? 20 : 16;
+
+        return $project->photos()
+            ->when(!$hasClientAccess, fn ($query) => $query->where('show_on_website', true))
+            ->paginate($perPage)
+            ->withQueryString();
     }
 
     private function temporaryUrlOrFallback(string $path): string
@@ -451,4 +480,3 @@ class GalleryController extends Controller
         return true;
     }
 }
-

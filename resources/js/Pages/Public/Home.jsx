@@ -163,6 +163,20 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                                         >
                                             {homepage.hero.secondary_cta_label}
                                         </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => scrollToTarget('#gallery')}
+                                            className="inline-flex items-center gap-2 rounded-full bg-[#c69b72] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[#b6885f]"
+                                        >
+                                            Portafolio
+                                            <ArrowRight className="h-4 w-4" />
+                                        </button>
+                                        <Link
+                                            href="/booking"
+                                            className="inline-flex items-center gap-2 rounded-full border border-white/25 px-7 py-3 text-sm font-medium text-white/88 backdrop-blur transition hover:border-white/45 hover:bg-white/8"
+                                        >
+                                            Reservar sesion
+                                        </Link>
                                     </div>
                                 </div>
 

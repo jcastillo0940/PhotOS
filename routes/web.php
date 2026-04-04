@@ -14,11 +14,16 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WebsiteController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\ClientAccountingController;
+use App\Http\Controllers\ClientDashboardController;
 use Illuminate\Support\Facades\Route;
 
 // Public: Studio Website
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
+Route::get('/booking', [BookingController::class, 'index'])->name('public.booking');
+Route::post('/booking', [BookingController::class, 'store'])->name('public.booking.store');
 
 // Auth: Studio Access
 Route::get('/login', [AuthController::class, 'loginView'])->name('login');
@@ -47,6 +52,12 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     // Global Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings');
     Route::put('/settings', [SettingsController::class, 'update'])->name('admin.settings.update');
+    Route::get('/settings/branding', [SettingsController::class, 'branding'])->name('admin.settings.branding');
+    Route::post('/settings/branding', [SettingsController::class, 'updateBranding'])->name('admin.settings.branding.update');
+    Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');
+    Route::post('/settings/test/alanube', [SettingsController::class, 'testAlanube'])->name('admin.settings.test.alanube');
+    Route::post('/settings/test/cloudflare', [SettingsController::class, 'testCloudflare'])->name('admin.settings.test.cloudflare');
+    Route::post('/settings/test/tilopay', [SettingsController::class, 'testTilopay'])->name('admin.settings.test.tilopay');
     Route::middleware('developer')->group(function () {
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
         Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
@@ -57,6 +68,11 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::post('/leads', [LeadController::class, 'store'])->name('admin.leads.store');
     Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('admin.leads.show');
     Route::put('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('admin.leads.status');
+    Route::get('/leads/{lead}/accounting', [LeadController::class, 'accountRedirect'])->name('admin.leads.accounting');
+    Route::put('/leads/{lead}/briefing', [LeadController::class, 'saveBriefing'])->name('admin.leads.briefing.update');
+    Route::post('/leads/{lead}/briefing/send', [LeadController::class, 'sendBriefing'])->name('admin.leads.briefing.send');
+    Route::post('/leads/{lead}/nps/send', [LeadController::class, 'sendNps'])->name('admin.leads.nps.send');
+    Route::get('/clients/{client}/accounting', [ClientAccountingController::class, 'show'])->name('admin.clients.accounting');
     
     // Project Conversion & Management
     Route::post('/leads/{lead}/convert', [ProjectController::class, 'convert'])->name('admin.leads.convert');
@@ -71,7 +87,15 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     // Contracts & Invoicing
     Route::post('/projects/{project}/contract', [ProjectController::class, 'generateContract'])->name('admin.projects.contract.create');
     Route::post('/projects/{project}/invoices', [InvoiceController::class, 'store'])->name('admin.projects.invoices.store');
+    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
     Route::put('/invoices/{invoice}/pay', [InvoiceController::class, 'markAsPaid'])->name('admin.invoices.pay');
+    Route::put('/invoices/{invoice}/toggle-tax', [InvoiceController::class, 'toggleTax'])->name('admin.invoices.toggle-tax');
+    Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('admin.invoices.payments.store');
+    Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
+});
+
+Route::prefix('client')->middleware('auth')->group(function () {
+    Route::get('/', [ClientDashboardController::class, 'index'])->name('client.dashboard');
 });
 
 // Public: Contracts & Signatures
@@ -90,3 +114,7 @@ Route::get('/gallery/{token}/download/full', [GalleryController::class, 'downloa
 // Public: Payments
 Route::post('/gallery/{token}/buy/full', [PaymentController::class, 'purchaseFullGallery'])->name('public.gallery.buy.full');
 Route::post('/gallery/{token}/buy/pack', [PaymentController::class, 'purchaseExtraPack'])->name('public.gallery.buy.pack');
+Route::get('/forms/briefing/{token}', [LeadController::class, 'publicBriefing'])->name('public.leads.briefing.show');
+Route::post('/forms/briefing/{token}', [LeadController::class, 'submitPublicBriefing'])->name('public.leads.briefing.submit');
+Route::get('/forms/nps/{token}', [LeadController::class, 'publicNps'])->name('public.leads.nps.show');
+Route::post('/forms/nps/{token}', [LeadController::class, 'submitPublicNps'])->name('public.leads.nps.submit');

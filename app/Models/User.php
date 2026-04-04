@@ -34,4 +34,14 @@ class User extends Authenticatable
     {
         return in_array($this->role, ['developer', 'owner'], true);
     }
+
+    public function client()
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    public function ownedProjects()
+    {
+        return $this->hasMany(Project::class, 'owner_user_id');
+    }
 }
