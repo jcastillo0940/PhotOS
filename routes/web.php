@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Route;
 
 // Public: Studio Website
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/portfolio', [HomeController::class, 'portfolio'])->name('public.portfolio');
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 Route::get('/booking', [BookingController::class, 'index'])->name('public.booking');
 Route::post('/booking', [BookingController::class, 'store'])->name('public.booking.store');

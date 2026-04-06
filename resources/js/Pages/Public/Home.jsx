@@ -47,6 +47,21 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
 
     const navItems = homepage.sections_order.filter((section) => section !== 'hero');
     const allCategories = ['All', ...portfolioCategories];
+    const featuredCategoryHref = (item) => {
+        const normalizedTitle = (item.title || '').toLowerCase();
+        const normalizedCategory = (item.category || '').toLowerCase();
+        const matchedCategory = portfolioCategories.find((category) => {
+            const normalized = category.toLowerCase();
+            return normalized === normalizedTitle
+                || normalized === normalizedCategory
+                || normalizedTitle.includes(normalized)
+                || normalized.includes(normalizedTitle);
+        });
+
+        return matchedCategory
+            ? `/portfolio?category=${encodeURIComponent(matchedCategory)}`
+            : '/portfolio';
+    };
     const filteredPortfolio = activeCategory === 'All'
         ? portfolioPhotos
         : portfolioPhotos.filter((photo) => photo.category === activeCategory);
@@ -177,14 +192,13 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                                         >
                                             {homepage.hero.secondary_cta_label}
                                         </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => scrollToTarget('#gallery')}
+                                        <Link
+                                            href="/portfolio"
                                             className="inline-flex items-center gap-2 rounded-full bg-[#c69b72] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[#b6885f]"
                                         >
                                             Portafolio
                                             <ArrowRight className="h-4 w-4" />
-                                        </button>
+                                        </Link>
                                         <Link
                                             href="/booking"
                                             className="inline-flex items-center gap-2 rounded-full border border-white/25 px-7 py-3 text-sm font-medium text-white/88 backdrop-blur transition hover:border-white/45 hover:bg-white/8"
@@ -274,7 +288,16 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                                         {homepage.gallery.heading}
                                     </h2>
                                 </div>
-                                <p className="max-w-xl text-base leading-7 text-[#6b594c]">{homepage.gallery.description}</p>
+                                <div className="flex max-w-xl flex-col items-start gap-4">
+                                    <p className="text-base leading-7 text-[#6b594c]">{homepage.gallery.description}</p>
+                                    <Link
+                                        href="/portfolio"
+                                        className="inline-flex items-center gap-2 rounded-full border border-[#d9cabd] px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#6b594c] transition hover:border-[#241b16] hover:text-[#241b16]"
+                                    >
+                                        Ver galeria
+                                        <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </div>
                             </div>
 
                             {!!allCategories.length && (
@@ -340,13 +363,9 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
 
                             <div className="grid gap-6 lg:grid-cols-3">
                                 {homepage.featured.items.map((item, index) => (
-                                    <button
+                                    <Link
                                         key={`${item.title}-${index}`}
-                                        type="button"
-                                        onClick={() => {
-                                            setActiveCategory(item.title);
-                                            scrollToTarget('#gallery');
-                                        }}
+                                        href={featuredCategoryHref(item)}
                                         className="overflow-hidden rounded-[2.2rem] border border-white/8 bg-white/5 text-left transition hover:-translate-y-1"
                                     >
                                         <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
@@ -364,7 +383,7 @@ export default function Home({ homepage, portfolioPhotos = [], portfolioCategori
                                                 <ArrowRight className="h-4 w-4" />
                                             </span>
                                         </div>
-                                    </button>
+                                    </Link>
                                 ))}
                             </div>
                         </div>

@@ -9,7 +9,7 @@ return [
             'name' => 'Plan Essential',
             'tagline' => 'Base anual',
             'audience' => 'Ideal para operaciones pequenas con control estricto de originales y plantillas basicas.',
-            'price_label' => '$200 / ano',
+            'price_label' => '$200 / año',
             'billing_label' => 'Anual',
             'price_amount' => 200,
             'storage_limit_gb' => 3,
@@ -33,7 +33,7 @@ return [
             'name' => 'Plan Pro Studio',
             'tagline' => 'Produccion completa',
             'audience' => 'Pensado para fotografos con mayor volumen, mas descargas y acceso total a plantillas.',
-            'price_label' => '$600 / ano',
+            'price_label' => '$600 / año',
             'billing_label' => 'Anual',
             'price_amount' => 600,
             'storage_limit_gb' => 10,
@@ -69,4 +69,3 @@ return [
         ],
     ],
 ];
-

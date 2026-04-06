@@ -44,7 +44,7 @@ class ContractTemplate
             ['token' => '[city]', 'label' => 'Ciudad del contrato'],
             ['token' => '[contract_day]', 'label' => 'Dia del contrato'],
             ['token' => '[contract_month]', 'label' => 'Mes del contrato'],
-            ['token' => '[contract_year]', 'label' => 'Ano del contrato'],
+            ['token' => '[contract_year]', 'label' => 'Año del contrato'],
             ['token' => '[photographer_name]', 'label' => 'Nombre del fotografo'],
             ['token' => '[photographer_business]', 'label' => 'Nombre comercial'],
             ['token' => '[client_names]', 'label' => 'Nombre del cliente'],
