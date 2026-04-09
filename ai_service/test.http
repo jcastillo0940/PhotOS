@@ -1,0 +1,39 @@
+﻿@baseUrl = http://127.0.0.1:5000
+
+### Health
+GET {{baseUrl}}/health
+Accept: application/json
+
+### Root
+GET {{baseUrl}}/
+Accept: application/json
+
+### Extract single face
+POST {{baseUrl}}/extract-face
+Content-Type: multipart/form-data; boundary=PhotOSBoundary
+
+--PhotOSBoundary
+Content-Disposition: form-data; name="file"; filename="reference.jpg"
+Content-Type: image/jpeg
+
+< ./samples/reference.jpg
+--PhotOSBoundary--
+
+### Compare faces
+POST {{baseUrl}}/compare-faces
+Content-Type: multipart/form-data; boundary=PhotOSCompareBoundary
+
+--PhotOSCompareBoundary
+Content-Disposition: form-data; name="database"
+
+[{"id":1,"vector":[0.11,0.22,0.33,0.44]}]
+--PhotOSCompareBoundary
+Content-Disposition: form-data; name="file"; filename="group.jpg"
+Content-Type: image/jpeg
+
+< ./samples/group.jpg
+--PhotOSCompareBoundary
+Content-Disposition: form-data; name="tolerance"
+
+0.6
+--PhotOSCompareBoundary--

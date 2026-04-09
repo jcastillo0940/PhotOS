@@ -91,10 +91,20 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::post('/projects', [ProjectController::class, 'storeDirect'])->name('admin.projects.store');
     Route::get('/projects', [ProjectController::class, 'index'])->name('admin.projects');
     Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('admin.projects.show');
+    Route::get('/projects/{project}/details', [ProjectController::class, 'details'])->name('admin.projects.details');
+    Route::get('/projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('admin.projects.gallery');
+    Route::get('/projects/{project}/management', [ProjectController::class, 'management'])->name('admin.projects.management');
     Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('admin.projects.update');
     Route::post('/projects/{project}/photos', [GalleryController::class, 'upload'])->name('admin.projects.photos.upload');
     Route::put('/projects/{project}/photos/{photo}', [GalleryController::class, 'updatePhoto'])->name('admin.projects.photos.update');
     Route::delete('/projects/{project}/photos/{photo}', [GalleryController::class, 'destroyPhoto'])->name('admin.projects.photos.delete');
+    Route::post('/projects/{project}/face-identities', [GalleryController::class, 'storeIdentity'])->name('admin.projects.face-identities.store');
+    Route::delete('/projects/{project}/face-identities/{faceIdentity}', [GalleryController::class, 'destroyIdentity'])->name('admin.projects.face-identities.delete');
+    Route::post('/projects/{project}/recognition/test', [GalleryController::class, 'testRecognition'])->name('admin.projects.recognition.test');
+    Route::post('/projects/{project}/recognition/run', [GalleryController::class, 'recognizeProject'])->name('admin.projects.recognition.run');
+    Route::delete('/projects/{project}/recognition', [GalleryController::class, 'clearProjectRecognition'])->name('admin.projects.recognition.clear');
+    Route::post('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'recognizePhoto'])->name('admin.projects.photos.recognition');
+    Route::delete('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'clearPhotoRecognition'])->name('admin.projects.photos.recognition.clear');
     
     // Contracts & Invoicing
     Route::post('/projects/{project}/contract', [ProjectController::class, 'generateContract'])->name('admin.projects.contract.create');
@@ -117,6 +127,7 @@ Route::get('/sign/{token}/print', [ContractController::class, 'publicPrint'])->n
 
 // Public: Professional Gallery
 Route::get('/gallery/{token}', [GalleryController::class, 'show'])->name('public.gallery.show');
+Route::post('/gallery/{token}/register-email', [GalleryController::class, 'registerEmail'])->name('public.gallery.register-email');
 Route::post('/gallery/{token}/unlock', [GalleryController::class, 'unlock'])->name('public.gallery.unlock');
 Route::post('/gallery/photo/{photo}/toggle', [GalleryController::class, 'toggleHeart'])->name('public.gallery.heart');
 Route::get('/gallery/photo/{photo}/download', [GalleryController::class, 'download'])->name('public.gallery.download');

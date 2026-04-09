@@ -21,12 +21,13 @@ const ToggleField = ({ label, description, checked, onChange }) => (
 );
 
 export default function Billing({ settings }) {
-    const { data, setData, put, processing } = useForm({
+    const { data, setData, post, processing } = useForm({
         tax_itbms_enabled: ['1', 1, true, 'true'].includes(settings.tax_itbms_enabled?.value ?? '1'),
         tax_itbms_rate: settings.tax_itbms_rate?.value ?? '7',
         alanube_enabled: ['1', 1, true, 'true'].includes(settings.alanube_enabled?.value ?? '0'),
         lead_schedule_blocks_hours: ['1', 1, true, 'true'].includes(settings.lead_schedule_blocks_hours?.value ?? '1'),
         lead_parallel_capacity: settings.lead_parallel_capacity?.value ?? '1',
+        _method: 'put',
     });
 
     return (
@@ -44,7 +45,7 @@ export default function Billing({ settings }) {
                     </div>
                     <button
                         type="button"
-                        onClick={() => put('/admin/settings/billing')}
+                        onClick={() => post('/admin/settings/billing')}
                         disabled={processing}
                         className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white"
                     >

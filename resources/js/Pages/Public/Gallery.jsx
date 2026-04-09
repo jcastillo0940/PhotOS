@@ -9,6 +9,7 @@ import {
     ChevronRight,
     Camera,
     Share2,
+    UserRound,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { clsx } from 'clsx';
@@ -324,13 +325,18 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const { flash, errors } = usePage().props;
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [filter, setFilter] = useState('All');
+    const [peopleFilter, setPeopleFilter] = useState('All');
+    const [showClientAccess, setShowClientAccess] = useState(false);
     const templateCode = galleryTemplate?.code || 'cinematic-dark';
     const styles = TEMPLATE_STYLES[templateCode] || TEMPLATE_STYLES['cinematic-dark'];
     const categories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.tags?.length ? photo.tags : [photo.category]).filter(Boolean))], [photos]);
+    const peopleCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.people_tags || []).filter(Boolean))], [photos]);
     const heroPhoto = photos.find(photo => photo.id === project.hero_photo_id) || photos[0];
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
     const isClientView = access?.mode === 'client';
     const unlockForm = useForm({
+        visitor_name: access?.registered_name || '',
+        visitor_email: access?.registered_email || '',
         gallery_access_code: '',
     });
 
@@ -358,6 +364,12 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
         };
     }, []);
 
+    useEffect(() => {
+        if (errors?.gallery_access_code || errors?.visitor_email) {
+            setShowClientAccess(true);
+        }
+    }, [errors?.gallery_access_code, errors?.visitor_email]);
+
     const toggleHeart = (photo) => {
         if (!access?.can_select_favorites) return;
 
@@ -381,9 +393,17 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
         window.alert('Link de la galeria copiado.');
     };
 
-    const filteredPhotos = filter === 'All'
-        ? photos
-        : photos.filter(photo => (photo.tags?.length ? photo.tags : [photo.category]).includes(filter));
+    const filteredPhotos = photos.filter((photo) => {
+        const generalMatch = filter === 'All'
+            ? true
+            : (photo.tags?.length ? photo.tags : [photo.category]).includes(filter);
+
+        const peopleMatch = peopleFilter === 'All'
+            ? true
+            : (photo.people_tags || []).includes(peopleFilter);
+
+        return generalMatch && peopleMatch;
+    });
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
         if (index < photos.length - 1) setSelectedPhoto(photos[index + 1]);
@@ -397,6 +417,8 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     return (
         <div className={clsx('min-h-screen selection:bg-accent/30 selection:text-white pb-24', styles.page)}>
             <Head title={galleryTitle || `Gallery: ${project.name}`} />
+
+                <>
 
             {photos.length > 0 && heroPhoto && (
                 <GalleryHero
@@ -426,64 +448,46 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             <p className={clsx('mt-2 max-w-2xl text-sm leading-7', isDarkChrome ? 'text-white/75' : 'text-[#5c4939]')}>
                                 {isClientView
                                     ? 'Estas viendo la galeria completa del cliente. Aqui se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
-                                    : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Para ver la galeria completa del cliente necesitas el codigo de acceso.'}
+                                    : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa, marcar favoritos y descargar.'}
                             </p>
                             {typeof access?.public_photo_count === 'number' && typeof access?.client_photo_count === 'number' && (
                                 <p className={clsx('mt-2 text-xs uppercase tracking-[0.2em]', isDarkChrome ? 'text-white/45' : 'text-[#8b6d54]')}>
                                     {isClientView ? `${access.client_photo_count} fotos visibles` : `${access.public_photo_count} fotos publicas visibles`}
                                 </p>
                             )}
+                            {access?.registered_email && (
+                                <p className={clsx('mt-2 text-xs', isDarkChrome ? 'text-white/45' : 'text-[#8b6d54]')}>
+                                    Acceso registrado con {access.registered_email}
+                                </p>
+                            )}
                         </div>
 
                         {!isClientView && (
-                            <form
-                                onSubmit={(event) => {
-                                    event.preventDefault();
-                                    unlockForm.post(`/gallery/${project.gallery_token}/unlock`, {
-                                        preserveScroll: true,
-                                    });
-                                }}
-                                className="flex w-full max-w-md flex-col gap-3 md:flex-row"
+                            <button
+                                type="button"
+                                onClick={() => setShowClientAccess(true)}
+                                className={clsx(
+                                    'rounded-full px-6 py-3 text-xs font-black uppercase tracking-[0.2em] transition',
+                                    isDarkChrome
+                                        ? 'bg-white text-black'
+                                        : 'bg-[#241b16] text-white'
+                                )}
                             >
-                                <input
-                                    type="text"
-                                    value={unlockForm.data.gallery_access_code}
-                                    onChange={(event) => unlockForm.setData('gallery_access_code', event.target.value.toUpperCase())}
-                                    placeholder={access?.has_password ? 'Codigo del cliente' : 'Sin codigo configurado'}
-                                    disabled={!access?.has_password || unlockForm.processing}
-                                    className={clsx(
-                                        'w-full rounded-full border px-5 py-3 text-sm outline-none',
-                                        isDarkChrome
-                                            ? 'border-white/15 bg-black/20 text-white placeholder:text-white/35'
-                                            : 'border-black/10 bg-white text-[#241b16] placeholder:text-[#9b8877]'
-                                    )}
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={!access?.has_password || unlockForm.processing}
-                                    className={clsx(
-                                        'rounded-full px-6 py-3 text-xs font-black uppercase tracking-[0.2em] transition',
-                                        isDarkChrome
-                                            ? 'bg-white text-black disabled:bg-white/20 disabled:text-white/45'
-                                            : 'bg-[#241b16] text-white disabled:bg-[#d5c6b8] disabled:text-white/70'
-                                    )}
-                                >
-                                    {unlockForm.processing ? 'Validando' : 'Desbloquear'}
-                                </button>
-                            </form>
+                                Acceso cliente
+                            </button>
                         )}
                     </div>
 
-                    {(flash?.success || errors?.gallery_access_code) && (
+                    {(flash?.success || errors?.gallery_access_code || errors?.visitor_email) && (
                         <div className={clsx(
                             'mt-4 rounded-[1.4rem] border px-4 py-3 text-sm',
-                            errors?.gallery_access_code
+                            (errors?.gallery_access_code || errors?.visitor_email)
                                 ? 'border-rose-200 bg-rose-50 text-rose-700'
                                 : isDarkChrome
                                     ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-200'
                                     : 'border-emerald-200 bg-emerald-50 text-emerald-800'
                         )}>
-                            {errors?.gallery_access_code || flash?.success}
+                            {errors?.gallery_access_code || errors?.visitor_email || flash?.success}
                         </div>
                     )}
                 </div>
@@ -491,21 +495,48 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
 
             <div className="w-full max-w-[1920px] mx-auto flex flex-col items-center">
                 <section className="w-full px-5 pb-12 pt-16 flex items-center justify-center">
-                    <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
-                        {categories.map(cat => (
-                            <motion.button
-                                key={cat}
-                                whileHover={{ scale: 1.05 }}
-                                whileTap={{ scale: 0.95 }}
-                                onClick={() => setFilter(cat)}
-                                className={clsx(
-                                    'px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.25em] transition-all border whitespace-nowrap',
-                                    filter === cat ? styles.filterActive : styles.filterIdle
-                                )}
-                            >
-                                {cat}
-                            </motion.button>
-                        ))}
+                    <div className="flex w-full max-w-[1320px] flex-col items-center gap-4">
+                        <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                            {categories.map(cat => (
+                                <motion.button
+                                    key={cat}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setFilter(cat)}
+                                    className={clsx(
+                                        'px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.25em] transition-all border whitespace-nowrap',
+                                        filter === cat ? styles.filterActive : styles.filterIdle
+                                    )}
+                                >
+                                    {cat}
+                                </motion.button>
+                            ))}
+                        </div>
+
+                        {!!project?.face_recognition_enabled && peopleCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <UserRound className="h-3.5 w-3.5" />
+                                    Personas en la galeria
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {peopleCategories.map(person => (
+                                        <motion.button
+                                            key={person}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setPeopleFilter(person)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                peopleFilter === person ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {person}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </section>
 
@@ -670,6 +701,113 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                                 )}
                             </div>
                         </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+                </>
+
+            <AnimatePresence>
+                {showClientAccess && !isClientView && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 px-5 py-8 backdrop-blur-md"
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 16, scale: 0.98 }}
+                            className={clsx(
+                                'w-full max-w-lg rounded-[2rem] border p-8 shadow-[0_35px_120px_rgba(0,0,0,0.25)]',
+                                isDarkChrome ? 'border-white/10 bg-[#0b0b0b] text-white' : 'border-[#e5ddd1] bg-white text-[#241b16]'
+                            )}
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div>
+                                    <p className={clsx('text-[11px] font-black uppercase tracking-[0.28em]', isDarkChrome ? 'text-white/45' : 'text-[#8b6d54]')}>
+                                        Acceso cliente
+                                    </p>
+                                    <h2 className="mt-3 text-2xl font-black tracking-tight">Ver galeria completa</h2>
+                                    <p className={clsx('mt-3 text-sm leading-7', isDarkChrome ? 'text-white/70' : 'text-[#5c4939]')}>
+                                        Ingresa tu correo y la clave privada para desbloquear toda la galeria, activar favoritos y habilitar descargas.
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowClientAccess(false)}
+                                    className={clsx('rounded-full p-3 transition', isDarkChrome ? 'bg-white/5 text-white hover:bg-white/10' : 'bg-black/5 text-[#241b16] hover:bg-black/10')}
+                                >
+                                    <X className="h-5 w-5" />
+                                </button>
+                            </div>
+
+                            <form
+                                onSubmit={(event) => {
+                                    event.preventDefault();
+                                    unlockForm.post(`/gallery/${project.gallery_token}/unlock`, {
+                                        preserveScroll: true,
+                                        onSuccess: () => setShowClientAccess(false),
+                                    });
+                                }}
+                                className="mt-8 space-y-4"
+                            >
+                                <input
+                                    type="text"
+                                    value={unlockForm.data.visitor_name}
+                                    onChange={(event) => unlockForm.setData('visitor_name', event.target.value)}
+                                    placeholder="Nombre"
+                                    className={clsx(
+                                        'w-full rounded-[1.2rem] border px-4 py-3 text-sm outline-none',
+                                        isDarkChrome
+                                            ? 'border-white/15 bg-black/20 text-white placeholder:text-white/35'
+                                            : 'border-black/10 bg-white text-[#241b16] placeholder:text-[#9b8877]'
+                                    )}
+                                />
+                                <input
+                                    type="email"
+                                    value={unlockForm.data.visitor_email}
+                                    onChange={(event) => unlockForm.setData('visitor_email', event.target.value.toLowerCase())}
+                                    placeholder="correo@cliente.com"
+                                    className={clsx(
+                                        'w-full rounded-[1.2rem] border px-4 py-3 text-sm outline-none',
+                                        isDarkChrome
+                                            ? 'border-white/15 bg-black/20 text-white placeholder:text-white/35'
+                                            : 'border-black/10 bg-white text-[#241b16] placeholder:text-[#9b8877]'
+                                    )}
+                                />
+                                <input
+                                    type="text"
+                                    value={unlockForm.data.gallery_access_code}
+                                    onChange={(event) => unlockForm.setData('gallery_access_code', event.target.value.toUpperCase())}
+                                    placeholder={access?.has_password ? 'Clave o codigo de acceso' : 'Sin clave configurada'}
+                                    disabled={!access?.has_password || unlockForm.processing}
+                                    className={clsx(
+                                        'w-full rounded-[1.2rem] border px-4 py-3 text-sm outline-none',
+                                        isDarkChrome
+                                            ? 'border-white/15 bg-black/20 text-white placeholder:text-white/35'
+                                            : 'border-black/10 bg-white text-[#241b16] placeholder:text-[#9b8877]'
+                                    )}
+                                />
+                                {(errors?.gallery_access_code || errors?.visitor_email) && (
+                                    <div className="rounded-[1.1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                                        {errors?.gallery_access_code || errors?.visitor_email}
+                                    </div>
+                                )}
+                                <button
+                                    type="submit"
+                                    disabled={!access?.has_password || unlockForm.processing}
+                                    className={clsx(
+                                        'w-full rounded-[1.2rem] px-5 py-3 text-xs font-black uppercase tracking-[0.2em] transition',
+                                        isDarkChrome
+                                            ? 'bg-white text-black disabled:bg-white/20 disabled:text-white/45'
+                                            : 'bg-[#241b16] text-white disabled:bg-[#d5c6b8] disabled:text-white/70'
+                                    )}
+                                >
+                                    {unlockForm.processing ? 'Validando acceso' : 'Entrar como cliente'}
+                                </button>
+                            </form>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

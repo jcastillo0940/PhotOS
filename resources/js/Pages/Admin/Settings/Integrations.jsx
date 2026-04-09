@@ -46,7 +46,7 @@ const Field = ({ label, value, onChange, isSecret = false, placeholder }) => {
 
 export default function Integrations({ settings }) {
     const flatSettings = Object.values(settings).flat().map((s) => ({ key: s.key, value: s.value ?? '' }));
-    const { data, setData, put, processing } = useForm({ settings: flatSettings });
+    const { data, setData, post, processing } = useForm({ settings: flatSettings, _method: 'put' });
 
     const updateValue = (key, value) => {
         setData('settings', data.settings.map((item) => item.key === key ? { ...item, value } : item));
@@ -59,7 +59,7 @@ export default function Integrations({ settings }) {
             <form
                 onSubmit={(event) => {
                     event.preventDefault();
-                    put('/admin/settings/integrations');
+                    post('/admin/settings/integrations');
                 }}
                 className="space-y-8"
             >

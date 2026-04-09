@@ -5,16 +5,16 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class DownloadLog extends Model
+class GalleryFavoriteLog extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'project_id',
         'photo_id',
-        'asset_type',
-        'client_hash',
         'visitor_email',
+        'client_hash',
+        'action',
         'ip_address',
         'user_agent',
     ];

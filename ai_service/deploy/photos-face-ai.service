@@ -1,0 +1,19 @@
+﻿[Unit]
+Description=PhotOS Face AI FastAPI Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/home/photo/ai_service
+EnvironmentFile=/etc/photos-face-ai.env
+ExecStart=/var/home/photo/ai_service/.venv/bin/gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:${FACE_AI_PORT}
+Restart=always
+RestartSec=5
+TimeoutStartSec=60
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
+

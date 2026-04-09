@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Event;
+use App\Models\FaceIdentity;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\Contract;
 use App\Models\Client;
+use App\Models\DownloadLog;
+use App\Models\GalleryEmailRegistration;
+use App\Models\GalleryFavoriteLog;
 use App\Models\Setting;
 use App\Support\ContractTemplate;
 use App\Support\EventTypeSettings;
@@ -15,6 +19,7 @@ use App\Support\InstallationPlan;
 use App\Services\CrmAutomationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 
@@ -35,34 +40,26 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        if (!$project->gallery_token) {
-            $project->update(['gallery_token' => Str::random(40)]);
-        }
+        return to_route('admin.projects.details', $project, 303);
+    }
 
-        if (!$project->gallery_password) {
-            $project->update(['gallery_password' => strtoupper(Str::random(8))]);
-        }
+    public function details(Project $project)
+    {
+        $payload = $this->projectAdminPayload($project);
 
-        $project->load('lead', 'contract', 'invoices', 'photos', 'heroPhoto');
-        $serializedPhotos = $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values();
+        return Inertia::render('Admin/Projects/Details', $payload);
+    }
 
-        return Inertia::render('Admin/Projects/Show', [
-            'project' => [
-                ...$project->toArray(),
-                'photos' => $serializedPhotos,
-                'heroPhoto' => $project->heroPhoto ? $this->serializePhotoForAdmin($project->heroPhoto) : null,
-                'originals_usage_bytes' => $project->originalsUsageBytes(),
-                'high_res_available' => $project->highResAvailable(),
-                'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
-            ],
-            'installationPlan' => InstallationPlan::current(),
-            'availableTemplates' => $this->availableTemplatesForCurrentPlan(),
-            'billingSettings' => [
-                'itbms_enabled' => filter_var(Setting::get('tax_itbms_enabled', '1'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
-                'itbms_rate' => (float) Setting::get('tax_itbms_rate', '7'),
-                'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
-            ],
-        ]);
+    public function gallery(Project $project)
+    {
+        $payload = $this->projectAdminPayload($project);
+
+        return Inertia::render('Admin/Projects/Gallery', $payload);
+    }
+
+    public function management(Project $project)
+    {
+        return Inertia::render('Admin/Projects/Management', $this->projectAdminPayload($project));
     }
 
     public function storeDirect(Request $request)
@@ -204,15 +201,36 @@ class ProjectController extends Controller
     public function update(Request $request, Project $project)
     {
         $validated = $request->validate([
+            'name' => 'nullable|string|max:255',
+            'event_date' => 'nullable|date',
+            'location' => 'nullable|string|max:255',
+            'status' => 'nullable|string|in:active,pending_payment,editing,delivered',
             'hero_photo_id' => 'nullable|integer|exists:photos,id',
             'hero_focus_x' => 'nullable|string|max:10',
             'hero_focus_y' => 'nullable|string|max:10',
             'gallery_template_code' => 'nullable|string|max:100',
             'website_category' => 'nullable|string|max:255',
             'website_description' => 'nullable|string|max:1500',
+            'face_recognition_enabled' => 'nullable|boolean',
         ]);
 
         $payload = [];
+
+        if (array_key_exists('name', $validated)) {
+            $payload['name'] = $validated['name'];
+        }
+
+        if (array_key_exists('event_date', $validated)) {
+            $payload['event_date'] = $validated['event_date'];
+        }
+
+        if (array_key_exists('location', $validated)) {
+            $payload['location'] = $validated['location'];
+        }
+
+        if (array_key_exists('status', $validated) && $validated['status']) {
+            $payload['status'] = $validated['status'];
+        }
 
         if (array_key_exists('hero_photo_id', $validated)) {
             $heroPhoto = $validated['hero_photo_id']
@@ -248,11 +266,15 @@ class ProjectController extends Controller
             $payload['website_description'] = $validated['website_description'];
         }
 
+        if (array_key_exists('face_recognition_enabled', $validated)) {
+            $payload['face_recognition_enabled'] = (bool) $validated['face_recognition_enabled'];
+        }
+
         if (!empty($payload)) {
             $project->update($payload);
         }
 
-        return to_route('admin.projects.show', $project, 303)->with('success', 'Proyecto actualizado.');
+        return back(status: 303)->with('success', 'Proyecto actualizado.');
     }
 
     private function gigabytesToBytes(?float $gigabytes): ?int
@@ -274,6 +296,14 @@ class ProjectController extends Controller
             ...$photo->toArray(),
             'url' => $resolvedUrl,
             'thumbnail_url' => $resolvedUrl,
+            'recognition_status_label' => match ($photo->recognition_status) {
+                'matched' => 'Coincidencia detectada',
+                'no_match' => 'Sin coincidencias',
+                'no_face' => 'Sin rostro',
+                'error' => 'Error de analisis',
+                'manual' => 'Etiquetado manual',
+                default => 'Sin analizar',
+            },
         ];
     }
 
@@ -295,6 +325,180 @@ class ProjectController extends Controller
             ->filter(fn (array $template) => $allowed === 'all' || in_array($template['id'] ?? null, $allowed, true))
             ->values()
             ->all();
+    }
+
+    private function projectAdminPayload(Project $project): array
+    {
+        if (!$project->gallery_token) {
+            $project->update(['gallery_token' => Str::random(40)]);
+        }
+
+        if (!$project->gallery_password) {
+            $project->update(['gallery_password' => strtoupper(Str::random(8))]);
+        }
+
+        $project->load('lead', 'contract', 'invoices', 'photos', 'heroPhoto');
+        $serializedPhotos = $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values();
+
+        return [
+            'project' => [
+                ...$project->toArray(),
+                'photos' => $serializedPhotos,
+                'heroPhoto' => $project->heroPhoto ? $this->serializePhotoForAdmin($project->heroPhoto) : null,
+                'originals_usage_bytes' => $project->originalsUsageBytes(),
+                'high_res_available' => $project->highResAvailable(),
+                'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
+                'public_gallery_url' => URL::route('public.gallery.show', $project->gallery_token),
+            ],
+            'faceRecognition' => [
+                'enabled' => $project->face_recognition_enabled,
+                'service_configured' => filled(config('services.face_ai.url')),
+                'summary' => [
+                    'photos_with_people' => $project->photos->filter(fn ($photo) => !empty($photo->people_tags))->count(),
+                    'photos_pending' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
+                    'people_detected_total' => $project->photos->sum(fn ($photo) => count($photo->people_tags ?? [])),
+                    'photos_without_face' => $project->photos->where('recognition_status', 'no_face')->count(),
+                    'photos_without_match' => $project->photos->where('recognition_status', 'no_match')->count(),
+                    'photos_with_errors' => $project->photos->where('recognition_status', 'error')->count(),
+                ],
+                'identities' => $project->faceIdentities()
+                    ->latest()
+                    ->get()
+                    ->map(fn (FaceIdentity $identity) => [
+                        'id' => $identity->id,
+                        'name' => $identity->name,
+                        'path_reference' => $identity->path_reference,
+                        'created_at' => optional($identity->created_at)?->toIso8601String(),
+                    ])
+                    ->values()
+                    ->all(),
+            ],
+            'analytics' => $this->projectAnalytics($project),
+            'installationPlan' => InstallationPlan::current(),
+            'availableTemplates' => $this->availableTemplatesForCurrentPlan(),
+            'billingSettings' => [
+                'itbms_enabled' => filter_var(Setting::get('tax_itbms_enabled', '1'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
+                'itbms_rate' => (float) Setting::get('tax_itbms_rate', '7'),
+                'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+            ],
+        ];
+    }
+
+    private function projectAnalytics(Project $project): array
+    {
+        $galleryDownloadCount = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'gallery')
+            ->count();
+
+        $photoDownloadCount = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'photo')
+            ->count();
+
+        $videoDownloadCount = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'video')
+            ->count();
+
+        $downloadGallery = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'gallery')
+            ->latest()
+            ->take(15)
+            ->get()
+            ->map(fn (DownloadLog $log) => $this->serializeDownloadLog($log))
+            ->values()
+            ->all();
+
+        $downloadPhoto = DownloadLog::query()
+            ->with('photo')
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'photo')
+            ->latest()
+            ->take(20)
+            ->get()
+            ->map(fn (DownloadLog $log) => $this->serializeDownloadLog($log))
+            ->values()
+            ->all();
+
+        $downloadVideo = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('asset_type', 'video')
+            ->latest()
+            ->take(15)
+            ->get()
+            ->map(fn (DownloadLog $log) => $this->serializeDownloadLog($log))
+            ->values()
+            ->all();
+
+        $favoriteActivity = GalleryFavoriteLog::query()
+            ->with('photo')
+            ->where('project_id', $project->id)
+            ->latest()
+            ->take(20)
+            ->get()
+            ->map(fn (GalleryFavoriteLog $log) => [
+                'id' => $log->id,
+                'visitor_email' => $log->visitor_email,
+                'action' => $log->action,
+                'created_at' => optional($log->created_at)?->toIso8601String(),
+                'photo_id' => $log->photo_id,
+                'photo_label' => $log->photo ? 'Foto #'.$log->photo->id : null,
+            ])
+            ->values()
+            ->all();
+
+        $emailRegistrations = GalleryEmailRegistration::query()
+            ->where('project_id', $project->id)
+            ->latest()
+            ->take(20)
+            ->get()
+            ->map(fn (GalleryEmailRegistration $registration) => [
+                'id' => $registration->id,
+                'visitor_name' => $registration->visitor_name,
+                'visitor_email' => $registration->visitor_email,
+                'created_at' => optional($registration->created_at)?->toIso8601String(),
+            ])
+            ->values()
+            ->all();
+
+        return [
+            'downloads' => [
+                'gallery' => $downloadGallery,
+                'photo' => $downloadPhoto,
+                'video' => $downloadVideo,
+                'summary' => [
+                    'gallery_count' => $galleryDownloadCount,
+                    'photo_count' => $photoDownloadCount,
+                    'video_count' => $videoDownloadCount,
+                ],
+            ],
+            'favorites' => [
+                'activity' => $favoriteActivity,
+                'lists_count' => GalleryEmailRegistration::query()
+                    ->where('project_id', $project->id)
+                    ->whereIn('visitor_email', GalleryFavoriteLog::query()->where('project_id', $project->id)->whereNotNull('visitor_email')->select('visitor_email'))
+                    ->distinct('visitor_email')
+                    ->count('visitor_email'),
+            ],
+            'registrations' => [
+                'activity' => $emailRegistrations,
+                'count' => GalleryEmailRegistration::query()->where('project_id', $project->id)->count(),
+            ],
+        ];
+    }
+
+    private function serializeDownloadLog(DownloadLog $log): array
+    {
+        return [
+            'id' => $log->id,
+            'asset_type' => $log->asset_type,
+            'visitor_email' => $log->visitor_email,
+            'created_at' => optional($log->created_at)?->toIso8601String(),
+            'photo_id' => $log->photo_id,
+            'photo_label' => $log->photo_id ? 'Foto #'.$log->photo_id : null,
+        ];
     }
 
 }

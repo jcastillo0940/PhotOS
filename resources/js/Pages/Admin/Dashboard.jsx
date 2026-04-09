@@ -2,219 +2,236 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
-    Users,
-    Calendar,
     ArrowRight,
-    TrendingUp,
+    BadgeDollarSign,
+    Bot,
+    CalendarRange,
     Cloud,
-    DollarSign,
-    Zap,
-    ShieldCheck,
-    Clock,
-    Target,
-    Settings,
+    FolderKanban,
     Layers3,
-    Briefcase,
+    ReceiptText,
+    ShieldCheck,
+    Target,
+    Workflow,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useMemo, useState } from 'react';
 
-const StatCard = ({ title, value, icon: Icon, color, trend, trendLabel }) => (
-    <div className="p-6 bg-white rounded-2xl border border-slate-100 shadow-sm relative overflow-hidden group">
-        <div className="relative z-10">
-            <div className="flex items-center justify-between mb-4">
-                <div className={clsx("p-2.5 rounded-xl text-primary-600 bg-primary-50")}>
-                    <Icon className="w-5 h-5 text-primary-500" />
+function StatCard({ eyebrow, title, value, detail, icon: Icon, tone = 'slate' }) {
+    const tones = {
+        slate: 'bg-white border-[#e6e0d5] text-slate-900',
+        dark: 'bg-[#171411] border-[#171411] text-white',
+        mint: 'bg-[#ecf8f3] border-[#d7efe4] text-slate-900',
+    };
+
+    return (
+        <div className={clsx('rounded-[1.8rem] border p-6 shadow-sm', tones[tone])}>
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <p className={clsx('text-[11px] font-semibold uppercase tracking-[0.24em]', tone === 'dark' ? 'text-white/55' : 'text-slate-400')}>{eyebrow}</p>
+                    <p className="mt-4 text-3xl font-semibold tracking-tight">{value}</p>
+                    <p className={clsx('mt-2 text-sm', tone === 'dark' ? 'text-white/70' : 'text-slate-500')}>{title}</p>
                 </div>
-                {trend && (
-                    <div className="flex items-center space-x-1.5 px-2.5 py-1 bg-green-50 rounded-full">
-                        <TrendingUp className="w-3 h-3 text-green-600" />
-                        <span className="text-xs font-semibold text-green-700">{trend}</span>
-                    </div>
-                )}
+                <div className={clsx('flex h-12 w-12 items-center justify-center rounded-2xl', tone === 'dark' ? 'bg-white/10' : 'bg-[#f3eee6]')}>
+                    <Icon className={clsx('h-5 w-5', tone === 'dark' ? 'text-white' : 'text-slate-700')} />
+                </div>
             </div>
-            <h2 className="text-3xl font-semibold tracking-tight text-slate-800 mb-1">{value}</h2>
-            <p className="text-sm font-medium text-slate-500">{title}</p>
-            {trendLabel && <p className="text-xs text-slate-400 mt-3">{trendLabel}</p>}
+            {detail && <p className={clsx('mt-6 text-sm', tone === 'dark' ? 'text-white/70' : 'text-slate-500')}>{detail}</p>}
         </div>
-    </div>
-);
+    );
+}
 
-const QuickAction = ({ title, href, icon: Icon, description }) => (
-    <Link href={href} className="p-5 bg-white hover:bg-slate-50 rounded-2xl border border-slate-100 flex items-center space-x-5 group transition-all shadow-sm">
-        <div className="w-12 h-12 rounded-xl bg-slate-50 group-hover:bg-primary-50 flex items-center justify-center text-slate-400 group-hover:text-primary-500 transition-all">
-            <Icon className="w-5 h-5" />
+function ActionTile({ href, icon: Icon, title, description }) {
+    return (
+        <Link href={href} className="group rounded-[1.6rem] border border-[#e6e0d5] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4efe7] text-slate-700">
+                    <Icon className="h-5 w-5" />
+                </div>
+                <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:text-slate-700" />
+            </div>
+            <h3 className="mt-5 text-base font-semibold text-slate-900">{title}</h3>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+        </Link>
+    );
+}
+
+function ConnectionPill({ label, active, icon: Icon }) {
+    return (
+        <div className="flex items-center justify-between rounded-2xl border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
+            <div className="flex items-center gap-3">
+                <div className={clsx('flex h-10 w-10 items-center justify-center rounded-2xl', active ? 'bg-[#e6f7ef] text-[#16794f]' : 'bg-white text-slate-400')}>
+                    <Icon className="h-4 w-4" />
+                </div>
+                <div>
+                    <p className="text-sm font-semibold text-slate-900">{label}</p>
+                    <p className="text-xs text-slate-400">{active ? 'Conectado' : 'Pendiente'}</p>
+                </div>
+            </div>
+            <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', active ? 'bg-[#dff4e9] text-[#16794f]' : 'bg-white text-slate-500 border border-[#e6e0d5]')}>
+                {active ? 'OK' : 'Check'}
+            </span>
         </div>
-        <div className="flex-1">
-            <h4 className="font-semibold text-sm tracking-tight text-slate-700 group-hover:text-slate-900 mb-0.5">{title}</h4>
-            <p className="text-xs text-slate-500">{description}</p>
-        </div>
-        <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-primary-500 transition-all" />
-    </Link>
-);
+    );
+}
 
-export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary, eventTypes = [], eventReports = [] }) {
-    const currentPlan = plans?.find(plan => plan.code === currentPlanCode) || plans?.[0];
-    const [selectedEventType, setSelectedEventType] = useState('Todos');
-    const visibleReports = useMemo(() => {
-        if (selectedEventType === 'Todos') {
-            return eventReports;
-        }
-
-        return eventReports.filter((report) => report.type === selectedEventType);
-    }, [eventReports, selectedEventType]);
+export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary, eventReports = [] }) {
+    const currentPlan = plans?.find((plan) => plan.code === currentPlanCode) || plans?.[0];
+    const topReports = eventReports.slice(0, 4);
 
     return (
         <AdminLayout>
-            <div className="flex flex-col space-y-8 pb-12">
-                <Head title="Panel de control" />
+            <Head title="Resumen del estudio" />
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between space-y-4 md:space-y-0">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-800 mb-1">Página principal</h1>
-                        <p className="text-sm text-slate-500">Resumen y actividad de tus colecciones.</p>
-                    </div>
-                    <Link href="/admin/settings" className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg flex items-center text-slate-600 transition-colors bg-white shadow-sm text-sm font-medium">
-                        <Settings className="w-4 h-4 mr-2" />
-                        Ajustes Globales
-                    </Link>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard title="Nuevos Leads" value={stats.leads_count} icon={Target} color="bg-primary-500" trend="+12%" trendLabel="Últimos 30 días" />
-                    <StatCard title="Proyectos Activos" value={stats.active_projects} icon={Zap} trendLabel="En progreso" />
-                    <StatCard title="Ingresos" value={`$${Number(stats.total_revenue).toLocaleString()}`} icon={DollarSign} color="bg-green-500" trend="En vivo" />
-                    <StatCard title="Próximo Evento" value={stats.next_event ? new Date(stats.next_event.start).toLocaleDateString() : 'N/A'} icon={Calendar} trendLabel={stats.next_event ? stats.next_event.title : 'Sin eventos programados'} />
-                </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    <div className="lg:col-span-2 space-y-8">
-                        <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 space-y-4 md:space-y-0">
-                                <div>
-                                    <h3 className="text-lg font-bold tracking-tight text-slate-800">Plan Actual</h3>
-                                    <p className="text-sm text-slate-500 mt-1">Uso y recursos de tu cuenta</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-0.5">Almacenamiento</p>
-                                    <p className="text-sm font-medium text-slate-700">{technicalSummary?.hosting_cost_label || 'Calculando...'}</p>
-                                </div>
+            <div className="space-y-8">
+                <section className="rounded-[2rem] border border-[#e4ddd2] bg-[linear-gradient(135deg,#171411_0%,#25201b_55%,#312a22_100%)] px-7 py-7 text-white shadow-sm md:px-8 md:py-8">
+                    <div className="grid gap-8 xl:grid-cols-[1.35fr_.65fr]">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">Vision general</p>
+                            <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight">Un backoffice pensado para trabajar rapido, publicar mejor y no perder el hilo comercial.</h2>
+                            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72">
+                                Desde aqui deberias poder entrar a colecciones, agenda, contratos, automatizaciones y facturacion sin tener que recordar rutas ni depender de una pantalla sobrecargada.
+                            </p>
+                            <div className="mt-6 flex flex-wrap gap-3">
+                                <Link href="/admin/projects" className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#f4efe7]">
+                                    <FolderKanban className="h-4 w-4" />
+                                    Abrir colecciones
+                                </Link>
+                                <Link href="/admin/leads" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/5">
+                                    <Target className="h-4 w-4" />
+                                    Revisar leads
+                                </Link>
                             </div>
-
-                            {currentPlan && (
-                                <div className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100">
-                                    <div className="flex items-start justify-between gap-6 mb-4">
-                                        <div className="flex items-center space-x-4">
-                                            <div className="w-12 h-12 rounded-xl bg-primary-100 text-primary-600 flex items-center justify-center">
-                                                <Layers3 className="w-6 h-6" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs font-semibold text-primary-500 mb-0.5 uppercase tracking-wide">{currentPlan.tagline}</p>
-                                                <h4 className="font-bold text-xl tracking-tight text-slate-800">{currentPlan.name}</h4>
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-xl font-bold text-slate-800">{currentPlan.price_label}</p>
-                                            <p className="text-xs text-slate-500 mt-0.5">{currentPlan.billing_label}</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-sm text-slate-600 mb-4">{currentPlan.audience}</p>
-                                    <div className="flex flex-wrap gap-2">
-                                        {currentPlan.highlights?.map(item => (
-                                            <span key={item} className="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600">{item}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
-                        <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                            <h3 className="text-lg font-bold tracking-tight text-slate-800 mb-6">Estado del Sistema</h3>
+                        <div className="rounded-[1.8rem] border border-white/10 bg-white/5 p-6">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">Plan activo</p>
+                            <h3 className="mt-4 text-xl font-semibold">{currentPlan?.name || 'Plan del estudio'}</h3>
+                            <p className="mt-2 text-sm text-white/72">{currentPlan?.audience || 'Configuracion general del estudio y sus recursos.'}</p>
+                            <div className="mt-5 space-y-3">
+                                <div className="rounded-2xl bg-white/8 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Precio</p>
+                                    <p className="mt-1 text-sm font-semibold">{currentPlan?.price_label || '-'}</p>
+                                </div>
+                                <div className="rounded-2xl bg-white/8 px-4 py-3">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Costo operativo</p>
+                                    <p className="mt-1 text-sm font-semibold">{technicalSummary?.hosting_cost_label || 'Calculando...'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+                    <StatCard eyebrow="Leads" title="Nuevas oportunidades registradas" value={stats.leads_count} detail="Seguimiento comercial activo." icon={Target} />
+                    <StatCard eyebrow="Colecciones" title="Proyectos en marcha" value={stats.active_projects} detail="Galerias y entregas abiertas." icon={FolderKanban} tone="mint" />
+                    <StatCard eyebrow="Ingresos" title="Facturacion acumulada" value={`$${Number(stats.total_revenue || 0).toLocaleString()}`} detail="Suma de facturas emitidas." icon={BadgeDollarSign} />
+                    <StatCard eyebrow="Agenda" title={stats.next_event ? new Date(stats.next_event.start).toLocaleDateString() : 'Sin evento'} value={stats.next_event ? stats.next_event.title : 'Proximo evento'} detail="Tu siguiente compromiso agendado." icon={CalendarRange} tone="dark" />
+                </section>
+
+                <section className="grid gap-8 xl:grid-cols-[1.1fr_.9fr]">
+                    <div className="space-y-8">
+                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Accesos del dia</p>
+                                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Tareas frecuentes del estudio</h3>
+                                </div>
+                                <Link href="/admin/settings" className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm font-semibold text-slate-700">
+                                    <Layers3 className="h-4 w-4" />
+                                    Ajustes del sistema
+                                </Link>
+                            </div>
+
+                            <div className="mt-6 grid gap-4 md:grid-cols-2">
+                                <ActionTile href="/admin/projects" icon={FolderKanban} title="Gestionar colecciones" description="Sube material, define portada, comparte galeria y controla estado del proyecto." />
+                                <ActionTile href="/admin/calendar" icon={CalendarRange} title="Ordenar agenda" description="Revisa disponibilidad, eventos activos y proximas sesiones." />
+                                <ActionTile href="/admin/contracts" icon={ReceiptText} title="Controlar contratos" description="Verifica firma, documentos pendientes y acceso publico." />
+                                <ActionTile href="/admin/automations" icon={Workflow} title="Automatizar seguimiento" description="Activa tareas, recordatorios y webhooks por tipo de evento." />
+                            </div>
+                        </div>
+
+                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                            <div className="flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Negocio</p>
+                                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Lectura rapida por tipo de evento</h3>
+                                </div>
+                                <Link href="/admin/leads" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
+                                    Ir al CRM
+                                    <ArrowRight className="h-4 w-4" />
+                                </Link>
+                            </div>
+
+                            <div className="mt-6 grid gap-4 md:grid-cols-2">
+                                {topReports.length > 0 ? topReports.map((report) => (
+                                    <div key={report.type} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
+                                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Tipo de evento</p>
+                                        <h4 className="mt-2 text-lg font-semibold text-slate-900">{report.type}</h4>
+                                        <div className="mt-5 grid grid-cols-2 gap-3">
+                                            <Metric label="Leads" value={report.leads_count} />
+                                            <Metric label="Proyectos" value={report.projects_count} />
+                                            <Metric label="Proximos" value={report.upcoming_events_count} />
+                                            <Metric label="Ingresos" value={`$${Number(report.revenue || 0).toLocaleString()}`} />
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <div className="rounded-[1.6rem] border border-dashed border-[#ddd5c9] px-6 py-14 text-center text-sm text-slate-400">
+                                        Todavia no hay reportes segmentados por tipo de evento.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-8">
+                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Integraciones</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Estado del sistema</h3>
+                            <div className="mt-6 space-y-3">
+                                <ConnectionPill label="Cloudflare R2" active={system.r2_status} icon={Cloud} />
+                                <ConnectionPill label="PayPal" active={system.paypal_status} icon={BadgeDollarSign} />
+                                <ConnectionPill label="TiloPay" active={system.tilopay_status} icon={ShieldCheck} />
+                            </div>
+                            <Link href="/admin/settings/tests" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                Abrir centro de pruebas
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
+                        </div>
+
+                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Automatizacion</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Lo que conviene no olvidar</h3>
+                            <div className="mt-6 space-y-3">
                                 {[
-                                    { label: 'Cloudflare R2', active: system.r2_status, icon: Cloud, key: 'Almacenamiento' },
-                                    { label: 'PayPal', active: system.paypal_status, icon: DollarSign, key: 'Pagos globales' },
-                                    { label: 'TiloPay', active: system.tilopay_status, icon: ShieldCheck, key: 'Pagos locales' },
-                                ].map((int, i) => (
-                                    <div key={i} className="p-6 bg-slate-50/50 rounded-2xl border border-slate-100 relative">
-                                        <div className={clsx('absolute top-5 right-5 w-2 h-2 rounded-full', int.active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-slate-300')} />
-                                        <int.icon className={clsx('w-8 h-8 mb-4', int.active ? 'text-primary-500' : 'text-slate-400')} />
-                                        <h5 className="font-semibold text-sm text-slate-800 mb-1">{int.label}</h5>
-                                        <p className="text-xs text-slate-500 mb-4">{int.key}</p>
-                                        <span className={clsx('text-xs font-medium px-2 py-1 rounded-md inline-block', int.active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500')}>
-                                            {int.active ? 'Conectado' : 'Desconectado'}
-                                        </span>
+                                    'Confirmar fecha y hora antes del evento.',
+                                    'Publicar la galeria y disparar mensaje al cliente.',
+                                    'Enviar NPS y recordatorios de saldo pendiente.',
+                                ].map((item) => (
+                                    <div key={item} className="flex items-start gap-3 rounded-2xl border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
+                                        <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#171411] text-white">
+                                            <Bot className="h-3.5 w-3.5" />
+                                        </div>
+                                        <p className="text-sm leading-6 text-slate-600">{item}</p>
                                     </div>
                                 ))}
                             </div>
-                        </div>
-
-                        <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6">
-                                <div>
-                                    <h3 className="text-lg font-bold tracking-tight text-slate-800">Reportes por tipo de evento</h3>
-                                    <p className="text-sm text-slate-500 mt-1">La misma taxonomía del CRM y la agenda se refleja aquí para leer el negocio sin mezclar categorías.</p>
-                                </div>
-                                <select
-                                    value={selectedEventType}
-                                    onChange={(event) => setSelectedEventType(event.target.value)}
-                                    className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none"
-                                >
-                                    {['Todos', ...eventTypes].map((type) => (
-                                        <option key={type} value={type}>{type}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {visibleReports.map((report) => (
-                                    <div key={report.type} className="rounded-2xl border border-slate-100 bg-slate-50/70 p-5">
-                                        <div className="flex items-center justify-between gap-4 mb-4">
-                                            <div>
-                                                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary-500">Tipo de evento</p>
-                                                <h4 className="mt-1 text-lg font-semibold text-slate-800">{report.type}</h4>
-                                            </div>
-                                            <div className="h-11 w-11 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-500">
-                                                <Briefcase className="w-5 h-5" />
-                                            </div>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <MetricPill label="Leads" value={report.leads_count} />
-                                            <MetricPill label="Proyectos" value={report.projects_count} />
-                                            <MetricPill label="Eventos próximos" value={report.upcoming_events_count} />
-                                            <MetricPill label="Ingresos" value={`$${Number(report.revenue || 0).toLocaleString()}`} />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                            <Link href="/admin/automations" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                                Configurar automatizaciones
+                                <ArrowRight className="h-4 w-4" />
+                            </Link>
                         </div>
                     </div>
-
-                    <div className="space-y-6">
-                        <div className="p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
-                            <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center mb-6 text-slate-400">
-                                <Clock className="w-6 h-6" />
-                            </div>
-                            <h4 className="text-lg font-bold tracking-tight text-slate-800 mb-2">Accesos Rápidos</h4>
-                            <p className="text-sm text-slate-500 mb-8">Administra tus colecciones y flujo de trabajo.</p>
-                            <div className="space-y-3">
-                                <QuickAction title="Crear Colección" href="/admin/projects" icon={Users} description="Nueva galería de cliente" />
-                                <QuickAction title="Proyectos Activos" href="/admin/projects" icon={Zap} description="Entregas pendientes" />
-                                <QuickAction title="Calendario" href="/admin/calendar" icon={Calendar} description="Ver reservas" />
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                </section>
             </div>
         </AdminLayout>
     );
 }
 
-const MetricPill = ({ label, value }) => (
-    <div className="rounded-xl bg-white border border-slate-200 px-4 py-3">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{label}</p>
-        <p className="mt-1 text-base font-semibold text-slate-800">{value}</p>
-    </div>
-);
+function Metric({ label, value }) {
+    return (
+        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{label}</p>
+            <p className="mt-1 text-base font-semibold text-slate-900">{value}</p>
+        </div>
+    );
+}

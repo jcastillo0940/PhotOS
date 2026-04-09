@@ -44,7 +44,7 @@ export default function Accounting({ client }) {
                                         </div>
                                     </div>
                                     {invoice.project_id && (
-                                        <Link href={`/admin/projects/${invoice.project_id}`} className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-primary-600">
+                                        <Link href={`/admin/projects/${invoice.project_id}/management`} className="mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.18em] text-primary-600">
                                             Abrir factura en proyecto
                                         </Link>
                                     )}

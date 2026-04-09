@@ -5,16 +5,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class DownloadLog extends Model
+class GalleryEmailRegistration extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'project_id',
-        'photo_id',
-        'asset_type',
-        'client_hash',
+        'visitor_name',
         'visitor_email',
+        'client_hash',
         'ip_address',
         'user_agent',
     ];
@@ -22,10 +21,5 @@ class DownloadLog extends Model
     public function project()
     {
         return $this->belongsTo(Project::class);
-    }
-
-    public function photo()
-    {
-        return $this->belongsTo(Photo::class);
     }
 }

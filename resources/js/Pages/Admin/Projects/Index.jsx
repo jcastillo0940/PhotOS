@@ -2,53 +2,75 @@ import React, { useMemo, useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
-    Briefcase,
-    Calendar,
-    MapPin,
-    Clock,
     ArrowRight,
-    Plus,
-    UploadCloud,
     BadgeCheck,
+    CalendarRange,
+    CirclePlus,
+    FolderKanban,
+    MapPin,
+    Search,
+    UploadCloud,
+    Workflow,
 } from 'lucide-react';
-import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 
-const StatusBadge = ({ status }) => {
-    const statuses = {
-        active: 'bg-blue-50 text-blue-700 border-blue-100',
-        pending_payment: 'bg-amber-50 text-amber-700 border-amber-100',
-        editing: 'bg-purple-50 text-purple-700 border-purple-100',
-        delivered: 'bg-green-50 text-green-700 border-green-100',
-    };
-    const labels = {
-        active: 'Activo',
-        pending_payment: 'Pago pendiente',
-        editing: 'Edición',
-        delivered: 'Entregado',
-    };
-    return (
-        <span className={clsx('px-2.5 py-1 rounded-full text-xs font-medium border', statuses[status] || 'bg-slate-100 text-slate-600 border-slate-200')}>
-            {labels[status] || status.replace('_', ' ')}
-        </span>
-    );
+const statusStyles = {
+    active: 'bg-[#e9f4ff] text-[#1f5f93]',
+    pending_payment: 'bg-[#fff4de] text-[#9a6b00]',
+    editing: 'bg-[#f3ecff] text-[#6845b0]',
+    delivered: 'bg-[#e6f7ef] text-[#16794f]',
 };
+
+const statusLabels = {
+    active: 'Activo',
+    pending_payment: 'Pago pendiente',
+    editing: 'Edicion',
+    delivered: 'Entregado',
+};
+
+function SummaryCard({ label, value, detail }) {
+    return (
+        <div className="rounded-[1.7rem] border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
+            <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+            <p className="mt-1 text-sm text-slate-500">{detail}</p>
+        </div>
+    );
+}
 
 export default function Index({ projects, installationPlan, eventTypes = [] }) {
     const [showDirectForm, setShowDirectForm] = useState(false);
     const [selectedEventType, setSelectedEventType] = useState('Todos');
+    const [search, setSearch] = useState('');
     const { data, setData, post, processing, reset } = useForm({ client_name: '', project_name: '' });
 
     const filteredProjects = useMemo(() => {
-        if (selectedEventType === 'Todos') {
-            return projects;
-        }
+        return projects.filter((project) => {
+            const matchesType = selectedEventType === 'Todos' || project.lead?.event_type === selectedEventType;
+            const haystack = [
+                project.name,
+                project.location,
+                project.website_category,
+                project.lead?.name,
+                project.lead?.event_type,
+            ]
+                .filter(Boolean)
+                .join(' ')
+                .toLowerCase();
 
-        return projects.filter((project) => project.lead?.event_type === selectedEventType);
-    }, [projects, selectedEventType]);
+            return matchesType && haystack.includes(search.toLowerCase());
+        });
+    }, [projects, search, selectedEventType]);
 
-    const submitDirect = (e) => {
-        e.preventDefault();
+    const summary = useMemo(() => ({
+        total: projects.length,
+        active: projects.filter((project) => project.status === 'active').length,
+        delivered: projects.filter((project) => project.status === 'delivered').length,
+        portfolio: projects.filter((project) => (project.photos || []).some((photo) => photo.show_on_website)).length,
+    }), [projects]);
+
+    const submitDirect = (event) => {
+        event.preventDefault();
         post('/admin/projects', {
             onSuccess: () => {
                 setShowDirectForm(false);
@@ -59,131 +81,171 @@ export default function Index({ projects, installationPlan, eventTypes = [] }) {
 
     return (
         <AdminLayout>
-            <div className="flex flex-col space-y-8">
-                <Head title="Proyectos" />
+            <Head title="Colecciones" />
 
-                <div className="flex items-center justify-between gap-6">
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight text-slate-800 mb-1">Proyectos</h1>
-                        <p className="text-sm text-slate-500">Plan activo: <span className="font-medium text-slate-700">{installationPlan?.name}</span></p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <select
-                            value={selectedEventType}
-                            onChange={(event) => setSelectedEventType(event.target.value)}
-                            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-700 outline-none shadow-sm"
-                        >
-                            {['Todos', ...eventTypes].map((type) => (
-                                <option key={type} value={type}>{type}</option>
-                            ))}
-                        </select>
-                        <div className="px-4 py-2.5 rounded-xl bg-white border border-slate-100 shadow-sm text-right">
-                            <p className="text-xs text-slate-400 uppercase tracking-wider mb-0.5">Plan</p>
-                            <p className="text-sm font-semibold text-slate-700">{installationPlan?.price_label}</p>
+            <div className="space-y-8">
+                <section className="rounded-[2rem] border border-[#e4ddd2] bg-white p-7 shadow-sm">
+                    <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                        <div className="max-w-3xl">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Colecciones</p>
+                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Un lugar claro para abrir, revisar y entregar cada proyecto.</h2>
+                            <p className="mt-3 text-sm leading-7 text-slate-500">
+                                La vista prioriza lo que el estudio necesita todos los dias: buscar rapido, detectar estado, abrir una coleccion y crear proyectos nuevos sin perderse.
+                            </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-3">
+                            <Link href="/admin/leads" className="inline-flex items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-[#fbf9f6] px-4 py-3 text-sm font-semibold text-slate-700">
+                                <Workflow className="h-4 w-4" />
+                                Desde leads
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={() => setShowDirectForm((value) => !value)}
+                                className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white"
+                            >
+                                <CirclePlus className="h-4 w-4" />
+                                Nueva coleccion
+                            </button>
                         </div>
                     </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {filteredProjects.map((project, i) => (
-                        <motion.div
-                            key={project.id}
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.05 }}
-                            className="group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
-                        >
-                            <div className="p-6">
-                                <div className="flex items-center justify-between mb-5">
-                                    <div className="w-10 h-10 rounded-xl bg-primary-50 group-hover:bg-primary-100 flex items-center justify-center text-primary-600 transition-colors">
-                                        <Briefcase className="w-5 h-5" />
-                                    </div>
-                                    <StatusBadge status={project.status} />
-                                </div>
-                                <h3 className="text-base font-semibold text-slate-800 mb-3 group-hover:text-primary-600 transition-colors">{project.name}</h3>
-                                <div className="flex flex-col space-y-2">
-                                    <div className="flex items-center text-slate-400 text-xs gap-2">
-                                        <BadgeCheck className="w-3.5 h-3.5 flex-shrink-0" />
-                                        {project.lead?.event_type || 'Sin tipo de evento'}
-                                    </div>
-                                    <div className="flex items-center text-slate-400 text-xs gap-2">
-                                        <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                                        {project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Fecha por definir'}
-                                    </div>
-                                    <div className="flex items-center text-slate-400 text-xs gap-2">
-                                        <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                                        {project.location || 'Sin ubicación'}
-                                    </div>
-                                    <div className="flex items-center text-slate-400 text-xs gap-2">
-                                        <Briefcase className="w-3.5 h-3.5 flex-shrink-0" />
-                                        {installationPlan?.name}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="px-6 py-4 border-t border-slate-50 flex items-center justify-between">
-                                <div className="flex items-center text-slate-400 text-xs gap-1.5">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {project.contract?.status === 'signed' ? 'Contrato firmado' : 'Firma pendiente'}
-                                </div>
-                                <Link href={`/admin/projects/${project.id}`} className="flex items-center text-xs font-medium text-primary-600 hover:text-primary-700 gap-1">
-                                    Ver <ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
-                            </div>
-                        </motion.div>
-                    ))}
+                    <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <SummaryCard label="Total" value={summary.total} detail="Colecciones registradas" />
+                        <SummaryCard label="Activas" value={summary.active} detail="En trabajo o pendientes" />
+                        <SummaryCard label="Entregadas" value={summary.delivered} detail="Colecciones cerradas" />
+                        <SummaryCard label="Portafolio" value={summary.portfolio} detail="Con fotos visibles en la web" />
+                    </div>
+                </section>
 
-                    <Link href="/admin/leads" className="border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-all space-y-3 group min-h-[180px]">
-                        <Plus className="w-6 h-6" />
-                        <span className="text-xs font-medium">Desde un Lead</span>
-                    </Link>
-
-                    {showDirectForm ? (
-                        <motion.form
-                            onSubmit={submitDirect}
-                            initial={{ opacity: 0, scale: 0.97 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            className="p-6 bg-white rounded-2xl border border-primary-200 shadow-sm flex flex-col justify-center min-h-[180px]"
-                        >
-                            <h4 className="font-semibold text-slate-800 mb-5 flex items-center gap-2 text-sm">
-                                <UploadCloud className="w-4 h-4 text-primary-500" /> Subida directa
-                            </h4>
-                            <div className="space-y-3 mb-5">
+                {showDirectForm && (
+                    <section className="rounded-[2rem] border border-[#d9d1c4] bg-[#171411] p-7 text-white shadow-sm">
+                        <form onSubmit={submitDirect} className="grid gap-4 xl:grid-cols-[1fr_1fr_auto]">
+                            <div>
+                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Nombre del cliente</label>
                                 <input
                                     type="text"
-                                    placeholder="Nombre del cliente"
                                     required
                                     value={data.client_name}
-                                    onChange={e => setData('client_name', e.target.value)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 outline-none transition-all"
-                                />
-                                <input
-                                    type="text"
-                                    placeholder="Nombre del proyecto"
-                                    required
-                                    value={data.project_name}
-                                    onChange={e => setData('project_name', e.target.value)}
-                                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 outline-none transition-all"
+                                    onChange={(event) => setData('client_name', event.target.value)}
+                                    placeholder="Ej. Ana y Luis"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35"
                                 />
                             </div>
-                            <p className="text-xs text-slate-400 mb-4">Se asignará el plan: {installationPlan?.name}</p>
-                            <div className="flex gap-2">
-                                <button type="button" onClick={() => setShowDirectForm(false)} className="flex-1 py-2 border border-slate-200 hover:bg-slate-50 rounded-lg text-sm text-slate-600 transition-all">Cancelar</button>
-                                <button disabled={processing} type="submit" className="flex-1 py-2 bg-primary-500 hover:bg-primary-600 rounded-lg text-sm text-white font-medium transition-all">
+                            <div>
+                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Nombre de la coleccion</label>
+                                <input
+                                    type="text"
+                                    required
+                                    value={data.project_name}
+                                    onChange={(event) => setData('project_name', event.target.value)}
+                                    placeholder="Ej. Boda en Santa Maria"
+                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35"
+                                />
+                            </div>
+                            <div className="flex items-end gap-3">
+                                <button type="button" onClick={() => setShowDirectForm(false)} className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white/75">
+                                    Cancelar
+                                </button>
+                                <button type="submit" disabled={processing} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">
                                     {processing ? 'Creando...' : 'Crear'}
                                 </button>
                             </div>
-                        </motion.form>
-                    ) : (
-                        <button onClick={() => setShowDirectForm(true)} className="border border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:border-primary-300 hover:text-primary-500 hover:bg-primary-50/30 transition-all space-y-3 group min-h-[180px]">
-                            <UploadCloud className="w-6 h-6" />
-                            <div className="text-center">
-                                <span className="block text-xs font-medium">Subida directa</span>
-                                <span className="block text-[11px] text-slate-400 mt-0.5">Sin pipeline de lead</span>
+                        </form>
+                    </section>
+                )}
+
+                <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="relative w-full max-w-xl">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                                value={search}
+                                onChange={(event) => setSearch(event.target.value)}
+                                placeholder="Buscar por nombre, cliente, lugar o categoria"
+                                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] py-3 pl-11 pr-4 text-sm text-slate-700 outline-none"
+                            />
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                            <select
+                                value={selectedEventType}
+                                onChange={(event) => setSelectedEventType(event.target.value)}
+                                className="rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none"
+                            >
+                                {['Todos', ...eventTypes].map((type) => (
+                                    <option key={type} value={type}>{type}</option>
+                                ))}
+                            </select>
+
+                            <div className="rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700">
+                                Plan del estudio: <span className="font-semibold">{installationPlan?.name}</span>
                             </div>
-                        </button>
-                    )}
-                </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 xl:grid-cols-2">
+                        {filteredProjects.length > 0 ? filteredProjects.map((project) => (
+                            <Link
+                                key={project.id}
+                                href={`/admin/projects/${project.id}/details`}
+                                className="group rounded-[1.75rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 transition hover:-translate-y-0.5 hover:border-[#d9d1c4] hover:shadow-sm"
+                            >
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="flex min-w-0 items-start gap-4">
+                                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
+                                            <FolderKanban className="h-5 w-5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <h3 className="truncate text-lg font-semibold text-slate-900">{project.name}</h3>
+                                            <p className="mt-1 text-sm text-slate-500">{project.lead?.name || 'Cliente directo'}</p>
+                                        </div>
+                                    </div>
+
+                                    <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', statusStyles[project.status] || 'bg-white text-slate-500 border border-[#e6e0d5]')}>
+                                        {statusLabels[project.status] || project.status}
+                                    </span>
+                                </div>
+
+                                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                                    <InfoPill icon={BadgeCheck} label="Tipo" value={project.lead?.event_type || 'Sin categoria'} />
+                                    <InfoPill icon={CalendarRange} label="Fecha" value={project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Por definir'} />
+                                    <InfoPill icon={MapPin} label="Lugar" value={project.location || 'Sin ubicacion'} />
+                                </div>
+
+                                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ebe5db] pt-4">
+                                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                                        <UploadCloud className="h-3.5 w-3.5" />
+                                        {project.contract?.status === 'signed' ? 'Contrato firmado' : 'Firma pendiente'}
+                                    </div>
+                                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
+                                        Abrir coleccion
+                                        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                                    </div>
+                                </div>
+                            </Link>
+                        )) : (
+                            <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] px-6 py-16 text-center xl:col-span-2">
+                                <FolderKanban className="mx-auto h-8 w-8 text-slate-300" />
+                                <h3 className="mt-4 text-lg font-semibold text-slate-900">No hay colecciones para este filtro.</h3>
+                                <p className="mt-2 text-sm text-slate-500">Prueba con otro tipo de evento o crea una nueva coleccion desde el panel superior.</p>
+                            </div>
+                        )}
+                    </div>
+                </section>
             </div>
         </AdminLayout>
+    );
+}
+
+function InfoPill({ icon: Icon, label, value }) {
+    return (
+        <div className="rounded-2xl border border-[#e8e1d5] bg-white px-4 py-3">
+            <div className="flex items-center gap-2 text-slate-400">
+                <Icon className="h-3.5 w-3.5" />
+                <p className="text-[11px] uppercase tracking-[0.18em]">{label}</p>
+            </div>
+            <p className="mt-2 truncate text-sm font-medium text-slate-800">{value}</p>
+        </div>
     );
 }

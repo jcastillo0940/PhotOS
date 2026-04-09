@@ -17,7 +17,7 @@ class Project extends Model
         'downloads_window_started_at', 'extra_download_quota', 'retention_days', 'storage_limit_bytes',
         'is_full_gallery_purchased', 'full_gallery_price', 'originals_expires_at',
         'hero_photo_id', 'hero_focus_x', 'hero_focus_y', 'gallery_template_code',
-        'website_category', 'website_description',
+        'website_category', 'website_description', 'face_recognition_enabled',
     ];
 
     protected $casts = [
@@ -32,6 +32,7 @@ class Project extends Model
         'extra_download_quota' => 'integer',
         'retention_days' => 'integer',
         'is_full_gallery_purchased' => 'boolean',
+        'face_recognition_enabled' => 'boolean',
     ];
 
     public function lead() { return $this->belongsTo(Lead::class); }
@@ -43,6 +44,10 @@ class Project extends Model
     public function heroPhoto() { return $this->belongsTo(Photo::class, 'hero_photo_id'); }
     public function purchases() { return $this->hasMany(Purchase::class); }
     public function downloadLogs() { return $this->hasMany(DownloadLog::class); }
+    public function faceIdentities() { return $this->hasMany(FaceIdentity::class); }
+    public function galleryEmailRegistrations() { return $this->hasMany(GalleryEmailRegistration::class); }
+    public function galleryFavorites() { return $this->hasMany(GalleryFavorite::class); }
+    public function galleryFavoriteLogs() { return $this->hasMany(GalleryFavoriteLog::class); }
     public function accountStatements() { return $this->hasMany(AccountStatement::class); }
     public function crmTasks() { return $this->hasMany(CrmTask::class); }
 

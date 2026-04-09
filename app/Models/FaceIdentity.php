@@ -5,27 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class DownloadLog extends Model
+class FaceIdentity extends Model
 {
     use HasFactory;
 
     protected $fillable = [
         'project_id',
-        'photo_id',
-        'asset_type',
-        'client_hash',
-        'visitor_email',
-        'ip_address',
-        'user_agent',
+        'name',
+        'embedding',
+        'path_reference',
+    ];
+
+    protected $casts = [
+        'embedding' => 'array',
     ];
 
     public function project()
     {
         return $this->belongsTo(Project::class);
-    }
-
-    public function photo()
-    {
-        return $this->belongsTo(Photo::class);
     }
 }

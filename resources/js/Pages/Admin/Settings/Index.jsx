@@ -1,34 +1,7 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { CreditCard, FlaskConical, Palette, PlugZap } from 'lucide-react';
-
-const cards = [
-    {
-        href: '/admin/settings/integrations',
-        title: 'Integraciones',
-        description: 'Cloudflare R2, PayPal, Tilopay, Alanube y SMTP.',
-        icon: PlugZap,
-    },
-    {
-        href: '/admin/settings/billing',
-        title: 'Facturacion',
-        description: 'ITBMS global, tasa de impuesto y activacion de factura electronica.',
-        icon: CreditCard,
-    },
-    {
-        href: '/admin/settings/branding',
-        title: 'Branding',
-        description: 'Nombre del estudio, datos legales, logo, favicon y watermark.',
-        icon: Palette,
-    },
-    {
-        href: '/admin/settings/tests',
-        title: 'Centro de pruebas',
-        description: 'Valida conectividad y configuracion de SMTP, Alanube, Tilopay y Cloudflare R2.',
-        icon: FlaskConical,
-    },
-];
+import SettingsNavigation from '@/Pages/Admin/Settings/Partials/SettingsNavigation';
 
 export default function Index() {
     return (
@@ -36,28 +9,15 @@ export default function Index() {
             <div className="space-y-8">
                 <Head title="Configuracion" />
 
-                <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">Configuracion</p>
-                    <h1 className="mt-3 text-3xl font-semibold text-slate-900">Centro de ajustes</h1>
+                <section className="rounded-[2rem] border border-[#e4ddd2] bg-white p-7 shadow-sm">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Configuracion</p>
+                    <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Un centro de control mas claro para marca, integraciones y facturacion.</h2>
                     <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-                        La configuracion ahora esta dividida en vistas separadas para que cada bloque tenga su propio espacio operativo.
+                        En vez de apilar bloques sueltos, ahora la configuracion se divide por responsabilidad para que cada ajuste tenga contexto propio y sea mas facil de mantener.
                     </p>
-                </div>
+                </section>
 
-                <div className="grid gap-6 lg:grid-cols-2 xl:grid-cols-4">
-                    {cards.map(({ href, title, description, icon: Icon }) => (
-                        <Link key={href} href={href} className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-                            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-50 text-slate-700">
-                                <Icon className="h-6 w-6" />
-                            </div>
-                            <h2 className="mt-6 text-xl font-semibold text-slate-900">{title}</h2>
-                            <p className="mt-3 text-sm leading-7 text-slate-500">{description}</p>
-                            <span className="mt-6 inline-flex rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                                Configurar
-                            </span>
-                        </Link>
-                    ))}
-                </div>
+                <SettingsNavigation />
             </div>
         </AdminLayout>
     );

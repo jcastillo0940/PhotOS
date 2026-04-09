@@ -3,9 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\DownloadLog;
+use App\Models\FaceIdentity;
+use App\Models\GalleryEmailRegistration;
+use App\Models\GalleryFavorite;
+use App\Models\GalleryFavoriteLog;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Services\FaceRecognitionService;
 use App\Support\GalleryTemplate;
 use App\Services\CrmAutomationService;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -18,6 +23,7 @@ class GalleryController extends Controller
 {
     public function __construct(
         private readonly CrmAutomationService $automationService,
+        private readonly FaceRecognitionService $faceRecognitionService,
     ) {}
 
     public function show(Request $request, $token)
@@ -30,9 +36,18 @@ class GalleryController extends Controller
 
         $project->syncDownloadWindow();
         $project->refresh();
+        $ownerViewing = $this->isOwnerViewing($request, $project);
+        $registeredVisitor = $this->registeredVisitor($request, $project);
         $hasClientAccess = $this->hasClientGalleryAccess($request, $project);
         $visiblePhotos = $this->paginatePhotos($request, $project, $hasClientAccess);
         $allPhotos = $project->photos()->get();
+        $selectedPhotoIds = $registeredVisitor
+            ? GalleryFavorite::query()
+                ->where('project_id', $project->id)
+                ->where('client_hash', $registeredVisitor['client_hash'])
+                ->pluck('photo_id')
+                ->all()
+            : [];
 
         return Inertia::render('Public/Gallery', [
             'project' => [
@@ -40,17 +55,19 @@ class GalleryController extends Controller
                 'originals_expired' => $project->originalsExpired(),
                 'high_res_available' => $hasClientAccess && $project->highResAvailable(),
             ],
-            'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess))->values(),
+            'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess, $selectedPhotoIds))->values(),
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
             'access' => [
                 'mode' => $hasClientAccess ? 'client' : 'public',
                 'can_unlock' => !$hasClientAccess,
                 'has_password' => filled($project->gallery_password),
                 'can_download_originals' => $hasClientAccess && $project->highResAvailable(),
-                'can_select_favorites' => $hasClientAccess,
+                'can_select_favorites' => $hasClientAccess && !$ownerViewing && (bool) $registeredVisitor,
                 'public_photo_count' => $allPhotos->where('show_on_website', true)->count(),
                 'client_photo_count' => $allPhotos->count(),
-                'is_owner_session' => $this->isOwnerViewing($request, $project),
+                'is_owner_session' => $ownerViewing,
+                'registered_email' => $registeredVisitor['visitor_email'] ?? null,
+                'registered_name' => $registeredVisitor['visitor_name'] ?? null,
             ],
             'pagination' => [
                 'current_page' => $visiblePhotos->currentPage(),
@@ -63,9 +80,53 @@ class GalleryController extends Controller
         ]);
     }
 
+    public function registerEmail(Request $request, $token)
+    {
+        $project = Project::where('gallery_token', $token)->firstOrFail();
+
+        if ($this->isOwnerViewing($request, $project)) {
+            return redirect()->route('public.gallery.show', $token, 303);
+        }
+
+        $validated = $request->validate([
+            'visitor_name' => 'nullable|string|max:255',
+            'visitor_email' => 'required|email|max:255',
+        ]);
+
+        $email = strtolower(trim((string) $validated['visitor_email']));
+        $visitor = [
+            'visitor_name' => trim((string) ($validated['visitor_name'] ?? '')),
+            'visitor_email' => $email,
+            'client_hash' => $this->clientHashFromEmail($project, $email),
+        ];
+
+        GalleryEmailRegistration::updateOrCreate(
+            [
+                'project_id' => $project->id,
+                'visitor_email' => $email,
+            ],
+            [
+                'visitor_name' => $visitor['visitor_name'] ?: null,
+                'client_hash' => $visitor['client_hash'],
+                'ip_address' => $request->ip(),
+                'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
+            ]
+        );
+
+        $request->session()->put($this->registrationSessionKey($project), $visitor);
+
+        return redirect()->route('public.gallery.show', $token, 303)->with('success', 'Correo registrado. Ya puedes acceder a la coleccion.');
+    }
+
     public function unlock(Request $request, $token)
     {
         $project = Project::where('gallery_token', $token)->firstOrFail();
+
+        $validated = $request->validate([
+            'visitor_name' => 'nullable|string|max:255',
+            'visitor_email' => 'required|email|max:255',
+            'gallery_access_code' => 'required|string|max:255',
+        ]);
 
         if (blank($project->gallery_password)) {
             return back(status: 303)->withErrors([
@@ -73,16 +134,33 @@ class GalleryController extends Controller
             ]);
         }
 
-        $validated = $request->validate([
-            'gallery_access_code' => 'required|string|max:255',
-        ]);
-
         if (!hash_equals((string) $project->gallery_password, trim((string) $validated['gallery_access_code']))) {
             return back(status: 303)->withErrors([
                 'gallery_access_code' => 'El codigo de acceso no es correcto.',
             ]);
         }
 
+        $email = strtolower(trim((string) $validated['visitor_email']));
+        $visitor = [
+            'visitor_name' => trim((string) ($validated['visitor_name'] ?? '')),
+            'visitor_email' => $email,
+            'client_hash' => $this->clientHashFromEmail($project, $email),
+        ];
+
+        GalleryEmailRegistration::updateOrCreate(
+            [
+                'project_id' => $project->id,
+                'visitor_email' => $email,
+            ],
+            [
+                'visitor_name' => $visitor['visitor_name'] ?: null,
+                'client_hash' => $visitor['client_hash'],
+                'ip_address' => $request->ip(),
+                'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
+            ]
+        );
+
+        $request->session()->put($this->registrationSessionKey($project), $visitor);
         $request->session()->put($this->gallerySessionKey($project), true);
 
         return redirect()->route('public.gallery.show', $token, 303)->with('success', 'Galeria completa desbloqueada.');
@@ -91,6 +169,10 @@ class GalleryController extends Controller
     public function upload(Request $request, Project $project)
     {
         set_time_limit(0);
+
+        if (!$this->hasConfiguredR2()) {
+            return back(status: 303)->with('error', 'Cloudflare R2 no esta configurado. Completa bucket, endpoint y credenciales antes de subir archivos pesados.');
+        }
 
         $request->validate([
             'photos' => 'required|array',
@@ -161,10 +243,42 @@ class GalleryController extends Controller
         return redirect()->back(status: 303)->with('success', 'Fotos originales y versiones web sincronizadas en Cloudflare R2.');
     }
 
-    public function toggleHeart(Photo $photo)
+    public function toggleHeart(Request $request, Photo $photo)
     {
-        abort_unless($this->hasClientGalleryAccess(request(), $photo->project), 403);
-        $photo->update(['is_selected' => !$photo->is_selected]);
+        $project = $photo->project;
+        abort_unless($project && $this->hasClientGalleryAccess($request, $project), 403);
+        abort_if($this->isOwnerViewing($request, $project), 403);
+
+        $visitor = $this->registeredVisitor($request, $project);
+        abort_unless($visitor, 403);
+
+        $favorite = GalleryFavorite::query()
+            ->where('photo_id', $photo->id)
+            ->where('client_hash', $visitor['client_hash'])
+            ->first();
+
+        if ($favorite) {
+            $favorite->delete();
+            $action = 'removed';
+        } else {
+            GalleryFavorite::create([
+                'project_id' => $project->id,
+                'photo_id' => $photo->id,
+                'visitor_email' => $visitor['visitor_email'],
+                'client_hash' => $visitor['client_hash'],
+            ]);
+            $action = 'added';
+        }
+
+        GalleryFavoriteLog::create([
+            'project_id' => $project->id,
+            'photo_id' => $photo->id,
+            'visitor_email' => $visitor['visitor_email'],
+            'client_hash' => $visitor['client_hash'],
+            'action' => $action,
+            'ip_address' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
+        ]);
 
         return redirect()->back(status: 303);
     }
@@ -178,7 +292,16 @@ class GalleryController extends Controller
             'show_on_website' => 'nullable|boolean',
             'tags' => 'nullable|array',
             'tags.*' => 'string|max:50',
+            'people_tags' => 'nullable|array',
+            'people_tags.*' => 'string|max:80',
         ]);
+
+        $peopleTags = collect($validated['people_tags'] ?? ($photo->people_tags ?? []))
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
 
         $photo->update([
             'category' => $validated['category'] ?? $photo->category,
@@ -189,9 +312,187 @@ class GalleryController extends Controller
                 ->unique()
                 ->values()
                 ->all(),
+            'people_tags' => $peopleTags,
+            'recognition_status' => !empty($peopleTags) ? 'manual' : ($photo->recognition_status === 'manual' ? 'pending' : $photo->recognition_status),
+            'recognition_note' => !empty($peopleTags) ? 'Etiquetas ajustadas manualmente.' : ($photo->recognition_status === 'manual' ? 'Pendiente de nuevo analisis.' : $photo->recognition_note),
+            'recognition_processed_at' => !empty($peopleTags) ? now() : $photo->recognition_processed_at,
         ]);
 
-        return to_route('admin.projects.show', $project, 303)->with('success', 'Foto actualizada.');
+        return to_route('admin.projects.gallery', $project, 303)->with('success', 'Foto actualizada.');
+    }
+
+    public function storeIdentity(Request $request, Project $project)
+    {
+        if (!$project->face_recognition_enabled) {
+            return back(status: 303)->with('error', 'Activa primero el reconocimiento facial para esta galeria.');
+        }
+
+        if (!$this->faceRecognitionService->enabled()) {
+            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de registrar personas a reconocer.');
+        }
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'reference_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:10000',
+        ]);
+
+        $file = $request->file('reference_image');
+        $storedPath = $file->store('face-identities', 'public');
+        $absolutePath = storage_path('app/public/'.$storedPath);
+
+        try {
+            $embedding = $this->faceRecognitionService->extractIdentityEmbedding($project, $absolutePath, $file->getClientOriginalName());
+        } catch (\Throwable $e) {
+            if (file_exists($absolutePath)) {
+                @unlink($absolutePath);
+            }
+
+            return back(status: 303)->with('error', $e->getMessage());
+        }
+
+        FaceIdentity::create([
+            'project_id' => $project->id,
+            'name' => trim((string) $validated['name']),
+            'embedding' => $embedding,
+            'path_reference' => $storedPath,
+        ]);
+
+        return back(status: 303)->with('success', 'Persona registrada para reconocimiento.');
+    }
+
+    public function destroyIdentity(Project $project, FaceIdentity $faceIdentity)
+    {
+        abort_unless($faceIdentity->project_id === $project->id, 404);
+
+        if ($faceIdentity->path_reference) {
+            Storage::disk('public')->delete($faceIdentity->path_reference);
+        }
+
+        $name = $faceIdentity->name;
+        $faceIdentity->delete();
+
+        foreach ($project->photos as $photo) {
+            $photo->update([
+                'people_tags' => collect($photo->people_tags ?? [])
+                    ->reject(fn ($tag) => strcasecmp((string) $tag, (string) $name) === 0)
+                    ->values()
+                    ->all(),
+            ]);
+        }
+
+        return back(status: 303)->with('success', 'Persona eliminada de esta galeria.');
+    }
+
+    public function recognizeProject(Project $project)
+    {
+        if (!$project->face_recognition_enabled) {
+            return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
+        }
+
+        if (!$this->faceRecognitionService->enabled()) {
+            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de analizar la galeria.');
+        }
+
+        $project->load('photos', 'faceIdentities');
+
+        if ($project->faceIdentities->isEmpty()) {
+            return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
+        }
+
+        $results = $this->faceRecognitionService->identifyProject($project);
+
+        foreach ($results as $row) {
+            $photo = $project->photos->firstWhere('id', $row['photo_id'] ?? null);
+
+            if (!$photo) {
+                continue;
+            }
+
+            $this->applyRecognitionResult(
+                $photo,
+                $row['people_tags'] ?? [],
+                $row['error'] ?? null,
+            );
+        }
+
+        $recognizedPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'matched')->count();
+        $noMatchPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'no_match')->count();
+        $noFacePhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'no_face')->count();
+        $errorPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'error')->count();
+
+        return back(status: 303)->with('success', "Analisis completado. Coincidencias: {$recognizedPhotos}. Sin coincidencias: {$noMatchPhotos}. Sin rostro: {$noFacePhotos}. Errores: {$errorPhotos}.");
+    }
+
+    public function testRecognition(Project $project)
+    {
+        try {
+            $health = $this->faceRecognitionService->healthCheck();
+        } catch (\Throwable $e) {
+            return back(status: 303)->with('error', $e->getMessage());
+        }
+
+        return back(status: 303)->with('success', 'Servicio IA disponible. Version: '.($health['version'] ?? 'n/d'));
+    }
+
+    public function recognizePhoto(Project $project, Photo $photo)
+    {
+        abort_unless($photo->project_id === $project->id, 404);
+
+        if (!$project->face_recognition_enabled) {
+            return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
+        }
+
+        if (!$this->faceRecognitionService->enabled()) {
+            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de analizar fotos.');
+        }
+
+        $project->loadMissing('faceIdentities');
+
+        if ($project->faceIdentities->isEmpty()) {
+            return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
+        }
+
+        try {
+            $people = $this->faceRecognitionService->identifyPhoto($project, $photo);
+        } catch (\Throwable $e) {
+            $this->applyRecognitionResult($photo, [], $e->getMessage());
+
+            return back(status: 303)->with('error', $e->getMessage());
+        }
+
+        $this->applyRecognitionResult($photo, $people);
+
+        if (empty($people)) {
+            return back(status: 303)->with('success', "Analisis completado para la foto #{$photo->id}. No se encontro ninguna coincidencia.");
+        }
+
+        return back(status: 303)->with('success', "Analisis completado para la foto #{$photo->id}. Personas detectadas: ".implode(', ', $people).'.');
+    }
+
+    public function clearPhotoRecognition(Project $project, Photo $photo)
+    {
+        abort_unless($photo->project_id === $project->id, 404);
+
+        $photo->update([
+            'people_tags' => [],
+            'recognition_status' => 'pending',
+            'recognition_note' => 'Deteccion limpiada manualmente.',
+            'recognition_processed_at' => now(),
+        ]);
+
+        return back(status: 303)->with('success', "Personas detectadas limpiadas para la foto #{$photo->id}.");
+    }
+
+    public function clearProjectRecognition(Project $project)
+    {
+        $project->photos()->update([
+            'people_tags' => json_encode([]),
+            'recognition_status' => 'pending',
+            'recognition_note' => 'Deteccion limpiada manualmente.',
+            'recognition_processed_at' => now(),
+        ]);
+
+        return back(status: 303)->with('success', 'Se limpiaron las personas detectadas de toda la galeria.');
     }
 
     public function destroyPhoto(Project $project, Photo $photo)
@@ -212,20 +513,21 @@ class GalleryController extends Controller
 
         $photo->delete();
 
-        return to_route('admin.projects.show', $project, 303)->with('success', 'Foto eliminada.');
+        return to_route('admin.projects.gallery', $project, 303)->with('success', 'Foto eliminada.');
     }
 
-    public function download(Photo $photo)
+    public function download(Request $request, Photo $photo)
     {
         $project = $photo->project;
         abort_unless($project, 404);
-        abort_unless($this->hasClientGalleryAccess(request(), $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
+        abort_unless($this->hasClientGalleryAccess($request, $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
 
         if ($project->originalsExpired() || !$photo->original_path) {
             abort(403, 'Periodo de descarga de alta resolucion finalizado.');
         }
 
-        $clientHash = $this->clientHash(request(), $project);
+        $visitor = $this->registeredVisitor($request, $project);
+        $clientHash = $this->clientHash($request, $project);
         $weeklyLimit = $project->effectiveWeeklyDownloadLimit();
 
         if ($weeklyLimit !== null) {
@@ -243,10 +545,14 @@ class GalleryController extends Controller
         DownloadLog::create([
             'project_id' => $project->id,
             'photo_id' => $photo->id,
+            'asset_type' => 'photo',
             'client_hash' => $clientHash,
-            'ip_address' => request()->ip(),
-            'user_agent' => Str::limit((string) request()->userAgent(), 65535, ''),
+            'visitor_email' => $visitor['visitor_email'] ?? null,
+            'ip_address' => $request->ip(),
+            'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
         ]);
+
+        $photo->increment('download_count');
 
         try {
             $temporaryUrl = Storage::disk('r2')->temporaryUrl($photo->original_path, now()->addMinutes(5));
@@ -312,10 +618,11 @@ class GalleryController extends Controller
         imagedestroy($image);
     }
 
-    private function serializePhoto(Photo $photo, bool $hasClientAccess): array
+    private function serializePhoto(Photo $photo, bool $hasClientAccess, array $selectedPhotoIds = []): array
     {
         return [
             ...$photo->toArray(),
+            'is_selected' => in_array($photo->id, $selectedPhotoIds, true),
             'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url,
             'thumbnail_url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->thumbnail_url,
             'high_res_available' => $hasClientAccess && (bool) $photo->original_path && !$photo->project?->originalsExpired(),
@@ -353,7 +660,7 @@ class GalleryController extends Controller
 
     private function paginatePhotos(Request $request, Project $project, bool $hasClientAccess): LengthAwarePaginator
     {
-        $perPage = $hasClientAccess ? 20 : 16;
+        $perPage = $this->galleryPerPage($hasClientAccess);
 
         return $project->photos()
             ->when(!$hasClientAccess, fn ($query) => $query->where('show_on_website', true))
@@ -361,13 +668,24 @@ class GalleryController extends Controller
             ->withQueryString();
     }
 
+    private function galleryPerPage(bool $hasClientAccess): int
+    {
+        return $hasClientAccess ? 20 : 12;
+    }
+
     private function temporaryUrlOrFallback(string $path): string
     {
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
+
         try {
             return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes(60));
         } catch (\Throwable $e) {
-            return $path;
+            // Fall back to the raw path below.
         }
+
+        return $path;
     }
 
     private function seedMockPhotos(Project $project): void
@@ -388,11 +706,39 @@ class GalleryController extends Controller
 
     private function clientHash(Request $request, Project $project): string
     {
+        if ($registeredVisitor = $this->registeredVisitor($request, $project)) {
+            return $registeredVisitor['client_hash'];
+        }
+
         return hash('sha256', implode('|', [
             $project->id,
             $request->ip(),
             substr((string) $request->userAgent(), 0, 255),
         ]));
+    }
+
+    private function clientHashFromEmail(Project $project, string $email): string
+    {
+        return hash('sha256', implode('|', [
+            $project->id,
+            strtolower(trim($email)),
+        ]));
+    }
+
+    private function registeredVisitor(Request $request, Project $project): ?array
+    {
+        $payload = $request->session()->get($this->registrationSessionKey($project));
+
+        if (!is_array($payload) || blank($payload['visitor_email'] ?? null) || blank($payload['client_hash'] ?? null)) {
+            return null;
+        }
+
+        return $payload;
+    }
+
+    private function registrationSessionKey(Project $project): string
+    {
+        return 'gallery_registration.'.$project->gallery_token;
     }
 
     private function applyWatermark(\GdImage $image, Project $project): void
@@ -485,5 +831,36 @@ class GalleryController extends Controller
         imagedestroy($watermark);
 
         return true;
+    }
+
+    private function hasConfiguredR2(): bool
+    {
+        return filled(Setting::get('r2_key'))
+            && filled(Setting::get('r2_secret'))
+            && filled(Setting::get('r2_bucket'))
+            && filled(Setting::get('r2_endpoint'));
+    }
+
+    private function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void
+    {
+        $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
+
+        if ($error) {
+            $status = str_contains(mb_strtolower($error), 'ningun rostro') ? 'no_face' : 'error';
+            $note = $error;
+        } elseif (!empty($people)) {
+            $status = 'matched';
+            $note = 'Coincidencias detectadas: '.implode(', ', $people).'.';
+        } else {
+            $status = 'no_match';
+            $note = 'Se analizo la foto pero no hubo coincidencias con las personas registradas.';
+        }
+
+        $photo->update([
+            'people_tags' => $people,
+            'recognition_status' => $status,
+            'recognition_note' => $note,
+            'recognition_processed_at' => now(),
+        ]);
     }
 }
