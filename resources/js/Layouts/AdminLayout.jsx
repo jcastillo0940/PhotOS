@@ -107,12 +107,12 @@ export default function AdminLayout({ children }) {
     const renderSidebar = (mobile = false) => (
         <aside
             className={clsx(
-                'flex h-full flex-col border-r border-[#e8e3da] bg-[#f7f3ec]',
+                'flex h-screen flex-col overflow-hidden border-r border-[#e8e3da] bg-[#f7f3ec]',
                 compact && !mobile ? 'w-[92px]' : 'w-[292px]',
                 mobile && 'w-full max-w-[320px]'
             )}
         >
-            <div className="border-b border-[#e8e3da] px-5 py-5">
+            <div className="border-b border-[#e8e3da] px-4 py-4">
                 <div className="flex items-center justify-between gap-3">
                     <Link href="/admin" className="flex min-w-0 items-center gap-3">
                         {branding.app_logo_url ? (
@@ -150,7 +150,7 @@ export default function AdminLayout({ children }) {
                 </div>
             </div>
 
-            <div className="border-b border-[#e8e3da] px-4 py-4">
+            <div className="border-b border-[#e8e3da] px-4 py-3">
                 <div className={clsx('grid gap-3', compact && !mobile ? 'grid-cols-1' : 'grid-cols-2')}>
                     <Link
                         href="/admin/projects"
@@ -177,8 +177,8 @@ export default function AdminLayout({ children }) {
                 </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-3 py-5">
-                <div className="space-y-6">
+            <div className="flex-1 overflow-hidden px-3 py-4">
+                <div className="space-y-5">
                     {sections.map((section) => {
                         const visibleItems = section.items.filter((item) => !item.roles || item.roles.includes(user?.role));
 
@@ -204,10 +204,10 @@ export default function AdminLayout({ children }) {
                 </div>
             </div>
 
-            <div className="border-t border-[#e8e3da] p-4">
-                <div className={clsx('rounded-[1.6rem] border border-[#e5ddd1] bg-white p-4 shadow-sm', compact && !mobile && 'px-3')}>
+            <div className="border-t border-[#e8e3da] p-3">
+                <div className={clsx('rounded-[1.4rem] border border-[#e5ddd1] bg-white p-3 shadow-sm', compact && !mobile && 'px-2.5')}>
                     <div className="flex items-center gap-3">
-                        <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-[#f1ebe1] text-xs font-bold text-slate-700">
+                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[#f1ebe1] text-xs font-bold text-slate-700">
                             {userInitials}
                         </div>
                         {!compact && (
@@ -219,9 +219,9 @@ export default function AdminLayout({ children }) {
                     </div>
 
                     {!compact && (
-                        <div className="mt-4 rounded-2xl bg-[#f7f3ec] px-3 py-3">
+                        <div className="mt-3 rounded-2xl bg-[#f7f3ec] px-3 py-2.5">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso rapido</p>
-                            <p className="mt-1 text-sm font-medium text-slate-700">Todo el estudio se maneja desde este panel.</p>
+                            <p className="mt-1 text-xs font-medium leading-5 text-slate-700">Todo el estudio se maneja desde este panel.</p>
                         </div>
                     )}
 
@@ -230,7 +230,7 @@ export default function AdminLayout({ children }) {
                         method="post"
                         as="button"
                         className={clsx(
-                            'mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#e5ddd1] px-4 py-3 text-sm font-semibold text-slate-600 transition hover:bg-slate-50',
+                            'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#e5ddd1] px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50',
                             compact && !mobile && 'px-0'
                         )}
                     >
@@ -243,14 +243,14 @@ export default function AdminLayout({ children }) {
     );
 
     return (
-        <div className="flex min-h-screen bg-[#f2ede4] text-slate-800">
+        <div className="flex h-screen overflow-hidden bg-[#f2ede4] text-slate-800">
             <div className="hidden lg:flex">{renderSidebar(false)}</div>
 
             <AnimateMobileSidebar open={mobileOpen}>
                 {renderSidebar(true)}
             </AnimateMobileSidebar>
 
-            <main className="flex min-h-screen min-w-0 flex-1 flex-col">
+            <main className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
                 <header className="sticky top-0 z-30 border-b border-[#e8e3da] bg-[#f2ede4]/95 px-4 py-4 backdrop-blur md:px-8">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div className="flex min-w-0 items-start gap-3">
@@ -294,7 +294,7 @@ export default function AdminLayout({ children }) {
                     </div>
                 </header>
 
-                <section className="flex-1 px-4 py-6 md:px-8 md:py-8">
+                <section className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
                     <div className="mx-auto w-full max-w-[1440px]">{children}</div>
                 </section>
             </main>
