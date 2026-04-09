@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,10 +10,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class Project extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'lead_id', 'client_id', 'owner_user_id', 'name', 'status', 'event_date', 'location', 'package_details', 'roadmap',
+        'tenant_id', 'lead_id', 'client_id', 'owner_user_id', 'name', 'status', 'event_date', 'location', 'package_details', 'roadmap',
         'gallery_token', 'gallery_password', 'download_limit', 'weekly_download_limit', 'downloads_used_in_window',
         'downloads_window_started_at', 'extra_download_quota', 'retention_days', 'storage_limit_bytes',
         'is_full_gallery_purchased', 'full_gallery_price', 'originals_expires_at',
@@ -63,12 +64,12 @@ class Project extends Model
 
     public function originalsBucketPrefix(): string
     {
-        return $this->id.'/originals';
+        return 'tenants/'.$this->tenant_id.'/projects/'.$this->id.'/originals';
     }
 
     public function webBucketPrefix(): string
     {
-        return $this->id.'/web';
+        return 'tenants/'.$this->tenant_id.'/projects/'.$this->id.'/web';
     }
 
     public function effectiveWeeklyDownloadLimit(): ?int

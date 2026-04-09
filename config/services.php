@@ -39,5 +39,12 @@ return [
         'url' => env('FACE_AI_SERVICE_URL'),
     ],
 
+    'cloudflare_saas' => [
+        'api_token' => env('CLOUDFLARE_SAAS_API_TOKEN'),
+        'zone_id' => env('CLOUDFLARE_SAAS_ZONE_ID'),
+        'managed_cname_target' => env('CLOUDFLARE_SAAS_CNAME_TARGET'),
+        'dcv_target' => env('CLOUDFLARE_SAAS_DCV_TARGET'),
+    ],
+
 ];
 

@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class AccountStatement extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'client_id', 'project_id', 'invoice_id', 'payment_id', 'entry_type', 'reference', 'description', 'amount', 'occurred_at',
+        'tenant_id', 'client_id', 'project_id', 'invoice_id', 'payment_id', 'entry_type', 'reference', 'description', 'amount', 'occurred_at',
     ];
 
     protected $casts = [

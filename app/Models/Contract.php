@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class Contract extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'project_id', 'content', 'contract_data', 'status', 'signed_at', 'signature_data', 'token'
+        'tenant_id', 'project_id', 'content', 'contract_data', 'status', 'signed_at', 'signature_data', 'token'
     ];
 
     protected $casts = [

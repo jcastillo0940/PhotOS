@@ -4,6 +4,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use App\Http\Middleware\EnsureDeveloper;
+use App\Http\Middleware\ResolveTenantFromHost;
 
 $app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -14,6 +15,10 @@ $app = Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'developer' => EnsureDeveloper::class,
+        ]);
+
+        $middleware->web(append: [
+            ResolveTenantFromHost::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

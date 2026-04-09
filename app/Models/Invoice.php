@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Invoice extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'project_id', 'client_id', 'amount', 'status', 'due_date', 'concept', 'notes', 'invoice_number',
+        'tenant_id', 'project_id', 'client_id', 'amount', 'status', 'due_date', 'concept', 'notes', 'invoice_number',
         'subtotal', 'tax_rate', 'tax_amount', 'total', 'balance_due', 'itbms_enabled', 'alanube_enabled', 'alanube_status',
         'alanube_document_id', 'alanube_legal_status', 'alanube_cufe', 'alanube_xml_url', 'alanube_qr_url',
         'alanube_response', 'alanube_submitted_at',

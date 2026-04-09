@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import SettingsNavigation from '@/Pages/Admin/Settings/Partials/SettingsNavigation';
-import { Cloud, CreditCard, Eye, EyeOff, Mail, Save, Shield } from 'lucide-react';
+import { Cloud, CreditCard, Eye, EyeOff, Mail, Save, Shield, Sparkles } from 'lucide-react';
 
 const Section = ({ title, subtitle, icon: Icon, children }) => (
     <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
@@ -97,6 +97,30 @@ export default function Integrations({ settings }) {
                                 placeholder={setting.key === 'r2_endpoint' ? 'https://<account_id>.r2.cloudflarestorage.com' : ''}
                             />
                         ))}
+                    </Section>
+
+                    <Section title="Cloudflare for SaaS" subtitle="Dominios custom, custom hostnames y onboarding automatico" icon={Sparkles}>
+                        {settings.saas?.map((setting) => (
+                            <Field
+                                key={setting.key}
+                                label={setting.key}
+                                value={valueFor(setting.key)}
+                                onChange={(value) => updateValue(setting.key, value)}
+                                isSecret={setting.is_secret}
+                                placeholder={
+                                    setting.key === 'cloudflare_saas_zone_id'
+                                        ? '4fc1e143561734ce06867d42b0658127'
+                                        : setting.key === 'cloudflare_saas_cname_target'
+                                            ? 'customers.photos.pixelprocr.com'
+                                            : setting.key === 'cloudflare_saas_dcv_target'
+                                                ? 'f2b8962b4b923bf2.dcv.cloudflare.com'
+                                            : ''
+                                }
+                            />
+                        ))}
+                        <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs leading-6 text-slate-500">
+                            `cloudflare_saas_cname_target` es el destino CNAME principal que el cliente debe apuntar en su DNS. `cloudflare_saas_dcv_target` es el destino de delegacion ACME para `_acme-challenge` cuando uses DCV Delegation.
+                        </div>
                     </Section>
 
                     <Section title="Pagos" subtitle="Credenciales para PayPal y Tilopay" icon={CreditCard}>

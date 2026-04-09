@@ -18,6 +18,7 @@ use App\Http\Controllers\BookingController;
 use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ClientAccountingController;
 use App\Http\Controllers\ClientDashboardController;
+use App\Http\Controllers\SaasTenantController;
 use Illuminate\Support\Facades\Route;
 
 // Public: Studio Website
@@ -73,6 +74,11 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::middleware('developer')->group(function () {
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
         Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
+        Route::get('/saas/tenants', [SaasTenantController::class, 'index'])->name('admin.saas.tenants.index');
+        Route::post('/saas/tenants', [SaasTenantController::class, 'store'])->name('admin.saas.tenants.store');
+        Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');
+        Route::post('/saas/tenants/{tenant}/domains', [SaasTenantController::class, 'storeDomain'])->name('admin.saas.tenants.domains.store');
+        Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
     });
     
     Route::get('/leads', [LeadController::class, 'index'])->name('admin.leads');

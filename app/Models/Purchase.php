@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Purchase extends Model
 {
-    use HasFactory;
+    use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'project_id', 'amount', 'status', 'gateway', 'type', 'payload'
+        'tenant_id', 'project_id', 'amount', 'status', 'gateway', 'type', 'payload'
     ];
 
     protected $casts = [

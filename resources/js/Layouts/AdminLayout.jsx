@@ -18,6 +18,7 @@ import {
     PanelLeftClose,
     PanelLeftOpen,
     Settings2,
+    ShieldEllipsis,
     Sparkles,
     Target,
     X,
@@ -47,6 +48,7 @@ const sections = [
             { href: '/admin/automations', icon: Bot, label: 'Automatizaciones', match: ['/admin/automations'] },
             { href: '/admin/limits', icon: Gauge, label: 'Limites', match: ['/admin/limits'] },
             { href: '/admin/templates', icon: Layers3, label: 'Plantillas', match: ['/admin/templates'], roles: ['developer', 'owner'] },
+            { href: '/admin/saas/tenants', icon: ShieldEllipsis, label: 'SaaS', match: ['/admin/saas'], roles: ['developer', 'owner'] },
             { href: '/admin/settings', icon: Settings2, label: 'Configuracion', match: ['/admin/settings'] },
         ],
     },
@@ -62,6 +64,7 @@ const pageTitles = [
     { match: ['/admin/automations'], title: 'Automatizaciones', description: 'Reglas, tareas y recordatorios por tipo de evento.' },
     { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
     { match: ['/admin/templates'], title: 'Plantillas', description: 'Configuracion avanzada de galerias y planes.' },
+    { match: ['/admin/saas'], title: 'Control SaaS', description: 'Tenants, dominios y onboarding multidominio.' },
     { match: ['/admin/settings'], title: 'Configuracion central', description: 'Integraciones, branding, facturacion y pruebas del sistema.' },
 ];
 

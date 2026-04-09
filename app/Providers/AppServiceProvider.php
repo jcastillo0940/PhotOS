@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Support\Tenancy\TenantContext;
 use Inertia\Inertia;
 use Illuminate\Support\ServiceProvider;
 
@@ -12,7 +13,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(TenantContext::class, fn () => new TenantContext());
     }
 
     /**
@@ -38,6 +39,20 @@ class AppServiceProvider extends ServiceProvider
             'error' => session('error'),
             'integration_test' => session('integration_test'),
         ]);
+
+        Inertia::share('tenant', function () {
+            $tenant = app(TenantContext::class)->tenant();
+
+            return $tenant
+                ? [
+                    'id' => $tenant->id,
+                    'name' => $tenant->name,
+                    'slug' => $tenant->slug,
+                    'status' => $tenant->status,
+                    'plan_code' => $tenant->plan_code,
+                ]
+                : null;
+        });
 
         Inertia::share('branding', function () {
             try {
@@ -75,6 +90,10 @@ class AppServiceProvider extends ServiceProvider
                 $r2Secret = \App\Models\Setting::get('r2_secret');
                 $r2Bucket = \App\Models\Setting::get('r2_bucket');
                 $r2Endpoint = \App\Models\Setting::get('r2_endpoint');
+                $cloudflareSaasToken = \App\Models\Setting::get('cloudflare_saas_api_token', env('CLOUDFLARE_SAAS_API_TOKEN'));
+                $cloudflareSaasZoneId = \App\Models\Setting::get('cloudflare_saas_zone_id', env('CLOUDFLARE_SAAS_ZONE_ID'));
+                $cloudflareSaasCnameTarget = \App\Models\Setting::get('cloudflare_saas_cname_target', env('CLOUDFLARE_SAAS_CNAME_TARGET'));
+                $cloudflareSaasDcvTarget = \App\Models\Setting::get('cloudflare_saas_dcv_target', env('CLOUDFLARE_SAAS_DCV_TARGET'));
                 $smtpEnabled = filter_var(\App\Models\Setting::get('smtp_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
 
                 if ($r2Key && $r2Secret) {
@@ -85,6 +104,13 @@ class AppServiceProvider extends ServiceProvider
                         'filesystems.disks.r2.endpoint' => $r2Endpoint,
                     ]);
                 }
+
+                config([
+                    'services.cloudflare_saas.api_token' => $cloudflareSaasToken,
+                    'services.cloudflare_saas.zone_id' => $cloudflareSaasZoneId,
+                    'services.cloudflare_saas.managed_cname_target' => $cloudflareSaasCnameTarget,
+                    'services.cloudflare_saas.dcv_target' => $cloudflareSaasDcvTarget,
+                ]);
 
                 config([
                     'mail.default' => $smtpEnabled ? 'smtp' : env('MAIL_MAILER', 'log'),
