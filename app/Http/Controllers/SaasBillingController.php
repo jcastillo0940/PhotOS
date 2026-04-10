@@ -26,7 +26,7 @@ class SaasBillingController extends Controller
                 return redirect()->back()->with('error', 'PayPal no devolvio una URL de aprobacion para la suscripcion.');
             }
 
-            return redirect()->away($approvalUrl);
+            return \Inertia\Inertia::location($approvalUrl);
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'No se pudo iniciar la suscripcion en PayPal: '.$e->getMessage());
         }
