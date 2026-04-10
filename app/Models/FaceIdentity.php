@@ -26,8 +26,9 @@ class FaceIdentity extends Model
         'processed_at' => 'datetime',
     ];
 
-    public function project()
+    public function project(): BelongsTo
     {
         return $this->belongsTo(Project::class);
     }
 }
+

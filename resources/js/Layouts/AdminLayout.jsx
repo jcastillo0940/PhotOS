@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Bell,
@@ -28,7 +28,19 @@ import {
 import { clsx } from 'clsx';
 
 function getSections(userRole) {
-    const isSystemOwner = ['developer', 'owner'].includes(userRole);
+    const isSystemOwner = userRole === 'developer';
+    const isTenantAdmin = ['owner', 'operator'].includes(userRole);
+
+    if (userRole === 'photographer') {
+        return [
+            {
+                label: 'Trabajo',
+                items: [
+                    { href: '/admin/projects', icon: FolderKanban, label: 'Mis proyectos', match: ['/admin/projects'] },
+                ],
+            },
+        ];
+    }
 
     if (isSystemOwner) {
         return [
@@ -56,6 +68,7 @@ function getSections(userRole) {
                 { href: '/admin/leads', icon: Target, label: 'Leads', match: ['/admin/leads'] },
                 { href: '/admin/projects', icon: FolderKanban, label: 'Colecciones', match: ['/admin/projects'] },
                 { href: '/admin/calendar', icon: CalendarRange, label: 'Agenda', match: ['/admin/calendar'] },
+                { href: '/admin/face-detection', icon: ScanFace, label: 'Deteccion facial', match: ['/admin/face-detection'] },
             ],
         },
         {
@@ -71,26 +84,27 @@ function getSections(userRole) {
                 { href: '/admin/automations', icon: Bot, label: 'Automatizaciones', match: ['/admin/automations'] },
                 { href: '/admin/limits', icon: Gauge, label: 'Limites', match: ['/admin/limits'] },
                 { href: '/admin/settings', icon: Settings2, label: 'Branding', match: ['/admin/settings'] },
-            ],
+            ].filter((item) => isTenantAdmin || item.href !== '/admin/settings'),
         },
     ];
 }
 
 function getPageTitles(userRole) {
-    const isSystemOwner = ['developer', 'owner'].includes(userRole);
+    const isSystemOwner = userRole === 'developer';
 
     return [
-        { match: ['/admin', '/admin/dashboard'], title: isSystemOwner ? 'Control SaaS' : 'Resumen del estudio', description: isSystemOwner ? 'Tenants, cobro, integraciones globales y salud operativa de la plataforma.' : 'Tus operaciones, colecciones e ingresos en un solo lugar.' },
+        { match: ['/admin', '/admin/dashboard'], title: isSystemOwner ? 'Control SaaS' : 'Resumen del estudio', description: userRole === 'photographer' ? 'Tus accesos operativos por proyecto.' : (isSystemOwner ? 'Tenants, cobro, integraciones globales y salud operativa de la plataforma.' : 'Tus operaciones, colecciones e ingresos en un solo lugar.') },
         { match: ['/admin/leads'], title: 'Leads y oportunidades', description: 'Organiza consultas, briefings y conversiones sin salir del flujo.' },
-        { match: ['/admin/projects'], title: 'Colecciones y entregas', description: 'Administra galerias, material, contratos y facturacion.' },
+        { match: ['/admin/projects'], title: userRole === 'photographer' ? 'Proyectos asignados' : 'Colecciones y entregas', description: userRole === 'photographer' ? 'Solo ves los proyectos donde tienes acceso.' : 'Administra galerias, material, contratos y facturacion.' },
         { match: ['/admin/calendar'], title: 'Agenda del estudio', description: 'Fechas, sesiones y disponibilidad del equipo.' },
+        { match: ['/admin/face-detection'], title: 'Deteccion facial', description: 'Rostros globales, modo IA por galeria y ejecucion masiva.' },
         { match: ['/admin/website'], title: 'Sitio web', description: 'Edita el home, el portafolio y la presentacion publica.' },
         { match: ['/admin/contracts'], title: 'Contratos', description: 'Control legal y firma de cada proyecto.' },
         { match: ['/admin/automations'], title: 'Automatizaciones', description: 'Reglas, tareas y recordatorios por tipo de evento.' },
         { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
         { match: ['/admin/templates'], title: 'Planes y presets', description: 'Plantillas base, planes y configuracion avanzada del SaaS.' },
         { match: ['/admin/saas/tenants'], title: 'Tenants y dominios', description: 'Clientes, suscripciones, onboarding y dominios custom.' },
-        { match: ['/admin/saas/users'], title: 'Usuarios del sistema', description: 'Gestiona fotógrafos, dueños de estudio y administradores globales.' },
+        { match: ['/admin/saas/users'], title: 'Usuarios del sistema', description: 'Gestiona fotÃ³grafos, dueÃ±os de estudio y administradores globales.' },
         { match: ['/admin/saas/plans'], title: 'Planes SaaS', description: 'Define limites de fotos, escaneos IA y precios base.' },
         { match: ['/admin/saas/subscriptions'], title: 'Suscripciones y cobros', description: 'Control de periodos, pagos manuales y estados de cuenta.' },
         { match: ['/admin/saas/payments'], title: 'Historial de pagos PayPal', description: 'Seguimiento de transacciones recibidas por el gateway.' },
@@ -135,7 +149,8 @@ export default function AdminLayout({ children }) {
     const [compact, setCompact] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
 
-    const isSystemOwner = ['developer', 'owner'].includes(user?.role);
+    const isSystemOwner = user?.role === 'developer';
+    const isPhotographer = user?.role === 'photographer';
     const sections = getSections(user?.role);
     const pageMeta = currentPageMeta(url, user?.role);
     const userInitials = user?.name
@@ -212,6 +227,20 @@ export default function AdminLayout({ children }) {
                         >
                             <Wrench className="h-4 w-4" />
                             {!compact && 'Config global'}
+                        </Link>
+                    </div>
+                ) : isPhotographer ? (
+                    <div className={clsx('grid gap-3', compact && !mobile ? 'grid-cols-1' : 'grid-cols-1')}>
+                        <Link
+                            href="/admin/projects"
+                            onClick={() => setMobileOpen(false)}
+                            className={clsx(
+                                'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#13110f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black',
+                                compact && !mobile && 'px-0'
+                            )}
+                        >
+                            <FolderKanban className="h-4 w-4" />
+                            {!compact && 'Mis proyectos'}
                         </Link>
                     </div>
                 ) : (
@@ -351,6 +380,14 @@ export default function AdminLayout({ children }) {
                                         Config global
                                     </Link>
                                 </>
+                            ) : isPhotographer ? (
+                                <Link
+                                    href="/admin/projects"
+                                    className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
+                                >
+                                    <FolderKanban className="h-4 w-4" />
+                                    Mis proyectos
+                                </Link>
                             ) : (
                                 <>
                                     <Link
@@ -407,3 +444,5 @@ function AnimateMobileSidebar({ open, children }) {
         </div>
     );
 }
+
+

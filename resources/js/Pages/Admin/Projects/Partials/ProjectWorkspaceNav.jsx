@@ -1,17 +1,17 @@
 import React from 'react';
 import { Link } from '@inertiajs/react';
-import { CalendarRange, FolderKanban, Images, ReceiptText } from 'lucide-react';
+import { CalendarRange, FolderKanban, Images, LayoutTemplate, ReceiptText, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
-const items = [
-    { key: 'details', label: 'Detalles', icon: FolderKanban, href: (projectId) => `/admin/projects/${projectId}/details` },
-    { key: 'gallery', label: 'Fotos', icon: Images, href: (projectId) => `/admin/projects/${projectId}/gallery` },
-    { key: 'design', label: 'Diseno', icon: LayoutTemplate, href: (projectId) => `/admin/projects/${projectId}/design` },
-    { key: 'ai', label: 'Rostros', icon: Sparkles, href: (projectId) => `/admin/projects/${projectId}/ai` },
-    { key: 'management', label: 'Gestion', icon: ReceiptText, href: (projectId) => `/admin/projects/${projectId}/management` },
-];
-
 export default function ProjectWorkspaceNav({ project, current }) {
+    const items = [
+        { key: 'details', label: 'Detalles', icon: FolderKanban, href: (projectId) => `/admin/projects/${projectId}/details`, visible: !!project.permissions?.can_manage_gallery },
+        { key: 'gallery', label: 'Fotos', icon: Images, href: (projectId) => `/admin/projects/${projectId}/gallery`, visible: true },
+        { key: 'design', label: 'Diseno', icon: LayoutTemplate, href: (projectId) => `/admin/projects/${projectId}/design`, visible: !!project.permissions?.can_manage_gallery },
+        { key: 'ai', label: 'Rostros', icon: Sparkles, href: (projectId) => `/admin/projects/${projectId}/ai`, visible: !!project.permissions?.can_manage_gallery },
+        { key: 'management', label: 'Gestion', icon: ReceiptText, href: (projectId) => `/admin/projects/${projectId}/management`, visible: !!project.permissions?.can_manage_finance },
+    ].filter((item) => item.visible);
+
     return (
         <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-5 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-4">

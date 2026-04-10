@@ -1,5 +1,5 @@
 [Unit]
-Description=PhotOS Face AI Worker
+Description=PhotOS Laravel Face AI Results Consumer
 After=network-online.target redis-server.service redis.service
 Wants=network-online.target
 
@@ -7,9 +7,8 @@ Wants=network-online.target
 Type=simple
 User=www-data
 Group=www-data
-WorkingDirectory=/var/www/photos/ai_service
-EnvironmentFile=/etc/photos-face-ai.env
-ExecStart=/var/www/photos/ai_service/.venv/bin/python /var/www/photos/ai_service/main.py
+WorkingDirectory=/var/www/photos
+ExecStart=/usr/bin/php artisan face-ai:consume-results --timeout=5
 Restart=always
 RestartSec=5
 TimeoutStartSec=60

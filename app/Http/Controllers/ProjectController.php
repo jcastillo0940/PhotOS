@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\FaceIdentity;
 use App\Models\Lead;
 use App\Models\Project;
+use App\Models\ProjectCollaborator;
 use App\Models\Contract;
 use App\Models\Client;
 use App\Models\DownloadLog;
@@ -33,8 +34,22 @@ class ProjectController extends Controller
 
     public function index()
     {
+        $user = request()->user();
+        $projects = Project::with('lead', 'contract');
+
+        if ($user?->isPhotographer()) {
+            $projects->whereHas('collaborators', fn ($query) => $query
+                ->where('user_id', $user->id)
+                ->where('status', 'active'));
+        }
+
         return Inertia::render('Admin/Projects/Index', [
-            'projects' => Project::with('lead', 'contract')->latest()->get(),
+            'projects' => $projects->latest()->get()->map(fn (Project $project) => [
+                ...$project->toArray(),
+                'workspace_entry_url' => $project->userCan($user, 'manage_gallery')
+                    ? "/admin/projects/{$project->id}/details"
+                    : "/admin/projects/{$project->id}/gallery",
+            ])->values(),
             'installationPlan' => InstallationPlan::current(),
             'eventTypes' => EventTypeSettings::get(),
         ]);
@@ -42,11 +57,15 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        return to_route('admin.projects.details', $project, 303);
+        return request()->user()?->isPhotographer()
+            ? to_route('admin.projects.gallery', $project, 303)
+            : to_route('admin.projects.details', $project, 303);
     }
 
     public function details(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
+
         $payload = $this->projectAdminPayload($project);
 
         return Inertia::render('Admin/Projects/Details', $payload);
@@ -61,16 +80,22 @@ class ProjectController extends Controller
 
     public function design(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
+
         return Inertia::render('Admin/Projects/Design', $this->projectAdminPayload($project));
     }
 
     public function ai(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
+
         return Inertia::render('Admin/Projects/Ai', $this->projectAdminPayload($project));
     }
 
     public function management(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'finance'), 403);
+
         return Inertia::render('Admin/Projects/Management', $this->projectAdminPayload($project));
     }
 
@@ -117,6 +142,7 @@ class ProjectController extends Controller
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
             'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
+            'face_recognition_enabled' => $this->shouldEnableFaceRecognitionByDefault(),
         ]);
 
         $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
@@ -163,6 +189,7 @@ class ProjectController extends Controller
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
             'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
+            'face_recognition_enabled' => $this->shouldEnableFaceRecognitionByDefault(),
         ]);
 
         $lead->update(['status' => 'project']);
@@ -374,10 +401,45 @@ class ProjectController extends Controller
                 'high_res_available' => $project->highResAvailable(),
                 'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
                 'public_gallery_url' => URL::route('public.gallery.show', $project->gallery_token),
+                'permissions' => [
+                    'can_upload' => $project->userCan(request()->user(), 'upload'),
+                    'can_manage_gallery' => $project->userCan(request()->user(), 'manage_gallery'),
+                    'can_manage_finance' => $project->userCan(request()->user(), 'finance'),
+                ],
+                'collaborators' => $project->collaborators()
+                    ->with('user:id,name,email,role')
+                    ->latest()
+                    ->get()
+                    ->map(fn (ProjectCollaborator $collaborator) => [
+                        'id' => $collaborator->id,
+                        'name' => $collaborator->user?->name,
+                        'email' => $collaborator->user?->email ?: $collaborator->invited_email,
+                        'role' => $collaborator->role,
+                        'status' => $collaborator->status,
+                        'can_upload' => $collaborator->can_upload,
+                        'can_manage_gallery' => $collaborator->can_manage_gallery,
+                        'access_code' => $collaborator->access_code,
+                        'access_url' => URL::to('/admin/projects/'.$project->id.'/gallery?access_token='.$collaborator->access_token),
+                    ])
+                    ->values()
+                    ->all(),
             ],
             'faceRecognition' => [
                 'enabled' => $project->face_recognition_enabled,
+                'tenant_scope_enabled' => Setting::get('face_detection_scope', 'project_only') === 'all_galleries',
                 'service_configured' => filled(config('services.face_ai.task_queue')) && filled(config('services.face_ai.result_queue')),
+                'database_ready' => FaceIdentity::withoutGlobalScope('tenant')
+                    ->where('tenant_id', $project->tenant_id)
+                    ->whereNotNull('embedding')
+                    ->where(function ($query) use ($project) {
+                        $query->whereNull('project_id')
+                            ->orWhere('project_id', $project->id);
+                    })
+                    ->exists(),
+                'global_identities_count' => FaceIdentity::withoutGlobalScope('tenant')
+                    ->where('tenant_id', $project->tenant_id)
+                    ->whereNull('project_id')
+                    ->count(),
                 'summary' => [
                     'photos_with_people' => $project->photos->filter(fn ($photo) => !empty($photo->people_tags))->count(),
                     'photos_pending' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
@@ -419,6 +481,11 @@ class ProjectController extends Controller
         return GalleryTemplate::isAllowedForPlan($preferred, $plan)
             ? $preferred
             : GalleryTemplate::firstAllowedCode($plan);
+    }
+
+    private function shouldEnableFaceRecognitionByDefault(): bool
+    {
+        return Setting::get('face_detection_scope', 'project_only') === 'all_galleries';
     }
 
     private function projectAnalytics(Project $project): array
@@ -539,3 +606,8 @@ class ProjectController extends Controller
     }
 
 }
+
+
+
+
+

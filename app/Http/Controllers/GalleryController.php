@@ -170,6 +170,8 @@ class GalleryController extends Controller
 
     public function upload(Request $request, Project $project)
     {
+        abort_unless($project->userCan($request->user(), 'upload'), 403);
+
         set_time_limit(0);
 
         if (!$this->hasConfiguredR2()) {
@@ -294,6 +296,7 @@ class GalleryController extends Controller
 
     public function updatePhoto(Request $request, Project $project, Photo $photo)
     {
+        abort_unless($project->userCan($request->user(), 'manage_gallery'), 403);
         abort_unless($photo->project_id === $project->id, 404);
 
         $validated = $request->validate([
@@ -332,7 +335,7 @@ class GalleryController extends Controller
 
     public function storeIdentity(Request $request, Project $project)
     {
-        if (!$project->face_recognition_enabled) {
+        if (!$this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial para esta galeria.');
         }
 
@@ -376,6 +379,7 @@ class GalleryController extends Controller
 
     public function destroyIdentity(Project $project, FaceIdentity $faceIdentity)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         abort_unless($faceIdentity->project_id === $project->id, 404);
 
         if ($faceIdentity->path_reference) {
@@ -400,7 +404,7 @@ class GalleryController extends Controller
 
     public function recognizeProject(Project $project)
     {
-        if (!$project->face_recognition_enabled) {
+        if (!$this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
         }
 
@@ -410,7 +414,7 @@ class GalleryController extends Controller
 
         $project->load('photos', 'faceIdentities');
 
-        if ($project->faceIdentities->isEmpty()) {
+        if (!$this->faceRecognitionService->hasRecognitionDatabase($project)) {
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
@@ -428,6 +432,7 @@ class GalleryController extends Controller
 
     public function testRecognition(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         try {
             $health = $this->faceRecognitionService->healthCheck();
         } catch (\Throwable $e) {
@@ -441,7 +446,7 @@ class GalleryController extends Controller
     {
         abort_unless($photo->project_id === $project->id, 404);
 
-        if (!$project->face_recognition_enabled) {
+        if (!$this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
         }
 
@@ -449,9 +454,7 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de analizar fotos.');
         }
 
-        $project->loadMissing('faceIdentities');
-
-        if ($project->faceIdentities->isEmpty()) {
+        if (!$this->faceRecognitionService->hasRecognitionDatabase($project)) {
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
@@ -468,6 +471,7 @@ class GalleryController extends Controller
 
     public function clearPhotoRecognition(Project $project, Photo $photo)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         abort_unless($photo->project_id === $project->id, 404);
 
         $photo->update([
@@ -482,6 +486,7 @@ class GalleryController extends Controller
 
     public function clearProjectRecognition(Project $project)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         $project->photos()->update([
             'people_tags' => json_encode([]),
             'recognition_status' => 'pending',
@@ -494,6 +499,7 @@ class GalleryController extends Controller
 
     public function destroyPhoto(Project $project, Photo $photo)
     {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         abort_unless($photo->project_id === $project->id, 404);
 
         if ($photo->optimized_path) {
@@ -838,6 +844,12 @@ class GalleryController extends Controller
             && filled(Setting::get('r2_endpoint'));
     }
 
+    private function projectRecognitionEnabled(Project $project): bool
+    {
+        return $project->face_recognition_enabled
+            || Setting::get('face_detection_scope', 'project_only') === 'all_galleries';
+    }
+
     private function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void
     {
         $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
@@ -861,3 +873,6 @@ class GalleryController extends Controller
         ]);
     }
 }
+
+
+

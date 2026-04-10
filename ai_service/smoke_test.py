@@ -1,68 +1,49 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import argparse
-import json
+import importlib
+import os
+import sys
 from pathlib import Path
 
-import requests
+import redis
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Smoke test for PhotOS Face AI Service")
-    parser.add_argument("--base-url", default="http://127.0.0.1:5000", help="FastAPI base URL")
-    parser.add_argument("--reference", type=Path, help="Path to a single-face reference image")
-    parser.add_argument("--group", type=Path, help="Path to a photo to compare against the database")
-    parser.add_argument("--tolerance", type=float, default=0.6, help="Comparison tolerance")
+    parser = argparse.ArgumentParser(description="Smoke test for PhotOS Face AI Worker")
+    parser.add_argument("--redis-url", default=os.getenv("FACE_AI_REDIS_URL", "redis://127.0.0.1:6379/0"), help="Redis URL")
+    parser.add_argument("--task-queue", default=os.getenv("FACE_AI_TASK_QUEUE", "face-ai:tasks"), help="Task queue name")
+    parser.add_argument("--result-queue", default=os.getenv("FACE_AI_RESULT_QUEUE", "face-ai:results"), help="Result queue name")
+    parser.add_argument("--worker-file", default=str(Path(__file__).with_name("main.py")), help="Path to worker entrypoint")
     args = parser.parse_args()
 
-    base_url = args.base_url.rstrip("/")
+    print("== Python ==")
+    print(sys.executable)
+    print(sys.version)
 
-    print("== Health check ==")
-    health = requests.get(f"{base_url}/health", timeout=30)
-    print(health.status_code, health.text)
+    print("\n== Required modules ==")
+    for module_name in ("face_recognition", "numpy", "redis", "requests"):
+        module = importlib.import_module(module_name)
+        module_path = getattr(module, "__file__", "built-in")
+        print(f"{module_name}: ok ({module_path})")
 
-    if not health.ok:
+    worker_file = Path(args.worker_file)
+    print("\n== Worker file ==")
+    print(worker_file)
+    if not worker_file.exists():
+        print("worker entrypoint not found")
         return 1
 
-    if not args.reference:
-        print("\nNo reference image provided. Health check only.")
-        return 0
+    print("\n== Redis ==")
+    client = redis.Redis.from_url(args.redis_url, decode_responses=True)
+    print("PING", client.ping())
+    print("task queue:", args.task_queue)
+    print("result queue:", args.result_queue)
+    print("task queue length:", client.llen(args.task_queue))
+    print("result queue length:", client.llen(args.result_queue))
 
-    print("\n== Extract face ==")
-    with args.reference.open("rb") as fh:
-        extract = requests.post(
-            f"{base_url}/extract-face",
-            files={"file": (args.reference.name, fh, "image/jpeg")},
-            timeout=120,
-        )
-
-    print(extract.status_code, extract.text)
-
-    if not extract.ok:
-        return 1
-
-    vector = extract.json().get("vector")
-
-    if not isinstance(vector, list) or not vector:
-        print("No valid embedding returned.")
-        return 1
-
-    if not args.group:
-        print("\nNo group image provided. Extract test completed.")
-        return 0
-
-    print("\n== Compare faces ==")
-    database = json.dumps([{"id": 1, "vector": vector}])
-    with args.group.open("rb") as fh:
-        compare = requests.post(
-            f"{base_url}/compare-faces",
-            files={"file": (args.group.name, fh, "image/jpeg")},
-            data={"database": database, "tolerance": str(args.tolerance)},
-            timeout=120,
-        )
-
-    print(compare.status_code, compare.text)
-    return 0 if compare.ok else 1
+    print("\nSmoke test passed.")
+    return 0
 
 
 if __name__ == "__main__":

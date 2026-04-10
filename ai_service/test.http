@@ -1,39 +1,7 @@
-﻿@baseUrl = http://127.0.0.1:5000
-
-### Health
-GET {{baseUrl}}/health
-Accept: application/json
-
-### Root
-GET {{baseUrl}}/
-Accept: application/json
-
-### Extract single face
-POST {{baseUrl}}/extract-face
-Content-Type: multipart/form-data; boundary=PhotOSBoundary
-
---PhotOSBoundary
-Content-Disposition: form-data; name="file"; filename="reference.jpg"
-Content-Type: image/jpeg
-
-< ./samples/reference.jpg
---PhotOSBoundary--
-
-### Compare faces
-POST {{baseUrl}}/compare-faces
-Content-Type: multipart/form-data; boundary=PhotOSCompareBoundary
-
---PhotOSCompareBoundary
-Content-Disposition: form-data; name="database"
-
-[{"id":1,"vector":[0.11,0.22,0.33,0.44]}]
---PhotOSCompareBoundary
-Content-Disposition: form-data; name="file"; filename="group.jpg"
-Content-Type: image/jpeg
-
-< ./samples/group.jpg
---PhotOSCompareBoundary
-Content-Disposition: form-data; name="tolerance"
-
-0.6
---PhotOSCompareBoundary--
+# Este archivo HTTP queda solo como referencia documental.
+# El worker ya no expone un API HTTP publica ni endpoint /health.
+# La verificacion correcta ahora es:
+# 1. sudo systemctl status photos-face-ai.service
+# 2. sudo systemctl status photos-face-ai-results.service
+# 3. sudo systemctl status photos-laravel-queue.service
+# 4. python3 ai_service/smoke_test.py --redis-url redis://127.0.0.1:6379/0

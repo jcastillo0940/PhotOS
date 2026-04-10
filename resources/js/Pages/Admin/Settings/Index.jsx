@@ -5,7 +5,7 @@ import SettingsNavigation from '@/Pages/Admin/Settings/Partials/SettingsNavigati
 
 export default function Index() {
     const { props } = usePage();
-    const isSystemOwner = ['developer', 'owner'].includes(props.auth?.user?.role);
+    const isSystemOwner = props.auth?.user?.role === 'developer';
 
     return (
         <AdminLayout>

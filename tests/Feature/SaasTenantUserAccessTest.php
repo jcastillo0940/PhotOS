@@ -54,7 +54,7 @@ class SaasTenantUserAccessTest extends TestCase
 
         $user = User::factory()->create([
             'tenant_id' => $originTenant->id,
-            'role' => 'photographer',
+            'role' => 'owner',
             'name' => 'Usuario Movido',
             'email' => 'movido@example.com',
         ]);

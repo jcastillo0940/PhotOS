@@ -24,6 +24,10 @@ class DashboardController extends Controller
             return $this->saasDashboard();
         }
 
+        if (request()->user()?->isPhotographer()) {
+            return redirect()->route('admin.projects');
+        }
+
         $eventTypes = EventTypeSettings::get();
         $leads = Lead::query()->get();
         $projects = Project::query()->with('lead')->get();

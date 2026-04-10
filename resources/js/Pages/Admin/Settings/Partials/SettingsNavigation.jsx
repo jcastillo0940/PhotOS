@@ -12,7 +12,7 @@ const items = [
 
 export default function SettingsNavigation() {
     const { url, props } = usePage();
-    const isSystemOwner = ['developer', 'owner'].includes(props.auth?.user?.role);
+    const isSystemOwner = props.auth?.user?.role === 'developer';
     const visibleItems = items.filter((item) => isSystemOwner || item.href === '/admin/settings/branding');
 
     return (

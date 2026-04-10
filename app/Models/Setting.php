@@ -6,6 +6,7 @@ use App\Models\Concerns\BelongsToTenant;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class Setting extends Model
 {
@@ -24,6 +25,10 @@ class Setting extends Model
 
     public static function getForTenant(?int $tenantId, string $key, $default = null)
     {
+        if (!Schema::hasTable('settings')) {
+            return $default;
+        }
+
         $query = self::query()->where('key', $key);
 
         if ($tenantId) {
@@ -52,6 +57,10 @@ class Setting extends Model
 
     public static function setForTenant(?int $tenantId, string $key, $value, string $group = 'general', bool $isSecret = false)
     {
+        if (!Schema::hasTable('settings')) {
+            return null;
+        }
+
         return self::withoutGlobalScope('tenant')->updateOrCreate(
             [
                 'tenant_id' => $tenantId,

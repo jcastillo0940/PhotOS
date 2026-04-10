@@ -46,11 +46,7 @@ php artisan face-ai:consume-results
 ## Produccion (Ubuntu / GCP)
 
 ```bash
-cd ai_service
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python3 main.py
+sudo bash ai_service/deploy/install-face-ai-stack.sh
 ```
 
 Laravel:
@@ -60,6 +56,14 @@ FACE_AI_REDIS_CONNECTION=default
 FACE_AI_TASK_QUEUE=face-ai:tasks
 FACE_AI_RESULT_QUEUE=face-ai:results
 ```
+
+## Servicios persistentes en produccion
+
+El instalador crea y habilita:
+
+- `photos-face-ai.service`
+- `photos-face-ai-results.service`
+- `photos-laravel-queue.service`
 
 ## Notas
 

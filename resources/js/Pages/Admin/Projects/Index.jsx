@@ -188,7 +188,7 @@ export default function Index({ projects, installationPlan, eventTypes = [] }) {
                         {filteredProjects.length > 0 ? filteredProjects.map((project) => (
                             <Link
                                 key={project.id}
-                                href={`/admin/projects/${project.id}/details`}
+                                href={`/admin/projects/${project.id}`}
                                 className="group rounded-[1.75rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 transition hover:-translate-y-0.5 hover:border-[#d9d1c4] hover:shadow-sm"
                             >
                                 <div className="flex items-start justify-between gap-4">

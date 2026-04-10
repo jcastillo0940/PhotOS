@@ -22,6 +22,7 @@ use App\Support\TenantBrandPreset;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DemoSystemSeeder extends Seeder
 {
@@ -36,7 +37,7 @@ class DemoSystemSeeder extends Seeder
                 [
                     'tenant_id' => $defaultTenantId,
                     'name' => 'PhotOS Owner',
-                    'password' => Hash::make('owner2026'),
+                    'password' => Hash::make($this->seedPassword('SEED_OWNER_PASSWORD')),
                     'role' => 'owner',
                     'email_verified_at' => now(),
                 ]
@@ -47,7 +48,7 @@ class DemoSystemSeeder extends Seeder
                 [
                     'tenant_id' => $defaultTenantId,
                     'name' => 'PhotOS Developer',
-                    'password' => Hash::make('developer2026'),
+                    'password' => Hash::make($this->seedPassword('SEED_DEVELOPER_PASSWORD')),
                     'role' => 'developer',
                     'email_verified_at' => now(),
                 ]
@@ -58,7 +59,7 @@ class DemoSystemSeeder extends Seeder
                 [
                     'tenant_id' => $defaultTenantId,
                     'name' => 'Mono Studio',
-                    'password' => Hash::make('studio2026'),
+                    'password' => Hash::make($this->seedPassword('SEED_PHOTOGRAPHER_PASSWORD')),
                     'role' => 'photographer',
                     'email_verified_at' => now(),
                 ]
@@ -153,7 +154,7 @@ class DemoSystemSeeder extends Seeder
                     'timeline' => ['Ceremonia 3:00 PM', 'Golden hour 5:45 PM', 'Recepcion 7:00 PM'],
                     'contacts' => ['Planner: Sofia +506 8888 1111', 'Venue: Hacienda Los Cipreses'],
                 ],
-                'gallery_token' => 'demo-gallery-camila-diego-2026',
+                'gallery_token' => $this->seedToken('SEED_GALLERY_TOKEN_SIGNED'),
                 'gallery_password' => null,
                 'download_limit' => 6,
                 'weekly_download_limit' => 6,
@@ -184,7 +185,7 @@ class DemoSystemSeeder extends Seeder
                     'timeline' => ['Call sheet 8:00 AM', 'Shoot 9:00 AM', 'Review 2:00 PM'],
                     'contacts' => ['Makeup: Ana +506 7777 1212'],
                 ],
-                'gallery_token' => 'demo-gallery-lucia-marin-2026',
+                'gallery_token' => $this->seedToken('SEED_GALLERY_TOKEN_PENDING'),
                 'gallery_password' => null,
                 'download_limit' => 6,
                 'weekly_download_limit' => 6,
@@ -229,7 +230,7 @@ class DemoSystemSeeder extends Seeder
                     'timeline' => ['Shoot complete', 'Selections approved', 'Final delivery done'],
                     'contacts' => ['Creative director: Nora'],
                 ],
-                'gallery_token' => 'demo-gallery-atelier-verde-2026',
+                'gallery_token' => $this->seedToken('SEED_GALLERY_TOKEN_DELIVERED'),
                 'gallery_password' => null,
                 'download_limit' => 6,
                 'weekly_download_limit' => 6,
@@ -367,7 +368,7 @@ class DemoSystemSeeder extends Seeder
             'status' => 'signed',
             'signed_at' => now()->subDays(8),
             'signature_data' => 'data:image/png;base64,'.base64_encode('signed-camila-diego'),
-            'token' => 'demo-sign-camila-diego-2026-contract',
+            'token' => $this->seedToken('SEED_CONTRACT_TOKEN_SIGNED'),
         ]);
 
         Contract::create([
@@ -376,7 +377,7 @@ class DemoSystemSeeder extends Seeder
             'status' => 'pending',
             'signed_at' => null,
             'signature_data' => null,
-            'token' => 'demo-sign-lucia-marin-2026-contract',
+            'token' => $this->seedToken('SEED_CONTRACT_TOKEN_PENDING'),
         ]);
 
         Contract::create([
@@ -385,8 +386,18 @@ class DemoSystemSeeder extends Seeder
             'status' => 'signed',
             'signed_at' => now()->subWeeks(4),
             'signature_data' => 'data:image/png;base64,'.base64_encode('signed-atelier-verde'),
-            'token' => 'demo-sign-atelier-verde-2026-contract',
+            'token' => $this->seedToken('SEED_CONTRACT_TOKEN_DELIVERED'),
         ]);
+    }
+
+    private function seedPassword(string $envKey): string
+    {
+        return env($envKey) ?: Str::random(32);
+    }
+
+    private function seedToken(string $envKey): string
+    {
+        return env($envKey) ?: Str::lower(Str::random(40));
     }
 
     private function seedInvoices(Project $signedProject, Project $pendingProject, Project $deliveredProject): void

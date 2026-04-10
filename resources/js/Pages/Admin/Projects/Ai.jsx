@@ -1,8 +1,8 @@
-import React from 'react';
+﻿import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { Bot, ChevronLeft, Trash2, WandSparkles } from 'lucide-react';
+import { Bot, ChevronLeft, Trash2, UserRound, WandSparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function Ai({ project, faceRecognition }) {
@@ -13,7 +13,7 @@ export default function Ai({ project, faceRecognition }) {
     });
     
     const [faceRecognitionEnabled, setFaceRecognitionEnabled] = React.useState(!!project.face_recognition_enabled);
-    const canUseRecognition = !!faceRecognitionEnabled && !!faceRecognition?.service_configured && (faceRecognition?.identities || []).length > 0;
+    const canUseRecognition = !!faceRecognitionEnabled && !!faceRecognition?.service_configured && !!faceRecognition?.database_ready;
     const recognitionSummary = faceRecognition?.summary || {};
 
     const saveMeta = () => {
@@ -252,3 +252,4 @@ export default function Ai({ project, faceRecognition }) {
         </AdminLayout>
     );
 }
+

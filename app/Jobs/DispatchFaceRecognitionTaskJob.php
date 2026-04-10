@@ -15,7 +15,7 @@ class DispatchFaceRecognitionTaskJob implements ShouldQueue
 
     public function __construct(
         public string $taskType,
-        public int $projectId,
+        public ?int $projectId = null,
         public ?int $photoId = null,
         public ?int $faceIdentityId = null,
     ) {
@@ -23,15 +23,19 @@ class DispatchFaceRecognitionTaskJob implements ShouldQueue
 
     public function handle(FaceRecognitionService $service): void
     {
-        $project = Project::withoutGlobalScope('tenant')->findOrFail($this->projectId);
-
         if ($this->taskType === 'extract_identity') {
             $identity = FaceIdentity::withoutGlobalScope('tenant')->findOrFail($this->faceIdentityId);
+            $project = $this->projectId
+                ? Project::withoutGlobalScope('tenant')->find($this->projectId)
+                : ($identity->project_id ? Project::withoutGlobalScope('tenant')->find($identity->project_id) : null);
+
             $service->enqueueIdentityExtraction($project, $identity);
             return;
         }
 
+        $project = Project::withoutGlobalScope('tenant')->findOrFail($this->projectId);
         $photo = Photo::withoutGlobalScope('tenant')->findOrFail($this->photoId);
+
         $service->enqueuePhotoRecognition($project, $photo);
     }
 }

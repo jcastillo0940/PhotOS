@@ -41,6 +41,10 @@ class UserController extends Controller
             'role' => 'required|string|in:owner,photographer,developer,operator',
         ]);
 
+        if ($validated['role'] === 'photographer') {
+            $validated['tenant_id'] = null;
+        }
+
         $tenant = $validated['tenant_id'] ? Tenant::find($validated['tenant_id']) : null;
         if ($tenant) {
             $limit = $tenant->featureLimit('staff_limit');
@@ -73,7 +77,9 @@ class UserController extends Controller
             'password' => 'nullable|string|min:8',
         ]);
 
-        $user->tenant_id = $validated['tenant_id'] ?? null;
+        $user->tenant_id = $validated['role'] === 'photographer'
+            ? null
+            : ($validated['tenant_id'] ?? null);
         $user->name = $validated['name'];
         $user->email = Str::lower(trim($validated['email']));
         $user->role = $validated['role'];

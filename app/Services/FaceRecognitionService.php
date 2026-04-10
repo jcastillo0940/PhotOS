@@ -41,6 +41,11 @@ class FaceRecognitionService
         DispatchFaceRecognitionTaskJob::dispatch('extract_identity', $project->id, null, $identity->id);
     }
 
+    public function dispatchTenantIdentityExtraction(FaceIdentity $identity): void
+    {
+        DispatchFaceRecognitionTaskJob::dispatch('extract_identity', $identity->project_id, null, $identity->id);
+    }
+
     public function dispatchPhotoRecognition(Project $project, Photo $photo): void
     {
         DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photo->id, null);
@@ -57,9 +62,9 @@ class FaceRecognitionService
         return $photos->count();
     }
 
-    public function enqueueIdentityExtraction(Project $project, FaceIdentity $identity): void
+    public function enqueueIdentityExtraction(?Project $project, FaceIdentity $identity): void
     {
-        $tenant = $this->resolveTenant($project);
+        $tenant = $this->resolveTenantForIdentity($project, $identity);
         $imageUrl = $this->temporaryUrlForReferencePath($identity->path_reference);
 
         if (!$imageUrl) {
@@ -81,7 +86,7 @@ class FaceRecognitionService
         $this->pushTask([
             'task_type' => 'extract_identity',
             'tenant_id' => $tenant?->id,
-            'project_id' => $project->id,
+            'project_id' => $project?->id,
             'face_identity_id' => $identity->id,
             'image_url' => $imageUrl,
             'filename' => basename((string) $identity->path_reference),
@@ -91,9 +96,7 @@ class FaceRecognitionService
     public function enqueuePhotoRecognition(Project $project, Photo $photo): void
     {
         $tenant = $this->resolveTenant($project);
-        $identities = $project->faceIdentities()
-            ->whereNotNull('embedding')
-            ->get(['id', 'name', 'embedding']);
+        $identities = $this->recognitionIdentities($project);
 
         if ($identities->isEmpty()) {
             $photo->update([
@@ -130,7 +133,7 @@ class FaceRecognitionService
         $this->pushTask([
             'task_type' => 'recognize_photo',
             'tenant_id' => $tenant?->id,
-            'project_id' => $project->id,
+            'project_id' => $project?->id,
             'photo_id' => $photo->id,
             'image_url' => $imageUrl,
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
@@ -267,6 +270,34 @@ class FaceRecognitionService
         return $project->tenant_id ? Tenant::withoutGlobalScope('tenant')->find($project->tenant_id) : null;
     }
 
+    private function resolveTenantForIdentity(?Project $project, FaceIdentity $identity): ?Tenant
+    {
+        if ($project) {
+            return $this->resolveTenant($project);
+        }
+
+        return $identity->tenant_id
+            ? Tenant::withoutGlobalScope('tenant')->find($identity->tenant_id)
+            : null;
+    }
+
+    public function recognitionIdentities(Project $project)
+    {
+        return FaceIdentity::withoutGlobalScope('tenant')
+            ->where('tenant_id', $project->tenant_id)
+            ->whereNotNull('embedding')
+            ->where(function ($query) use ($project) {
+                $query->whereNull('project_id')
+                    ->orWhere('project_id', $project->id);
+            })
+            ->get(['id', 'name', 'embedding', 'project_id']);
+    }
+
+    public function hasRecognitionDatabase(Project $project): bool
+    {
+        return $this->recognitionIdentities($project)->isNotEmpty();
+    }
+
     private function ensureOptimizedPhotoPath(Project $project, Photo $photo): string
     {
         if (filled($photo->optimized_path) && Storage::disk('r2')->exists($photo->optimized_path)) {
@@ -392,3 +423,8 @@ class FaceRecognitionService
         return null;
     }
 }
+
+
+
+
+

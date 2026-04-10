@@ -7,6 +7,9 @@ use App\Http\Middleware\EnsureTenantFeatureAvailable;
 use App\Http\Middleware\EnsureTenantSessionMatchesHost;
 use App\Http\Middleware\EnsureDeveloper;
 use App\Http\Middleware\EnsureStudioOperator;
+use App\Http\Middleware\EnsureTenantAdmin;
+use App\Http\Middleware\EnsureTenantFinance;
+use App\Http\Middleware\EnsureProjectAccess;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenantFromHost;
 
@@ -20,6 +23,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'developer' => EnsureDeveloper::class,
             'studio.operator' => EnsureStudioOperator::class,
+            'tenant.admin' => EnsureTenantAdmin::class,
+            'tenant.finance' => EnsureTenantFinance::class,
+            'project.access' => EnsureProjectAccess::class,
             'tenant.feature' => EnsureTenantFeatureAvailable::class,
         ]);
 

@@ -7,6 +7,7 @@ use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Project extends Model
 {
@@ -39,6 +40,7 @@ class Project extends Model
     public function lead() { return $this->belongsTo(Lead::class); }
     public function client() { return $this->belongsTo(Client::class); }
     public function owner() { return $this->belongsTo(User::class, 'owner_user_id'); }
+    public function collaborators(): HasMany { return $this->hasMany(ProjectCollaborator::class)->withoutGlobalScope('tenant'); }
     public function contract() { return $this->hasOne(Contract::class); }
     public function invoices() { return $this->hasMany(Invoice::class); }
     public function photos() { return $this->hasMany(Photo::class)->orderBy('order_index'); }
@@ -139,5 +141,39 @@ class Project extends Model
         }
 
         return GalleryTemplate::resolve($selectedCode);
+    }
+
+    public function userAccess(User $user): ?ProjectCollaborator
+    {
+        return $this->collaborators()
+            ->where('user_id', $user->id)
+            ->where('status', 'active')
+            ->first();
+    }
+
+    public function userCan(User $user, string $ability = 'view'): bool
+    {
+        if ($user->isDeveloper()) {
+            return true;
+        }
+
+        $isTenantAdmin = in_array($user->role, ['owner', 'operator'], true) && (int) $user->tenant_id === (int) $this->tenant_id;
+
+        if ($isTenantAdmin) {
+            return $ability !== 'finance' || $user->isOwner();
+        }
+
+        $access = $this->userAccess($user);
+
+        if (!$access) {
+            return false;
+        }
+
+        return match ($ability) {
+            'view' => true,
+            'upload' => (bool) $access->can_upload,
+            'manage_gallery' => (bool) $access->can_manage_gallery,
+            default => false,
+        };
     }
 }

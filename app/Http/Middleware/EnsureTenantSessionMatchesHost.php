@@ -22,12 +22,21 @@ class EnsureTenantSessionMatchesHost
         $tenantId = app(TenantContext::class)->id();
         $host = strtolower((string) $request->getHost());
         $centralDomains = Arr::wrap(config('saas.central_domains', []));
+        $routeName = (string) $request->route()?->getName();
 
         if (in_array($host, $centralDomains, true) && $user->isDeveloper()) {
             return $next($request);
         }
 
+        if (str_starts_with($routeName, 'project.invitations.')) {
+            return $next($request);
+        }
+
         if ($tenantId !== null && (int) ($user->tenant_id ?? 0) === (int) $tenantId) {
+            return $next($request);
+        }
+
+        if ($tenantId !== null && $user->hasActiveProjectAccessForTenant((int) $tenantId)) {
             return $next($request);
         }
 

@@ -20,6 +20,10 @@ class AuthController extends Controller
 
     public function loginView()
     {
+        if (request()->filled('redirect')) {
+            request()->session()->put('url.intended', request()->string('redirect')->toString());
+        }
+
         return Inertia::render('Auth/Login');
     }
 
@@ -68,7 +72,12 @@ class AuthController extends Controller
 
         if ($user && Hash::check($credentials['password'], $user->password)) {
             // Re-verify that if a global user logged in, their role actually permits cross-tenant access.
-            if ($tenantId && $user->tenant_id === null && !in_array($user->role, ['developer', 'operator', 'owner'])) {
+            if (
+                $tenantId
+                && $user->tenant_id === null
+                && !in_array($user->role, ['developer', 'operator'], true)
+                && !$user->hasActiveProjectAccessForTenant((int) $tenantId)
+            ) {
                 // Failsafe: A normal user without a tenant id somehow exists but isn't an admin.
                 RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
                 throw ValidationException::withMessages([
@@ -78,9 +87,8 @@ class AuthController extends Controller
             RateLimiter::clear($throttleKey);
             Auth::login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();
-            $request->session()->forget('url.intended');
 
-            return redirect()->route('admin.dashboard');
+            return redirect()->intended(route('admin.dashboard'));
         }
 
         RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
