@@ -66,12 +66,14 @@ class UserController extends Controller
         $user = User::withoutGlobalScope('tenant')->findOrFail($id);
 
         $validated = $request->validate([
+            'tenant_id' => 'nullable|exists:tenants,id',
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$user->id,
             'role' => 'required|string|in:owner,photographer,developer,operator',
             'password' => 'nullable|string|min:8',
         ]);
 
+        $user->tenant_id = $validated['tenant_id'] ?? null;
         $user->name = $validated['name'];
         $user->email = Str::lower(trim($validated['email']));
         $user->role = $validated['role'];
