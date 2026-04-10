@@ -10,23 +10,23 @@ class SaasConfigurationSeeder extends Seeder
     public function run(): void
     {
         $settings = [
-            // PayPal Live (Invitaboda)
-            'paypal_client_id' => 'AW5_ttAbeLfy2VdG86ANuoEqVVZ6pNGTnMWQGlGlOTl_fc-BKaHzMwO3wdxfQycCsLEUN8lZxeKgtacZ',
-            'paypal_secret' => 'ELABIp1Cvkk_umoP8jwPxze9oMMmu6Snmhl9bnquu_t0Q5X7SzCoWVGu04kAjOjjxmTPwCJ4-Kaw4nz5',
-            'paypal_environment' => 'live',
-            'paypal_webhook_id' => '3BA40170FT119070N',
+            // PayPal Live (Configurar desde panel o .env, omitidas por seguridad en repo)
+            'paypal_client_id' => env('PAYPAL_CLIENT_ID', ''),
+            'paypal_secret' => env('PAYPAL_SECRET', ''),
+            'paypal_environment' => env('PAYPAL_ENVIRONMENT', 'live'),
+            'paypal_webhook_id' => env('PAYPAL_WEBHOOK_ID', ''),
 
-            // Cloudflare R2
-            'r2_key' => '568e68b1acf742068bfb98ec7ee93f15',
-            'r2_secret' => 'cfa483f60ce6b3e1942afd128cfac18369ace5adcbb5caf851565722307b7006',
-            'r2_bucket' => 'luis-espino',
-            'r2_endpoint' => 'https://83fc4f2e5ca424944692d8a43d56e681.r2.cloudflarestorage.com',
+            // Cloudflare R2 (Tokens purgados de los repositorios por seguridad)
+            'r2_key' => env('R2_KEY', ''),
+            'r2_secret' => env('R2_SECRET', ''),
+            'r2_bucket' => env('R2_BUCKET', ''),
+            'r2_endpoint' => env('R2_ENDPOINT', ''),
 
-            // Cloudflare SaaS
-            'cloudflare_saas_api_token' => 'cfat_FqviSHotAEZNNvm3mqqTyrKNnmFjltsu7ZCvXGYP79b57a6a',
-            'cloudflare_saas_zone_id' => '4fc1e143561734ce06867d42b0658127',
-            'cloudflare_saas_cname_target' => 'fallback.pixelprocr.com',
-            'cloudflare_saas_dcv_target' => 'f2b8962b4b923bf2.dcv.cloudflare.com',
+            // Cloudflare SaaS (Tokens purgados de los repositorios)
+            'cloudflare_saas_api_token' => env('CLOUDFLARE_SAAS_API_TOKEN', ''),
+            'cloudflare_saas_zone_id' => env('CLOUDFLARE_SAAS_ZONE_ID', ''),
+            'cloudflare_saas_cname_target' => env('CLOUDFLARE_SAAS_CNAME_TARGET', ''),
+            'cloudflare_saas_dcv_target' => env('CLOUDFLARE_SAAS_DCV_TARGET', ''),
 
             // App Settings
             'app_name' => 'PhotOS',
