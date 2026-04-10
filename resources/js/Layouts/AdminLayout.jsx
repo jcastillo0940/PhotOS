@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
     Bell,
@@ -24,6 +24,7 @@ import {
     UserRound,
     Wrench,
     X,
+    ScanFace,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
