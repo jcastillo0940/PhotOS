@@ -109,9 +109,10 @@ class FaceDetectionController extends Controller
         }
 
         $tenantId = $this->tenantContext->id();
+        // Use relative paths — the R2 disk root already includes the tenant prefix (tenants/{slug})
         $directory = $project
-            ? 'tenants/'.$tenantId.'/projects/'.$project->id.'/face-identities'
-            : 'tenants/'.$tenantId.'/face-identities/global';
+            ? 'projects/'.$project->id.'/face-identities'
+            : 'face-identities/global';
 
         $file = $request->file('reference_image');
         $storedPath = $file->storeAs(
