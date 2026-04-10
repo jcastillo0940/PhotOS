@@ -2,6 +2,7 @@ import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { Layers3, Plus, Edit2, Trash2, X, CheckCircle2, Zap, CloudUpload } from 'lucide-react';
 import AdminLayout from '@/Layouts/AdminLayout';
+import { clsx } from 'clsx';
 
 function PlanModal({ plan, onClose }) {
     const isEditing = !!plan;
