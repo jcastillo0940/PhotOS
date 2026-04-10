@@ -61,8 +61,10 @@ class UserController extends Controller
         return back()->with('success', 'Usuario creado correctamente.');
     }
 
-    public function update(Request $request, User $user)
+    public function update(Request $request, $id)
     {
+        $user = User::withoutGlobalScope('tenant')->findOrFail($id);
+
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,'.$user->id,
@@ -83,8 +85,10 @@ class UserController extends Controller
         return back()->with('success', 'Usuario actualizado.');
     }
 
-    public function destroy(User $user)
+    public function destroy($id)
     {
+        $user = User::withoutGlobalScope('tenant')->findOrFail($id);
+
         if ($user->id === auth()->id()) {
             return back()->with('error', 'No puedes eliminarte a ti mismo.');
         }
