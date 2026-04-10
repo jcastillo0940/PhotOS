@@ -106,13 +106,16 @@ class AppServiceProvider extends ServiceProvider
 
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
-                // Cloudflare R2
-                $r2Key = \App\Models\Setting::get('r2_key');
-                $r2Secret = \App\Models\Setting::get('r2_secret');
-                $r2Bucket = \App\Models\Setting::get('r2_bucket');
-                $r2Endpoint = \App\Models\Setting::get('r2_endpoint');
+                $dbSettings = \Illuminate\Support\Facades\DB::table('settings')
+                    ->whereNull('tenant_id')
+                    ->get()
+                    ->pluck('value', 'key');
 
-                \Illuminate\Support\Facades\Log::debug('AppServiceProvider: R2 Bucket found: ' . ($r2Bucket ?: 'NULL'));
+                // Cloudflare R2
+                $r2Key = $dbSettings->get('r2_key');
+                $r2Secret = $dbSettings->get('r2_secret');
+                $r2Bucket = $dbSettings->get('r2_bucket');
+                $r2Endpoint = $dbSettings->get('r2_endpoint');
 
                 if ($r2Key && $r2Secret && $r2Bucket) {
                     config([
@@ -125,35 +128,35 @@ class AppServiceProvider extends ServiceProvider
 
                 // Cloudflare SaaS
                 config([
-                    'services.cloudflare_saas.api_token' => \App\Models\Setting::get('cloudflare_saas_api_token', env('CLOUDFLARE_SAAS_API_TOKEN')),
-                    'services.cloudflare_saas.zone_id' => \App\Models\Setting::get('cloudflare_saas_zone_id', env('CLOUDFLARE_SAAS_ZONE_ID')),
-                    'services.cloudflare_saas.managed_cname_target' => \App\Models\Setting::get('cloudflare_saas_cname_target', env('CLOUDFLARE_SAAS_CNAME_TARGET')),
-                    'services.cloudflare_saas.dcv_target' => \App\Models\Setting::get('cloudflare_saas_dcv_target', env('CLOUDFLARE_SAAS_DCV_TARGET')),
+                    'services.cloudflare_saas.api_token' => $dbSettings->get('cloudflare_saas_api_token', env('CLOUDFLARE_SAAS_API_TOKEN')),
+                    'services.cloudflare_saas.zone_id' => $dbSettings->get('cloudflare_saas_zone_id', env('CLOUDFLARE_SAAS_ZONE_ID')),
+                    'services.cloudflare_saas.managed_cname_target' => $dbSettings->get('cloudflare_saas_cname_target', env('CLOUDFLARE_SAAS_CNAME_TARGET')),
+                    'services.cloudflare_saas.dcv_target' => $dbSettings->get('cloudflare_saas_dcv_target', env('CLOUDFLARE_SAAS_DCV_TARGET')),
                 ]);
 
                 // PayPal
                 config([
-                    'services.paypal.client_id' => \App\Models\Setting::get('paypal_client_id', env('PAYPAL_CLIENT_ID')),
-                    'services.paypal.secret' => \App\Models\Setting::get('paypal_secret', env('PAYPAL_SECRET')),
-                    'services.paypal.environment' => \App\Models\Setting::get('paypal_environment', env('PAYPAL_ENVIRONMENT', 'sandbox')),
-                    'services.paypal.webhook_id' => \App\Models\Setting::get('paypal_webhook_id', env('PAYPAL_WEBHOOK_ID')),
+                    'services.paypal.client_id' => $dbSettings->get('paypal_client_id', env('PAYPAL_CLIENT_ID')),
+                    'services.paypal.secret' => $dbSettings->get('paypal_secret', env('PAYPAL_SECRET')),
+                    'services.paypal.environment' => $dbSettings->get('paypal_environment', env('PAYPAL_ENVIRONMENT', 'sandbox')),
+                    'services.paypal.webhook_id' => $dbSettings->get('paypal_webhook_id', env('PAYPAL_WEBHOOK_ID')),
                 ]);
 
                 // SMTP
-                $smtpEnabled = filter_var(\App\Models\Setting::get('smtp_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
+                $smtpEnabled = filter_var($dbSettings->get('smtp_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
                 config([
                     'mail.default' => $smtpEnabled ? 'smtp' : env('MAIL_MAILER', 'log'),
-                    'mail.mailers.smtp.host' => \App\Models\Setting::get('smtp_host', env('MAIL_HOST', '127.0.0.1')),
-                    'mail.mailers.smtp.port' => (int) \App\Models\Setting::get('smtp_port', env('MAIL_PORT', 2525)),
-                    'mail.mailers.smtp.username' => \App\Models\Setting::get('smtp_username', env('MAIL_USERNAME')),
-                    'mail.mailers.smtp.password' => \App\Models\Setting::get('smtp_password', env('MAIL_PASSWORD')),
-                    'mail.mailers.smtp.scheme' => \App\Models\Setting::get('smtp_scheme', env('MAIL_SCHEME')),
-                    'mail.from.address' => \App\Models\Setting::get('smtp_from_address', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
-                    'mail.from.name' => \App\Models\Setting::get('smtp_from_name', \App\Models\Setting::get('app_name', env('MAIL_FROM_NAME', config('app.name', 'PhotOS')))),
+                    'mail.mailers.smtp.host' => $dbSettings->get('smtp_host', env('MAIL_HOST', '127.0.0.1')),
+                    'mail.mailers.smtp.port' => (int) $dbSettings->get('smtp_port', env('MAIL_PORT', 2525)),
+                    'mail.mailers.smtp.username' => $dbSettings->get('smtp_username', env('MAIL_USERNAME')),
+                    'mail.mailers.smtp.password' => $dbSettings->get('smtp_password', env('MAIL_PASSWORD')),
+                    'mail.mailers.smtp.scheme' => $dbSettings->get('smtp_scheme', env('MAIL_SCHEME')),
+                    'mail.from.address' => $dbSettings->get('smtp_from_address', env('MAIL_FROM_ADDRESS', 'hello@example.com')),
+                    'mail.from.name' => $dbSettings->get('smtp_from_name', $dbSettings->get('app_name', env('MAIL_FROM_NAME', config('app.name', 'PhotOS')))),
                 ]);
             }
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::error('AppServiceProvider Settings Error: ' . $e->getMessage());
+            // Silently fail during bootstrap to avoid crashing the app if DB is not ready
         }
     }
 }
