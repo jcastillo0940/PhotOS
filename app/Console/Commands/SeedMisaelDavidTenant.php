@@ -4,7 +4,10 @@ namespace App\Console\Commands;
 
 use App\Models\Tenant;
 use App\Models\TenantDomain;
+use App\Models\User;
+use App\Support\TenantBrandPreset;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Hash;
 
 class SeedMisaelDavidTenant extends Command
 {
@@ -20,7 +23,7 @@ class SeedMisaelDavidTenant extends Command
             'slug' => 'misaeldavid-demo',
             'status' => 'active',
             'plan_code' => 'studio',
-            'billing_email' => null,
+            'billing_email' => 'admin@misaeldavid.com',
             'storage_limit_bytes' => 0,
             'ai_enabled' => true,
             'custom_domain_enabled' => true,
@@ -126,9 +129,23 @@ class SeedMisaelDavidTenant extends Command
             ]));
         }
 
+        User::updateOrCreate(
+            ['email' => 'admin@misaeldavid.com'],
+            [
+                'tenant_id' => $tenant->id,
+                'name' => 'Misael David',
+                'password' => Hash::make('misael2026'),
+                'role' => 'photographer',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        TenantBrandPreset::apply($tenant, 'editorial-warm');
+
         $this->info('Tenant de Misael David listo en esta instancia.');
         $this->line('Tenant: '.$tenant->name.' ['.$tenant->slug.']');
         $this->line('Dominio: '.$domain->hostname);
+        $this->line('Login: admin@misaeldavid.com / misael2026');
         $this->line('Cloudflare ID: '.$domain->cf_custom_hostname_id);
         $this->line('Estado: '.$domain->cf_status);
 

@@ -4,18 +4,29 @@ namespace App\Http\Controllers;
 
 use App\Models\Photo;
 use App\Models\Project;
+use App\Support\Tenancy\TenantContext;
 use App\Support\CalendarAvailability;
 use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
+use App\Support\TenantThemeSettings;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class HomeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $homepage = HomepageSettings::toFrontend(HomepageSettings::get());
+        if ($this->isCentralDomain($request)) {
+            return Inertia::render('Public/SaasLanding', [
+                'platform' => $this->marketingPayload(),
+            ]);
+        }
+
+        $tenantId = app(TenantContext::class)->id();
+        $homepage = HomepageSettings::toFrontend(HomepageSettings::get($tenantId));
+        $theme = TenantThemeSettings::get($tenantId);
         $portfolioPhotos = collect();
 
         if (Schema::hasTable('photos')) {
@@ -49,6 +60,7 @@ class HomeController extends Controller
 
         return Inertia::render('Public/Home', [
             'homepage' => $homepage,
+            'theme' => $theme,
             'portfolioPhotos' => $portfolioPhotos,
             'portfolioCategories' => $portfolioCategories,
             'eventTypes' => EventTypeSettings::get(),
@@ -60,7 +72,9 @@ class HomeController extends Controller
 
     public function portfolio(Request $request)
     {
-        $homepage = HomepageSettings::toFrontend(HomepageSettings::get());
+        $tenantId = app(TenantContext::class)->id();
+        $homepage = HomepageSettings::toFrontend(HomepageSettings::get($tenantId));
+        $theme = TenantThemeSettings::get($tenantId);
         $selectedCategory = trim((string) $request->query('category', ''));
 
         $projectQuery = Project::query()
@@ -98,11 +112,11 @@ class HomeController extends Controller
 
         return Inertia::render('Public/Portfolio', [
             'homepage' => $homepage,
+            'theme' => $theme,
             'selectedCategory' => $selectedCategory,
             'categories' => $categories,
             'projects' => $projects->through(function (Project $project) {
-                $coverPhoto = $project->heroPhoto
-                    ?: $project->photos->first();
+                $coverPhoto = $project->heroPhoto ?: $project->photos->first();
 
                 return [
                     'id' => $project->id,
@@ -124,6 +138,52 @@ class HomeController extends Controller
                 'total' => $projects->total(),
             ],
         ]);
+    }
+
+    private function isCentralDomain(Request $request): bool
+    {
+        $host = strtolower((string) $request->getHost());
+
+        return in_array($host, Arr::wrap(config('saas.central_domains', [])), true);
+    }
+
+    private function marketingPayload(): array
+    {
+        return [
+            'name' => 'PhotOS',
+            'eyebrow' => 'SaaS para fotografos y estudios',
+            'headline' => 'Galerias, CRM, contratos, facturacion y portal cliente en una sola plataforma.',
+            'subheadline' => 'Convierte tu dominio en una experiencia premium para clientes y administra toda tu operacion sin salir del mismo sistema.',
+            'primary_cta' => '/login',
+            'secondary_cta' => '#pricing',
+            'navigation' => [
+                ['label' => 'Producto', 'target' => '#product'],
+                ['label' => 'Funciones', 'target' => '#features'],
+                ['label' => 'Planes', 'target' => '#pricing'],
+                ['label' => 'FAQ', 'target' => '#faq'],
+            ],
+            'feature_highlights' => [
+                ['title' => 'Galerias inteligentes', 'description' => 'Publicas o privadas, con favoritos, descargas, acceso por cliente y reconocimiento facial opcional.'],
+                ['title' => 'Operacion completa', 'description' => 'Leads, agenda, briefing, contratos, facturas, estado de cuenta y automatizaciones en el mismo flujo.'],
+                ['title' => 'White-label real', 'description' => 'Cada estudio usa su propio dominio, branding, home, portafolio y experiencia de cliente sin duplicar codigo.'],
+            ],
+            'products' => [
+                ['name' => 'CRM y agenda', 'copy' => 'Captura leads, califica oportunidades y coordina disponibilidad real desde un panel unificado.'],
+                ['name' => 'Galerias premium', 'copy' => 'Entrega fotos con una experiencia cuidada, acceso privado, likes, descargas y filtros por persona.'],
+                ['name' => 'Finanzas y contratos', 'copy' => 'Maneja contratos, pagos parciales, facturas y seguimiento financiero por cliente y proyecto.'],
+                ['name' => 'Automatizacion', 'copy' => 'Dispara tareas, correos y acciones por evento sin depender de herramientas externas.'],
+            ],
+            'plans' => [
+                ['name' => 'Starter', 'price' => '$19', 'description' => 'Para fotografos que quieren un sitio y galerias con branding propio.', 'items' => ['Home y portafolio del estudio', 'Galerias publicas y privadas', 'Panel basico de proyectos']],
+                ['name' => 'Studio', 'price' => '$49', 'description' => 'Para estudios que ya necesitan operacion, ventas y portal cliente.', 'items' => ['CRM, agenda y formularios', 'Contratos y facturacion', 'Portal cliente y descargas premium'], 'featured' => true],
+                ['name' => 'Scale', 'price' => '$99', 'description' => 'Para estudios que quieren white-label fuerte y automatizacion avanzada.', 'items' => ['Multiusuario y automatizaciones', 'Cloudflare for SaaS', 'Reconocimiento facial y extras premium']],
+            ],
+            'faq' => [
+                ['question' => 'Puedo usar mi propio dominio?', 'answer' => 'Si. El sistema ya esta preparado para dominios custom con Cloudflare for SaaS y onboarding guiado.'],
+                ['question' => 'Cada fotografo tiene su propio home?', 'answer' => 'Si. El dominio principal vende la plataforma y cada tenant conserva su home, galerias, branding y contenido por separado.'],
+                ['question' => 'Sirve para estudios y no solo para un fotografo?', 'answer' => 'Si. La arquitectura soporta tenants, presets, multiusuario y crecimiento hacia SaaS white-label.'],
+            ],
+        ];
     }
 
     private function temporaryUrlOrFallback(string $path): string

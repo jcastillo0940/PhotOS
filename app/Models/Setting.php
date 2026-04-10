@@ -19,8 +19,11 @@ class Setting extends Model
 
     public static function get($key, $default = null)
     {
-        $tenantId = app(TenantContext::class)->id();
+        return static::getForTenant(app(TenantContext::class)->id(), $key, $default);
+    }
 
+    public static function getForTenant(?int $tenantId, string $key, $default = null)
+    {
         $query = self::query()->where('key', $key);
 
         if ($tenantId) {
@@ -44,9 +47,14 @@ class Setting extends Model
 
     public static function set($key, $value, $group = 'general', $isSecret = false)
     {
+        return static::setForTenant(app(TenantContext::class)->id(), $key, $value, $group, $isSecret);
+    }
+
+    public static function setForTenant(?int $tenantId, string $key, $value, string $group = 'general', bool $isSecret = false)
+    {
         return self::withoutGlobalScope('tenant')->updateOrCreate(
             [
-                'tenant_id' => app(TenantContext::class)->id(),
+                'tenant_id' => $tenantId,
                 'key' => $key,
             ],
             ['value' => $value, 'group' => $group, 'is_secret' => $isSecret]

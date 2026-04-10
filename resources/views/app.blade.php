@@ -20,6 +20,13 @@
         @inertiaHead
     </head>
     <body class="font-sans antialiased bg-[#0a0a0a] text-[#ededed]">
+        <script>
+            window.Laravel = {
+                branding: {
+                    app_name: @json($appName),
+                },
+            };
+        </script>
         @inertia
     </body>
 </html>

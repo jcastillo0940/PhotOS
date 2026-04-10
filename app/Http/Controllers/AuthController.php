@@ -2,8 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Validator;
@@ -46,11 +49,17 @@ class AuthController extends Controller
             ]);
         }
 
-        if (Auth::attempt([
-            'email' => Str::lower(trim((string) $credentials['email'])),
-            'password' => $credentials['password'],
-        ], (bool) ($credentials['remember'] ?? false))) {
+        $tenantId = app(TenantContext::class)->id();
+        $email = Str::lower(trim((string) $credentials['email']));
+
+        $user = User::withoutGlobalScope('tenant')
+            ->where('tenant_id', $tenantId)
+            ->where('email', $email)
+            ->first();
+
+        if ($user && Hash::check($credentials['password'], $user->password)) {
             RateLimiter::clear($throttleKey);
+            Auth::login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();
             $request->session()->forget('url.intended');
 
@@ -60,7 +69,7 @@ class AuthController extends Controller
         RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
 
         throw ValidationException::withMessages([
-            'auth' => 'Credenciales invalidas.',
+            'auth' => 'Credenciales invalidas para este dominio.',
         ]);
     }
 

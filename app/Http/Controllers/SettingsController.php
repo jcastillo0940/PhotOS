@@ -72,7 +72,7 @@ class SettingsController extends Controller
     {
         $allowedKeys = [
             'r2_key', 'r2_secret', 'r2_bucket', 'r2_endpoint',
-            'paypal_client_id', 'paypal_secret', 'tilopay_api_key', 'tilopay_secret_key',
+            'paypal_client_id', 'paypal_secret', 'paypal_environment', 'paypal_webhook_id', 'tilopay_api_key', 'tilopay_secret_key',
             'alanube_email', 'alanube_api_url', 'alanube_api_key',
             'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target',
             'smtp_enabled', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_scheme', 'smtp_from_address', 'smtp_from_name',

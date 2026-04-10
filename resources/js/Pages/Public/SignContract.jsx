@@ -1,9 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+﻿import React, { useEffect, useRef, useState } from 'react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { CheckCircle2, Eraser, PenTool, Printer, ShieldCheck } from 'lucide-react';
 import { clsx } from 'clsx';
+import { resolveTenantTheme } from '@/lib/tenantTheme';
 
-export default function SignContract({ contract, renderedContent }) {
+export default function SignContract({ contract, renderedContent, theme = null }) {
+    const page = usePage().props;
+    const tenantTheme = resolveTenantTheme({ ...page, publicTheme: theme || page.publicTheme });
+    const { palette, headingFont, bodyFont, studioName } = tenantTheme;
     const canvasRef = useRef(null);
     const [isDrawing, setIsDrawing] = useState(false);
     const { data, setData, post, processing } = useForm({
@@ -68,38 +72,39 @@ export default function SignContract({ contract, renderedContent }) {
     };
 
     return (
-        <div className="min-h-screen bg-[#f6f3ee] px-6 py-10 text-slate-900 md:px-10">
-            <Head title="Review and Sign Contract" />
+        <div className="min-h-screen px-6 py-10 md:px-10" style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: bodyFont }}>
+            <Head title={`Firmar contrato | ${studioName}`} />
 
             <div className="mx-auto grid max-w-7xl gap-8 xl:grid-cols-[1.15fr_.85fr]">
                 <section className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm md:p-12">
                     <div className="mb-10 flex items-center justify-between gap-4 border-b border-slate-200 pb-8">
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.28em] text-slate-400">PhotOS Contracts</p>
-                            <h1 className="mt-3 text-4xl font-serif text-slate-900">Service Agreement</h1>
+                            <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>{studioName}</p>
+                            <h1 className="mt-3 text-4xl" style={{ color: palette.text, fontFamily: headingFont }}>Acuerdo de servicio</h1>
                         </div>
                         <Link
                             href={`/sign/${contract.token}/print`}
                             target="_blank"
-                            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-700 transition hover:border-slate-300"
+                            className="inline-flex items-center gap-2 rounded-full border px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] transition"
+                            style={{ borderColor: palette.accent_soft, color: palette.text }}
                         >
                             <Printer className="h-4 w-4" />
                             Print / PDF
                         </Link>
                     </div>
 
-                    <div className="mb-8 grid gap-4 rounded-[1.7rem] bg-slate-50 p-6 text-sm text-slate-600 md:grid-cols-3">
+                    <div className="mb-8 grid gap-4 rounded-[1.7rem] p-6 text-sm md:grid-cols-3" style={{ backgroundColor: palette.surface_alt, color: palette.muted }}>
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Client</p>
-                            <p className="mt-2 font-medium text-slate-900">{contract.project?.lead?.name}</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Cliente</p>
+                            <p className="mt-2 font-medium" style={{ color: palette.text }}>{contract.project?.lead?.name}</p>
                         </div>
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Project</p>
-                            <p className="mt-2 font-medium text-slate-900">{contract.project?.name}</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Proyecto</p>
+                            <p className="mt-2 font-medium" style={{ color: palette.text }}>{contract.project?.name}</p>
                         </div>
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Status</p>
-                            <p className="mt-2 font-medium text-slate-900">{contract.status}</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Estado</p>
+                            <p className="mt-2 font-medium" style={{ color: palette.text }}>{contract.status}</p>
                         </div>
                     </div>
 
@@ -108,23 +113,23 @@ export default function SignContract({ contract, renderedContent }) {
 
                 <aside className="rounded-[2.2rem] border border-slate-200 bg-white p-8 shadow-sm md:p-10">
                     <div className="mb-8 flex items-center gap-3">
-                        <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
+                        <div className="rounded-2xl p-3" style={{ backgroundColor: palette.accent_soft, color: palette.accent }}>
                             <ShieldCheck className="h-5 w-5" />
                         </div>
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Electronic signature</p>
-                            <h2 className="mt-1 text-2xl font-semibold text-slate-900">Finalize agreement</h2>
+                            <p className="text-[11px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>Firma electronica</p>
+                            <h2 className="mt-1 text-2xl font-semibold" style={{ color: palette.text, fontFamily: headingFont }}>Finalizar acuerdo</h2>
                         </div>
                     </div>
 
-                    <p className="text-sm leading-7 text-slate-500">
-                        Review the contract, sign below, and keep a printable copy for your records.
+                    <p className="text-sm leading-7" style={{ color: palette.muted }}>
+                        Revisa el contrato, firma abajo y conserva una copia imprimible para tus registros.
                     </p>
 
                     <div className="mt-8 rounded-[1.8rem] border border-slate-200 bg-slate-50 p-5">
                         <div className="mb-4 flex items-center justify-between">
-                            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Signature</p>
-                            <button type="button" onClick={clearSignature} className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>Firma</p>
+                            <button type="button" onClick={clearSignature} className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: palette.muted }}>
                                 <Eraser className="h-3.5 w-3.5" />
                                 Clear
                             </button>
@@ -154,8 +159,8 @@ export default function SignContract({ contract, renderedContent }) {
                         </div>
                     </div>
 
-                    <div className="mt-8 rounded-[1.6rem] border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
-                        Your signature timestamp and contract token will be recorded for verification.
+                    <div className="mt-8 rounded-[1.6rem] border p-4 text-sm" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt, color: palette.muted }}>
+                        Tu firma, fecha y token del contrato quedaran registrados para verificacion.
                     </div>
 
                     <form onSubmit={submit} className="mt-8">
@@ -165,11 +170,12 @@ export default function SignContract({ contract, renderedContent }) {
                                 'inline-flex w-full items-center justify-center gap-2 rounded-full px-6 py-4 text-xs font-semibold uppercase tracking-[0.18em] transition',
                                 processing || !data.signature_data
                                     ? 'cursor-not-allowed bg-slate-200 text-slate-400'
-                                    : 'bg-slate-900 text-white hover:bg-slate-800'
+                                    : 'text-white'
                             )}
+                            style={processing || !data.signature_data ? undefined : { backgroundColor: palette.surface_dark }}
                         >
                             <CheckCircle2 className="h-4 w-4" />
-                            {processing ? 'Signing...' : 'Sign contract'}
+                            {processing ? 'Firmando...' : 'Firmar contrato'}
                         </button>
                     </form>
                 </aside>

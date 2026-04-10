@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { Globe2, Plus, ServerCog, ShieldCheck } from 'lucide-react';
+import { CreditCard, Globe2, Plus, ServerCog, ShieldCheck } from 'lucide-react';
 import AdminLayout from '@/Layouts/AdminLayout';
 
 function TenantCard({ tenant }) {
@@ -30,13 +30,17 @@ function TenantCard({ tenant }) {
     );
 }
 
-export default function Index({ tenants, cloudflare }) {
+export default function Index({ tenants, registrations = [], cloudflare, presets = [] }) {
     const form = useForm({
         name: '',
         slug: '',
         primary_hostname: '',
         billing_email: '',
         plan_code: 'studio',
+        owner_name: '',
+        owner_email: '',
+        owner_password: '',
+        preset_key: presets[0]?.key || 'editorial-warm',
     });
 
     const submit = (e) => {
@@ -102,11 +106,29 @@ export default function Index({ tenants, cloudflare }) {
                             <Field label="Correo de facturacion" error={form.errors.billing_email}>
                                 <input type="email" value={form.data.billing_email} onChange={(e) => form.setData('billing_email', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="hola@monostudio.com" />
                             </Field>
+                            <Field label="Nombre del acceso inicial" error={form.errors.owner_name}>
+                                <input value={form.data.owner_name} onChange={(e) => form.setData('owner_name', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="Misael David" />
+                            </Field>
+                            <Field label="Correo del acceso inicial" error={form.errors.owner_email}>
+                                <input type="email" value={form.data.owner_email} onChange={(e) => form.setData('owner_email', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="admin@monostudio.com" />
+                            </Field>
+                            <Field label="Clave inicial" error={form.errors.owner_password}>
+                                <input type="password" value={form.data.owner_password} onChange={(e) => form.setData('owner_password', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="Minimo 8 caracteres" />
+                            </Field>
                             <Field label="Plan" error={form.errors.plan_code}>
                                 <select value={form.data.plan_code} onChange={(e) => form.setData('plan_code', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
                                     <option value="starter">Starter</option>
                                     <option value="pro">Pro</option>
                                     <option value="studio">Studio</option>
+                                </select>
+                            </Field>
+                            <Field label="Preset white-label" error={form.errors.preset_key}>
+                                <select value={form.data.preset_key} onChange={(e) => form.setData('preset_key', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
+                                    {presets.map((preset) => (
+                                        <option key={preset.key} value={preset.key}>
+                                            {preset.label} · {preset.gallery_template_code}
+                                        </option>
+                                    ))}
                                 </select>
                             </Field>
 
@@ -127,6 +149,58 @@ export default function Index({ tenants, cloudflare }) {
                         </div>
                     </section>
                 </div>
+
+                <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white">
+                            <CreditCard className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-lg font-semibold text-slate-900">Altas SaaS recientes</p>
+                            <p className="text-sm text-slate-500">Registros creados desde el landing central con plan y gateway seleccionado.</p>
+                        </div>
+                    </div>
+
+                    <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                        {registrations.map((registration) => (
+                            <article key={registration.id} className="rounded-[1.75rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="text-lg font-semibold text-slate-900">{registration.studio_name}</p>
+                                        <p className="mt-1 text-sm text-slate-500">{registration.owner_email}</p>
+                                    </div>
+                                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                        {registration.status}
+                                    </span>
+                                </div>
+                                <div className="mt-4 grid gap-2 text-sm text-slate-600">
+                                    <p><span className="font-semibold text-slate-800">Plan:</span> {registration.selected_plan_name || registration.plan_code} · {registration.billing_cycle === 'annual' ? 'Anual' : 'Mensual'}</p>
+                                    <p><span className="font-semibold text-slate-800">Monto:</span> {registration.selected_price ? `$${registration.selected_price}` : 'Pendiente'}</p>
+                                    <p><span className="font-semibold text-slate-800">Gateway:</span> {registration.payment_gateway || 'manual'}</p>
+                                    <p><span className="font-semibold text-slate-800">Subdominio:</span> {registration.provisioned_hostname}</p>
+                                    {registration.requested_domain && (
+                                        <p><span className="font-semibold text-slate-800">Dominio solicitado:</span> {registration.requested_domain}</p>
+                                    )}
+                                </div>
+                                {registration.tenant_login_url && (
+                                    <a
+                                        href={registration.tenant_login_url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-4 inline-flex rounded-2xl border border-[#e6e0d5] bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50"
+                                    >
+                                        Abrir login del tenant
+                                    </a>
+                                )}
+                            </article>
+                        ))}
+                        {registrations.length === 0 && (
+                            <div className="rounded-[1.75rem] border border-dashed border-[#e6e0d5] bg-[#fbf9f6] p-6 text-sm text-slate-500">
+                                Aun no hay altas creadas desde el landing central.
+                            </div>
+                        )}
+                    </div>
+                </section>
             </div>
         </AdminLayout>
     );

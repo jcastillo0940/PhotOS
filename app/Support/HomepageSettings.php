@@ -11,14 +11,14 @@ class HomepageSettings
 {
     public const SETTING_KEY = 'homepage_content';
 
-    public static function defaults(): array
+    public static function defaults(?int $tenantId = null): array
     {
         $businessName = 'MONO Studio';
         $tagline = 'Portraits, weddings, and stories shaped by light.';
 
         if (Schema::hasTable('settings')) {
-            $businessName = Setting::get('app_name', Setting::get('photographer_business_name', $businessName)) ?: $businessName;
-            $tagline = Setting::get('app_tagline', $tagline) ?: $tagline;
+            $businessName = Setting::getForTenant($tenantId, 'app_name', Setting::getForTenant($tenantId, 'photographer_business_name', $businessName)) ?: $businessName;
+            $tagline = Setting::getForTenant($tenantId, 'app_tagline', $tagline) ?: $tagline;
         }
 
         return [
@@ -101,17 +101,17 @@ class HomepageSettings
         ];
     }
 
-    public static function get(): array
+    public static function get(?int $tenantId = null): array
     {
         if (! Schema::hasTable('settings')) {
-            return self::defaults();
+            return self::defaults($tenantId);
         }
 
-        $stored = Setting::get(self::SETTING_KEY);
+        $stored = Setting::getForTenant($tenantId, self::SETTING_KEY);
 
         if (! $stored) {
-            $defaults = self::defaults();
-            self::save($defaults);
+            $defaults = self::defaults($tenantId);
+            self::save($defaults, $tenantId);
 
             return $defaults;
         }
@@ -119,31 +119,32 @@ class HomepageSettings
         $decoded = json_decode($stored, true);
 
         if (! is_array($decoded)) {
-            $defaults = self::defaults();
-            self::save($defaults);
+            $defaults = self::defaults($tenantId);
+            self::save($defaults, $tenantId);
 
             return $defaults;
         }
 
-        return self::mergeRecursive(self::defaults(), $decoded);
+        return self::mergeRecursive(self::defaults($tenantId), $decoded);
     }
 
-    public static function save(array $content): void
+    public static function save(array $content, ?int $tenantId = null): void
     {
         if (! Schema::hasTable('settings')) {
             return;
         }
 
-        Setting::set(
+        Setting::setForTenant(
+            $tenantId,
             self::SETTING_KEY,
             json_encode($content, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE),
             'homepage'
         );
     }
 
-    public static function sanitize(array $content): array
+    public static function sanitize(array $content, ?int $tenantId = null): array
     {
-        $defaults = self::defaults();
+        $defaults = self::defaults($tenantId);
         $merged = self::mergeRecursive($defaults, $content);
 
         $allowedSections = ['hero', 'about', 'gallery', 'featured', 'contact'];

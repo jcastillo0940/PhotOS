@@ -2,23 +2,19 @@
 
 namespace App\Providers;
 
+use App\Services\Billing\TenantBillingService;
 use App\Support\Tenancy\TenantContext;
-use Inertia\Inertia;
+use App\Support\TenantThemeSettings;
 use Illuminate\Support\ServiceProvider;
+use Inertia\Inertia;
 
 class AppServiceProvider extends ServiceProvider
 {
-    /**
-     * Register any application services.
-     */
     public function register(): void
     {
         $this->app->singleton(TenantContext::class, fn () => new TenantContext());
     }
 
-    /**
-     * Bootstrap any application services.
-     */
     public function boot(): void
     {
         \Illuminate\Support\Facades\Schema::defaultStringLength(191);
@@ -39,6 +35,22 @@ class AppServiceProvider extends ServiceProvider
             'error' => session('error'),
             'integration_test' => session('integration_test'),
         ]);
+
+        Inertia::share('tenantBilling', function () {
+            try {
+                return app(TenantBillingService::class)->billingStateFor(app(TenantContext::class)->tenant());
+            } catch (\Throwable $e) {
+                return [
+                    'status' => 'unknown',
+                    'allow_front' => true,
+                    'allow_backoffice' => true,
+                    'allow_write' => true,
+                    'is_read_only' => false,
+                    'banner' => null,
+                    'grace_ends_at' => null,
+                ];
+            }
+        });
 
         Inertia::share('tenant', function () {
             $tenant = app(TenantContext::class)->tenant();
@@ -84,6 +96,14 @@ class AppServiceProvider extends ServiceProvider
             }
         });
 
+        Inertia::share('publicTheme', function () {
+            try {
+                return TenantThemeSettings::get(app(TenantContext::class)->id());
+            } catch (\Throwable $e) {
+                return TenantThemeSettings::toFrontend(TenantThemeSettings::defaults());
+            }
+        });
+
         try {
             if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
                 $r2Key = \App\Models\Setting::get('r2_key');
@@ -94,6 +114,10 @@ class AppServiceProvider extends ServiceProvider
                 $cloudflareSaasZoneId = \App\Models\Setting::get('cloudflare_saas_zone_id', env('CLOUDFLARE_SAAS_ZONE_ID'));
                 $cloudflareSaasCnameTarget = \App\Models\Setting::get('cloudflare_saas_cname_target', env('CLOUDFLARE_SAAS_CNAME_TARGET'));
                 $cloudflareSaasDcvTarget = \App\Models\Setting::get('cloudflare_saas_dcv_target', env('CLOUDFLARE_SAAS_DCV_TARGET'));
+                $paypalClientId = \App\Models\Setting::get('paypal_client_id', env('PAYPAL_CLIENT_ID'));
+                $paypalSecret = \App\Models\Setting::get('paypal_secret', env('PAYPAL_SECRET'));
+                $paypalEnvironment = \App\Models\Setting::get('paypal_environment', env('PAYPAL_ENVIRONMENT', 'sandbox'));
+                $paypalWebhookId = \App\Models\Setting::get('paypal_webhook_id', env('PAYPAL_WEBHOOK_ID'));
                 $smtpEnabled = filter_var(\App\Models\Setting::get('smtp_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false;
 
                 if ($r2Key && $r2Secret) {
@@ -110,6 +134,10 @@ class AppServiceProvider extends ServiceProvider
                     'services.cloudflare_saas.zone_id' => $cloudflareSaasZoneId,
                     'services.cloudflare_saas.managed_cname_target' => $cloudflareSaasCnameTarget,
                     'services.cloudflare_saas.dcv_target' => $cloudflareSaasDcvTarget,
+                    'services.paypal.client_id' => $paypalClientId,
+                    'services.paypal.secret' => $paypalSecret,
+                    'services.paypal.environment' => $paypalEnvironment,
+                    'services.paypal.webhook_id' => $paypalWebhookId,
                 ]);
 
                 config([

@@ -3,7 +3,9 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\EnsureTenantSessionMatchesHost;
 use App\Http\Middleware\EnsureDeveloper;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenantFromHost;
 
 $app = Application::configure(basePath: dirname(__DIR__))
@@ -17,9 +19,15 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'developer' => EnsureDeveloper::class,
         ]);
 
-        $middleware->web(append: [
-            ResolveTenantFromHost::class,
-        ]);
+        $middleware->web(
+            prepend: [
+                ResolveTenantFromHost::class,
+            ],
+            append: [
+                HandleInertiaRequests::class,
+                EnsureTenantSessionMatchesHost::class,
+            ],
+        );
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

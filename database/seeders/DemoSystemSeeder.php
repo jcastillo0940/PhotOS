@@ -11,12 +11,14 @@ use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Purchase;
 use App\Models\Setting;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Support\DemoMediaSeeder;
 use App\Support\ContractTemplate;
 use App\Support\GalleryTemplate;
 use App\Support\HomepageSettings;
 use App\Support\InstallationPlan;
+use App\Support\TenantBrandPreset;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -27,10 +29,12 @@ class DemoSystemSeeder extends Seeder
     {
         DB::transaction(function () {
             $this->resetDemoData();
+            $defaultTenantId = Tenant::query()->orderBy('id')->value('id');
 
             $platformOwner = User::updateOrCreate(
                 ['email' => 'owner@photos.com'],
                 [
+                    'tenant_id' => $defaultTenantId,
                     'name' => 'PhotOS Owner',
                     'password' => Hash::make('owner2026'),
                     'role' => 'owner',
@@ -41,6 +45,7 @@ class DemoSystemSeeder extends Seeder
             $developer = User::updateOrCreate(
                 ['email' => 'developer@photos.com'],
                 [
+                    'tenant_id' => $defaultTenantId,
                     'name' => 'PhotOS Developer',
                     'password' => Hash::make('developer2026'),
                     'role' => 'developer',
@@ -51,6 +56,7 @@ class DemoSystemSeeder extends Seeder
             $photographer = User::updateOrCreate(
                 ['email' => 'studio@mono.com'],
                 [
+                    'tenant_id' => $defaultTenantId,
                     'name' => 'Mono Studio',
                     'password' => Hash::make('studio2026'),
                     'role' => 'photographer',
@@ -348,6 +354,9 @@ class DemoSystemSeeder extends Seeder
         ];
 
         HomepageSettings::save($homepage);
+        if ($tenantId = Tenant::query()->orderBy('id')->value('id')) {
+            TenantBrandPreset::apply(Tenant::find($tenantId), 'editorial-warm');
+        }
     }
 
     private function seedContracts(Project $signedProject, Project $pendingProject, Project $deliveredProject): void

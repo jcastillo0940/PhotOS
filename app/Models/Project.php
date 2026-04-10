@@ -131,7 +131,7 @@ class Project extends Model
 
     public function resolvedGalleryTemplate(): array
     {
-        $selectedCode = $this->gallery_template_code ?: GalleryTemplate::defaultCode();
+        $selectedCode = $this->gallery_template_code ?: GalleryTemplate::defaultCode($this->tenant_id);
 
         if (!GalleryTemplate::isAllowedForPlan($selectedCode, $this->planDefinition())) {
             return GalleryTemplate::resolve(GalleryTemplate::firstAllowedCode($this->planDefinition()));

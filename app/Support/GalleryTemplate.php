@@ -3,10 +3,12 @@
 namespace App\Support;
 
 use App\Models\Setting;
+use App\Support\Tenancy\TenantContext;
 
 class GalleryTemplate
 {
     public const SETTING_KEY = 'active_gallery_template';
+    public const DEFAULT_TEMPLATE_SETTING_KEY = 'default_gallery_template_code';
 
     public static function all(): array
     {
@@ -15,11 +17,7 @@ class GalleryTemplate
 
     public static function code(): string
     {
-        $default = config('gallery_templates.default', 'cinematic-dark');
-        $templates = self::all();
-        $code = Setting::get(self::SETTING_KEY, $default) ?: $default;
-
-        return array_key_exists($code, $templates) ? $code : $default;
+        return self::defaultCode(app(TenantContext::class)->id());
     }
 
     public static function current(): array
@@ -35,9 +33,23 @@ class GalleryTemplate
         return $templates[$code] ?? $templates[$default] ?? [];
     }
 
-    public static function defaultCode(): string
+    public static function defaultCode(?int $tenantId = null): string
     {
-        return config('gallery_templates.default', 'cinematic-dark');
+        $fallback = config('gallery_templates.default', 'cinematic-dark');
+        $templates = self::all();
+        $code = Setting::getForTenant($tenantId, self::DEFAULT_TEMPLATE_SETTING_KEY, null)
+            ?: Setting::getForTenant($tenantId, self::SETTING_KEY, $fallback)
+            ?: $fallback;
+
+        return array_key_exists($code, $templates) ? $code : $fallback;
+    }
+
+    public static function setDefaultCode(string $code, ?int $tenantId = null): void
+    {
+        $resolved = self::resolve($code);
+        $finalCode = $resolved['code'] ?? self::defaultCode($tenantId);
+
+        Setting::setForTenant($tenantId, self::DEFAULT_TEMPLATE_SETTING_KEY, $finalCode, 'installation');
     }
 
     public static function defaultTemplateId(): ?int

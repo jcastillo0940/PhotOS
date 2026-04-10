@@ -19,12 +19,24 @@ const labels = {
     contact: 'Contact',
 };
 
-export default function Index({ homepage, homepagePreview }) {
+export default function Index({
+    homepage,
+    homepagePreview,
+    theme,
+    submitUrl = '/admin/website',
+    tenantLabel = null,
+    pageTitle = 'Sitio web',
+    heading = 'Landing del fotografo',
+    description = 'Edita el contenido del home, cambia imagenes y reordena secciones con drag and drop. El sitio se mantiene dentro de una estructura predefinida para que el cliente personalice sin romper el diseno.',
+    backHref = null,
+    backLabel = 'Volver',
+}) {
     const { flash } = usePage().props;
     const [content, setContent] = React.useState(homepage);
     const [dragging, setDragging] = React.useState(null);
     const { data, setData, put, processing, transform } = useForm({
         content: JSON.stringify(homepage),
+        theme: JSON.stringify(theme || {}),
         hero_image: null,
         about_image: null,
         gallery_image_0: null,
@@ -70,29 +82,40 @@ export default function Index({ homepage, homepagePreview }) {
         transform((current) => ({
             ...current,
             content: JSON.stringify(content),
+            theme: JSON.stringify(themeState),
         }));
-        put('/admin/website', {
+        put(submitUrl, {
             forceFormData: true,
             preserveScroll: true,
         });
     };
+    const [themeState, setThemeState] = React.useState(theme || {});
 
     return (
         <AdminLayout>
-            <Head title="Sitio web" />
+            <Head title={pageTitle} />
 
             <form onSubmit={submit} className="space-y-8 pb-8">
                 <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                     <div className="max-w-3xl">
+                        {backHref && (
+                            <Link href={backHref} className="mb-4 inline-flex text-sm font-medium text-slate-500 transition hover:text-slate-900">
+                                {backLabel}
+                            </Link>
+                        )}
                         <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-primary-50 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-primary-700">
                             <LayoutTemplate className="h-3.5 w-3.5" />
                             Website builder
                         </p>
-                        <h1 className="text-4xl font-heading font-black tracking-tight text-slate-900">Landing del fotografo</h1>
+                        <h1 className="text-4xl font-heading font-black tracking-tight text-slate-900">{heading}</h1>
                         <p className="mt-3 text-sm leading-7 text-slate-500">
-                            Edita el contenido del home, cambia imagenes y reordena secciones con drag and drop.
-                            El sitio se mantiene dentro de una estructura predefinida para que el cliente personalice sin romper el diseno.
+                            {description}
                         </p>
+                        {tenantLabel && (
+                            <p className="mt-3 inline-flex rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                Tenant: {tenantLabel}
+                            </p>
+                        )}
                     </div>
 
                     <button
@@ -189,6 +212,25 @@ export default function Index({ homepage, homepagePreview }) {
                             >
                                 Ir a branding
                             </Link>
+                        </Panel>
+
+                        <Panel title="Tema visual" icon={Sparkles} description="Cada tenant puede usar el mismo motor del front, pero con una atmosfera visual distinta.">
+                            <div className="grid gap-5 md:grid-cols-3">
+                                <div className="space-y-2 md:col-span-1">
+                                    <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Preset</label>
+                                    <select
+                                        value={themeState.preset || 'editorial-warm'}
+                                        onChange={(event) => setThemeState((current) => ({ ...current, preset: event.target.value }))}
+                                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white"
+                                    >
+                                        {(theme?.presets || []).map((preset) => (
+                                            <option key={preset.key} value={preset.key}>{preset.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <TextField label="Heading font" value={themeState.font_heading} onChange={(value) => setThemeState((current) => ({ ...current, font_heading: value }))} />
+                                <TextField label="Body font" value={themeState.font_body} onChange={(value) => setThemeState((current) => ({ ...current, font_body: value }))} />
+                            </div>
                         </Panel>
 
                         <Panel title="Hero" icon={LayoutTemplate} description="Seccion principal con imagen, titular y llamadas a la accion.">

@@ -19,6 +19,9 @@ use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ClientAccountingController;
 use App\Http\Controllers\ClientDashboardController;
 use App\Http\Controllers\SaasTenantController;
+use App\Http\Controllers\SaasTenantWebsiteController;
+use App\Http\Controllers\SaasOnboardingController;
+use App\Http\Controllers\SaasBillingController;
 use Illuminate\Support\Facades\Route;
 
 // Public: Studio Website
@@ -27,6 +30,11 @@ Route::get('/portfolio', [HomeController::class, 'portfolio'])->name('public.por
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 Route::get('/booking', [BookingController::class, 'index'])->name('public.booking');
 Route::post('/booking', [BookingController::class, 'store'])->name('public.booking.store');
+Route::get('/get-started', [SaasOnboardingController::class, 'create'])->name('public.saas.signup');
+Route::post('/get-started', [SaasOnboardingController::class, 'store'])->name('public.saas.signup.store');
+Route::get('/get-started/{registration}', [SaasOnboardingController::class, 'success'])->name('public.saas.signup.success');
+Route::post('/get-started/{registration}/paypal/subscribe', [SaasBillingController::class, 'createPayPalSubscription'])->name('public.saas.signup.paypal');
+Route::post('/webhooks/paypal/subscriptions', [SaasBillingController::class, 'paypalWebhook'])->name('webhooks.paypal.subscriptions');
 
 // Auth: Studio Access
 Route::get('/login', [AuthController::class, 'loginView'])->name('login');
@@ -79,6 +87,10 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');
         Route::post('/saas/tenants/{tenant}/domains', [SaasTenantController::class, 'storeDomain'])->name('admin.saas.tenants.domains.store');
         Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
+        Route::get('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'edit'])->name('admin.saas.tenants.website.edit');
+        Route::put('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'update'])->name('admin.saas.tenants.website.update');
+        Route::post('/saas/tenants/{tenant}/billing/manual', [SaasBillingController::class, 'manualUpdate'])->name('admin.saas.tenants.billing.manual');
+        Route::post('/saas/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('admin.saas.tenants.billing.setup-token');
     });
     
     Route::get('/leads', [LeadController::class, 'index'])->name('admin.leads');

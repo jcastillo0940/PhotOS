@@ -16,6 +16,8 @@ use App\Support\ContractTemplate;
 use App\Support\EventTypeSettings;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
+use App\Support\TenantThemeSettings;
+use App\Support\Tenancy\TenantContext;
 use App\Services\CrmAutomationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -98,7 +100,7 @@ class ProjectController extends Controller
             'retention_days' => $plan['retention_days'] ?? null,
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
-            'gallery_template_code' => GalleryTemplate::firstAllowedCode($plan),
+            'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
         ]);
 
         $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
@@ -138,7 +140,7 @@ class ProjectController extends Controller
             'retention_days' => $plan['retention_days'] ?? null,
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
-            'gallery_template_code' => GalleryTemplate::firstAllowedCode($plan),
+            'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
         ]);
 
         $lead->update(['status' => 'project']);
@@ -178,6 +180,7 @@ class ProjectController extends Controller
         $payload = [
             'contract' => $contract,
             'renderedContent' => ContractTemplate::render($contract),
+            'theme' => TenantThemeSettings::get(app(TenantContext::class)->id()),
         ];
         if ($contract->status === 'signed') return Inertia::render('Public/ContractSigned', $payload);
         return Inertia::render('Public/SignContract', $payload);
@@ -382,6 +385,15 @@ class ProjectController extends Controller
                 'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
             ],
         ];
+    }
+
+    private function initialGalleryTemplateCode(array $plan): string
+    {
+        $preferred = GalleryTemplate::defaultCode(app(TenantContext::class)->id());
+
+        return GalleryTemplate::isAllowedForPlan($preferred, $plan)
+            ? $preferred
+            : GalleryTemplate::firstAllowedCode($plan);
     }
 
     private function projectAnalytics(Project $project): array

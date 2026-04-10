@@ -322,7 +322,7 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
 }
 
 export default function Gallery({ project, photos, galleryTemplate, access, pagination, galleryTitle }) {
-    const { flash, errors } = usePage().props;
+    const { flash, errors, branding } = usePage().props;
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [filter, setFilter] = useState('All');
     const [peopleFilter, setPeopleFilter] = useState('All');
@@ -416,7 +416,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
 
     return (
         <div className={clsx('min-h-screen selection:bg-accent/30 selection:text-white pb-24', styles.page)}>
-            <Head title={galleryTitle || `Gallery: ${project.name}`} />
+            <Head title={galleryTitle || `${branding?.app_name || 'Gallery'} | ${project.name}`} />
 
                 <>
 
@@ -441,6 +441,9 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                         <div>
                             <p className={clsx('text-[10px] font-black uppercase tracking-[0.28em]', isDarkChrome ? 'text-white/45' : 'text-black/35')}>
                                 {isClientView ? 'Client gallery unlocked' : 'Public portfolio view'}
+                            </p>
+                            <p className={clsx('mt-2 text-xs uppercase tracking-[0.24em]', isDarkChrome ? 'text-white/35' : 'text-[#8b6d54]')}>
+                                {branding?.app_name || 'Studio'}
                             </p>
                             <h2 className={clsx('mt-2 text-xl font-black leading-tight md:text-2xl', isDarkChrome ? 'text-white' : 'text-[#241b16]')}>
                                 {galleryTitle || 'Selected work: A gallery shaped by emotion, landscape, and movement'}
@@ -621,7 +624,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
             </div>
 
             <footer className={clsx('mt-24 px-16 text-center', styles.footer)}>
-                <p className="text-[10px] uppercase font-black tracking-[0.6em] mb-4 italic">Artisan Processing and Delivery Platform</p>
+                <p className="text-[10px] uppercase font-black tracking-[0.6em] mb-4 italic">{branding?.app_name || 'Artisan Processing and Delivery Platform'}</p>
                 <div className={clsx('w-12 h-[1px] mx-auto', isDarkChrome ? 'bg-white/5' : 'bg-black/10')} />
             </footer>
 

@@ -99,6 +99,7 @@ export default function AdminLayout({ children }) {
     const { url, props } = usePage();
     const user = props.auth?.user;
     const branding = props.branding || {};
+    const billing = props.tenantBilling || {};
     const [compact, setCompact] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -298,7 +299,15 @@ export default function AdminLayout({ children }) {
                 </header>
 
                 <section className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
-                    <div className="mx-auto w-full max-w-[1440px]">{children}</div>
+                    <div className="mx-auto w-full max-w-[1440px]">
+                        {billing?.banner && (
+                            <div className="mb-6 rounded-[1.6rem] border border-[#eadcc9] bg-[#fbf6ef] px-5 py-4 text-sm text-slate-700">
+                                <p className="font-semibold text-slate-900">Cuenta en modo restringido</p>
+                                <p className="mt-1">{billing.banner}</p>
+                            </div>
+                        )}
+                        {children}
+                    </div>
                 </section>
             </main>
         </div>

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Support\HomepageSettings;
+use App\Support\TenantThemeSettings;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -13,11 +15,15 @@ class WebsiteController extends Controller
 {
     public function index()
     {
-        $content = HomepageSettings::get();
+        $tenantId = app(TenantContext::class)->id();
+        $content = HomepageSettings::get($tenantId);
 
         return Inertia::render('Admin/Website/Index', [
             'homepage' => $content,
             'homepagePreview' => HomepageSettings::toFrontend($content),
+            'theme' => TenantThemeSettings::get($tenantId),
+            'submitUrl' => '/admin/website',
+            'tenantLabel' => app(TenantContext::class)->tenant()?->name,
         ]);
     }
 
@@ -41,7 +47,10 @@ class WebsiteController extends Controller
         $decoded = json_decode($validated['content'], true);
         abort_unless(is_array($decoded), 422, 'Invalid homepage payload.');
 
-        $content = HomepageSettings::sanitize($decoded);
+        $tenantId = app(TenantContext::class)->id();
+        $themeDecoded = json_decode($request->input('theme', '{}'), true);
+
+        $content = HomepageSettings::sanitize($decoded, $tenantId);
         $content['brand']['name'] = Setting::get('app_name', Setting::get('photographer_business_name', $content['brand']['name'] ?? 'PhotOS'));
         $content['brand']['tagline'] = Setting::get('app_tagline', $content['brand']['tagline'] ?? 'Admin platform');
 
@@ -69,7 +78,11 @@ class WebsiteController extends Controller
             }
         }
 
-        HomepageSettings::save($content);
+        HomepageSettings::save($content, $tenantId);
+
+        if (is_array($themeDecoded)) {
+            TenantThemeSettings::save($themeDecoded, $tenantId);
+        }
 
         return back()->with('success', 'Website updated successfully.');
     }
