@@ -124,6 +124,7 @@ class AppServiceProvider extends ServiceProvider
                         'filesystems.disks.r2.bucket' => $r2Bucket,
                         'filesystems.disks.r2.endpoint' => $r2Endpoint,
                     ]);
+                    \Illuminate\Support\Facades\Storage::forgetDisk('r2');
                 }
 
                 // Cloudflare SaaS

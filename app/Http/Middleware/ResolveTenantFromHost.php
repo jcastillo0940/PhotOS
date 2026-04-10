@@ -43,6 +43,7 @@ class ResolveTenantFromHost
         if ($tenant) {
             // Isolation in R2: Each tenant has its own folder
             config(['filesystems.disks.r2.root' => "tenants/{$tenant->slug}"]);
+            \Illuminate\Support\Facades\Storage::forgetDisk('r2');
         }
 
         if (!$tenant && $request->route()?->getName() !== null) {

@@ -356,8 +356,8 @@ class GalleryController extends Controller
 
         $file = $request->file('reference_image');
         $storedPath = $file->storeAs(
-            $project->tenant_id
-                ? 'tenants/'.$project->tenant_id.'/projects/'.$project->id.'/face-identities'
+            $project->id
+                ? 'projects/'.$project->id.'/face-identities'
                 : 'face-identities',
             uniqid('identity_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
             'r2'
