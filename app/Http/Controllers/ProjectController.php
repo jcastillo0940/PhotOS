@@ -355,7 +355,7 @@ class ProjectController extends Controller
             ],
             'faceRecognition' => [
                 'enabled' => $project->face_recognition_enabled,
-                'service_configured' => filled(config('services.face_ai.url')),
+                'service_configured' => filled(config('services.face_ai.task_queue')) && filled(config('services.face_ai.result_queue')),
                 'summary' => [
                     'photos_with_people' => $project->photos->filter(fn ($photo) => !empty($photo->people_tags))->count(),
                     'photos_pending' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
@@ -371,6 +371,9 @@ class ProjectController extends Controller
                         'id' => $identity->id,
                         'name' => $identity->name,
                         'path_reference' => $identity->path_reference,
+                        'processing_status' => $identity->processing_status,
+                        'processing_note' => $identity->processing_note,
+                        'processed_at' => optional($identity->processed_at)?->toIso8601String(),
                         'created_at' => optional($identity->created_at)?->toIso8601String(),
                     ])
                     ->values()

@@ -3,8 +3,10 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\EnsureTenantFeatureAvailable;
 use App\Http\Middleware\EnsureTenantSessionMatchesHost;
 use App\Http\Middleware\EnsureDeveloper;
+use App\Http\Middleware\EnsureStudioOperator;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenantFromHost;
 
@@ -17,6 +19,8 @@ $app = Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'developer' => EnsureDeveloper::class,
+            'studio.operator' => EnsureStudioOperator::class,
+            'tenant.feature' => EnsureTenantFeatureAvailable::class,
         ]);
 
         $middleware->web(

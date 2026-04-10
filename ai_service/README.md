@@ -1,43 +1,22 @@
-﻿# PhotOS Face AI Service
+# PhotOS Face AI Worker
 
-Microservicio FastAPI para reconocimiento facial de galerias.
+Worker Python para reconocimiento facial asincrono de galerias.
 
-## Endpoints
+## Modelo operativo
 
-- `GET /health`
-- `POST /extract-face`
-- `POST /compare-faces`
+- Laravel encola tareas en Redis.
+- `ai_service/main.py` consume la cola `face-ai:tasks`.
+- El worker descarga la imagen optimizada desde R2, procesa con un solo modelo compartido y devuelve el resultado en `face-ai:results`.
+- Laravel consume los resultados con `php artisan face-ai:consume-results`.
 
 ## Variables de entorno
 
+- `FACE_AI_REDIS_URL=redis://127.0.0.1:6379/0`
+- `FACE_AI_TASK_QUEUE=face-ai:tasks`
+- `FACE_AI_RESULT_QUEUE=face-ai:results`
 - `FACE_AI_TOLERANCE=0.6`
-- `FACE_AI_MAX_UPLOAD_MB=15`
-- `FACE_AI_CORS_ORIGINS=*`
-
-## Pruebas rapidas
-
-### Opcion 1: archivo HTTP
-
-Usa `ai_service/test.http` desde VS Code o una extension compatible.
-
-Coloca tus imagenes en:
-
-- `ai_service/samples/reference.jpg`
-- `ai_service/samples/group.jpg`
-
-### Opcion 2: smoke test en Python
-
-```bash
-cd ai_service
-python smoke_test.py --reference samples/reference.jpg --group samples/group.jpg
-```
-
-Si solo quieres validar que el servicio arranco:
-
-```bash
-cd ai_service
-python smoke_test.py
-```
+- `FACE_AI_POLL_TIMEOUT=5`
+- `FACE_AI_HTTP_TIMEOUT=60`
 
 ## Local (Windows / WAMP)
 
@@ -46,13 +25,22 @@ cd ai_service
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn main:app --host 127.0.0.1 --port 5000 --reload
+python main.py
 ```
 
 Laravel:
 
 ```env
-FACE_AI_SERVICE_URL=http://127.0.0.1:5000
+FACE_AI_REDIS_CONNECTION=default
+FACE_AI_TASK_QUEUE=face-ai:tasks
+FACE_AI_RESULT_QUEUE=face-ai:results
+```
+
+En otra terminal de Laravel:
+
+```bash
+php artisan queue:work
+php artisan face-ai:consume-results
 ```
 
 ## Produccion (Ubuntu / GCP)
@@ -62,13 +50,15 @@ cd ai_service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-gunicorn -w 4 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:5000
+python3 main.py
 ```
 
 Laravel:
 
 ```env
-FACE_AI_SERVICE_URL=http://10.128.0.5:5000
+FACE_AI_REDIS_CONNECTION=default
+FACE_AI_TASK_QUEUE=face-ai:tasks
+FACE_AI_RESULT_QUEUE=face-ai:results
 ```
 
 ## Notas
@@ -76,8 +66,4 @@ FACE_AI_SERVICE_URL=http://10.128.0.5:5000
 - Para `face_recognition` necesitas `dlib` y dependencias nativas.
 - En Windows normalmente hace falta instalar Visual Studio Build Tools.
 - En Ubuntu suelen hacer falta `cmake`, `libopenblas-dev`, `liblapack-dev` y `libx11-dev`.
-
-
-Si quieres dejarlo persistente con systemd, usa:
-
-- i_service/deploy/photos-face-ai.service`n- i_service/deploy/face-ai.env.example`n- i_service/deploy/ubuntu-gcp.md`n
+- Ya no hay endpoint HTTP publico ni CORS porque el motor opera como worker interno.

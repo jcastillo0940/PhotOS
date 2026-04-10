@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SaasRegistration;
+use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\User;
@@ -74,6 +75,28 @@ class SaasTenantController extends Controller
                 ])
                 ->values(),
             'registrations' => $registrations,
+            'users' => User::withoutGlobalScope('tenant')
+                ->orderBy('name')
+                ->get(['id', 'tenant_id', 'name', 'email', 'role'])
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'tenant_id' => $user->tenant_id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->role,
+                ])
+                ->values(),
+            'plans' => SaasPlan::query()
+                ->orderBy('id')
+                ->get()
+                ->map(fn (SaasPlan $plan) => [
+                    'id' => $plan->id,
+                    'code' => $plan->code,
+                    'name' => $plan->name,
+                    'is_active' => $plan->is_active,
+                    'features' => $plan->features,
+                ])
+                ->values(),
             'cloudflare' => $this->cloudflarePayload(),
             'presets' => TenantBrandPreset::options(),
         ]);
@@ -197,8 +220,31 @@ class SaasTenantController extends Controller
                     ];
                 })->values(),
             ],
+            'planOptions' => SaasPlan::query()
+                ->where('is_active', true)
+                ->orderBy('id')
+                ->get(['code', 'name'])
+                ->map(fn (SaasPlan $plan) => [
+                    'code' => $plan->code,
+                    'name' => $plan->name,
+                ])
+                ->values(),
             'cloudflare' => $this->cloudflarePayload(),
         ]);
+    }
+
+    public function update(Request $request, Tenant $tenant)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'status' => 'required|string|in:active,past_due,suspended,blocked',
+            'plan_code' => 'required|string|exists:saas_plans,code',
+            'billing_email' => 'nullable|email|max:255',
+        ]);
+
+        $tenant->update($validated);
+
+        return redirect()->back()->with('success', 'Tenant actualizado.');
     }
 
     public function storeDomain(Request $request, Tenant $tenant)

@@ -30,7 +30,7 @@ function TenantCard({ tenant }) {
     );
 }
 
-export default function Index({ tenants, registrations = [], cloudflare, presets = [] }) {
+export default function Index({ tenants, registrations = [], users = [], plans = [], cloudflare, presets = [] }) {
     const form = useForm({
         name: '',
         slug: '',
@@ -201,6 +201,62 @@ export default function Index({ tenants, registrations = [], cloudflare, presets
                         )}
                     </div>
                 </section>
+
+                <div className="grid gap-6 xl:grid-cols-2">
+                    <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <ShieldCheck className="h-5 w-5 text-slate-500" />
+                            <div>
+                                <p className="text-lg font-semibold text-slate-900">Usuarios globales y de tenants</p>
+                                <p className="text-sm text-slate-500">Visibilidad completa de accesos del sistema.</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 space-y-3">
+                            {users.map((user) => (
+                                <div key={user.id} className="flex items-center justify-between gap-4 rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-4">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                                        <p className="truncate text-xs text-slate-500">{user.email}</p>
+                                    </div>
+                                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{user.role}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                        <div className="flex items-center gap-3">
+                            <ServerCog className="h-5 w-5 text-slate-500" />
+                            <div>
+                                <p className="text-lg font-semibold text-slate-900">Planes configurados</p>
+                                <p className="text-sm text-slate-500">Base actual de limites dinamicos y presets del SaaS.</p>
+                            </div>
+                        </div>
+                        <div className="mt-6 grid gap-4">
+                            {plans.map((plan) => (
+                                <div key={plan.id} className="rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-slate-900">{plan.name}</p>
+                                            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{plan.code}</p>
+                                        </div>
+                                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
+                                            {plan.is_active ? 'Activo' : 'Inactivo'}
+                                        </span>
+                                    </div>
+                                    <div className="mt-4 grid gap-2 text-xs text-slate-500">
+                                        {Object.entries(plan.features || {}).map(([key, value]) => (
+                                            <div key={key} className="flex items-center justify-between rounded-2xl border border-[#ece5d8] bg-white px-3 py-2">
+                                                <span>{key}</span>
+                                                <span className="font-semibold text-slate-700">{value === null ? 'Ilimitado' : String(value)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                </div>
             </div>
         </AdminLayout>
     );

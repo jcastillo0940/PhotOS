@@ -9,9 +9,15 @@ function copy(value) {
     }
 }
 
-export default function Show({ tenant, cloudflare }) {
+export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const domainForm = useForm({ hostname: '', type: 'custom' });
     const billingForm = useForm({ action: 'activate_manual', note: '', paid_until: '' });
+    const tenantForm = useForm({
+        name: tenant.name || '',
+        status: tenant.status || 'active',
+        plan_code: tenant.plan_code || 'studio',
+        billing_email: tenant.billing_email || '',
+    });
 
     const submitDomain = (event) => {
         event.preventDefault();
@@ -21,6 +27,11 @@ export default function Show({ tenant, cloudflare }) {
     const submitBilling = (event) => {
         event.preventDefault();
         billingForm.post(`/admin/saas/tenants/${tenant.id}/billing/manual`);
+    };
+
+    const submitTenant = (event) => {
+        event.preventDefault();
+        tenantForm.put(`/admin/saas/tenants/${tenant.id}`);
     };
 
     return (
@@ -49,6 +60,42 @@ export default function Show({ tenant, cloudflare }) {
 
                 <div className="grid gap-6 xl:grid-cols-[420px,1fr]">
                     <div className="space-y-6">
+                        <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white"><Palette className="h-5 w-5" /></div>
+                                <div>
+                                    <p className="text-lg font-semibold text-slate-900">Editar tenant</p>
+                                    <p className="text-sm text-slate-500">Nombre comercial, estado, plan y correo de facturacion.</p>
+                                </div>
+                            </div>
+                            <form onSubmit={submitTenant} className="mt-6 space-y-4">
+                                <Field label="Nombre" error={tenantForm.errors.name}>
+                                    <input value={tenantForm.data.name} onChange={(event) => tenantForm.setData('name', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
+                                </Field>
+                                <Field label="Estado" error={tenantForm.errors.status}>
+                                    <select value={tenantForm.data.status} onChange={(event) => tenantForm.setData('status', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
+                                        <option value="active">Activo</option>
+                                        <option value="past_due">En mora</option>
+                                        <option value="suspended">Suspendido</option>
+                                        <option value="blocked">Bloqueado</option>
+                                    </select>
+                                </Field>
+                                <Field label="Plan" error={tenantForm.errors.plan_code}>
+                                    <select value={tenantForm.data.plan_code} onChange={(event) => tenantForm.setData('plan_code', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
+                                        {planOptions.map((plan) => (
+                                            <option key={plan.code} value={plan.code}>{plan.name}</option>
+                                        ))}
+                                    </select>
+                                </Field>
+                                <Field label="Correo de facturacion" error={tenantForm.errors.billing_email}>
+                                    <input type="email" value={tenantForm.data.billing_email} onChange={(event) => tenantForm.setData('billing_email', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
+                                </Field>
+                                <button type="submit" disabled={tenantForm.processing} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60">
+                                    Guardar tenant
+                                </button>
+                            </form>
+                        </section>
+
                         <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white"><Wallet className="h-5 w-5" /></div>

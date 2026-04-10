@@ -1,80 +1,81 @@
-﻿# Despliegue Ubuntu / GCP
+# Despliegue Ubuntu / GCP
 
 ## 1. Dependencias del sistema
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip build-essential cmake libopenblas-dev liblapack-dev libx11-dev
+sudo apt install -y python3 python3-venv python3-pip build-essential cmake libopenblas-dev liblapack-dev libx11-dev redis-server
 ```
 
-## 2. Preparar el microservicio
+## 2. Preparar el worker
 
 ```bash
-cd /var/home/photo/ai_service
+cd /var/www/photos/ai_service
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## 3. Crear archivo de entorno
+## 3. Variables de entorno del worker
 
 ```bash
-sudo cp /var/home/photo/ai_service/deploy/face-ai.env.example /etc/photos-face-ai.env
 sudo nano /etc/photos-face-ai.env
 ```
 
 Contenido base:
 
 ```env
-FACE_AI_PORT=5000
+FACE_AI_REDIS_URL=redis://127.0.0.1:6379/0
+FACE_AI_TASK_QUEUE=face-ai:tasks
+FACE_AI_RESULT_QUEUE=face-ai:results
 FACE_AI_TOLERANCE=0.6
-FACE_AI_MAX_UPLOAD_MB=15
-FACE_AI_CORS_ORIGINS=*
+FACE_AI_POLL_TIMEOUT=5
 ```
 
-## 4. Registrar el servicio en systemd
+## 4. Ejecutar el worker
 
 ```bash
-sudo cp /var/home/photo/ai_service/deploy/photos-face-ai.service /etc/systemd/system/photos-face-ai.service
-sudo systemctl daemon-reload
-sudo systemctl enable photos-face-ai
-sudo systemctl start photos-face-ai
+cd /var/www/photos/ai_service
+source .venv/bin/activate
+python3 main.py
 ```
 
-## 5. Verificar estado
-
-```bash
-sudo systemctl status photos-face-ai
-journalctl -u photos-face-ai -f
-curl http://127.0.0.1:5000/health
-```
-
-## 6. Laravel
+## 5. Laravel
 
 En el `.env` de Laravel:
 
 ```env
-FACE_AI_SERVICE_URL=http://127.0.0.1:5000
+FACE_AI_REDIS_CONNECTION=default
+FACE_AI_TASK_QUEUE=face-ai:tasks
+FACE_AI_RESULT_QUEUE=face-ai:results
+QUEUE_CONNECTION=database
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
 ```
 
-Si Laravel y FastAPI corren en servidores distintos dentro de la misma red privada:
-
-```env
-FACE_AI_SERVICE_URL=http://10.128.0.5:5000
-```
-
-## 7. Firewall en GCP
-
-Abre el puerto `5000` solo si realmente lo necesitas entre instancias.
-Si Laravel y FastAPI viven en la misma VM, no hace falta exponerlo publicamente.
-
-## 8. Actualizar despues de deploy
+Levanta tambien:
 
 ```bash
-cd /var/home/photo/ai_service
-source .venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart photos-face-ai
+cd /var/www/photos
+php artisan queue:work
+php artisan face-ai:consume-results
 ```
 
+## 6. systemd sugerido
+
+Necesitas tres procesos persistentes:
+
+- worker Python `python3 main.py`
+- Laravel queue worker `php artisan queue:work`
+- consumidor de resultados `php artisan face-ai:consume-results`
+
+## 7. Actualizar despues de deploy
+
+```bash
+cd /var/www/photos/ai_service
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+Y luego reinicia tus servicios de systemd o supervisor.

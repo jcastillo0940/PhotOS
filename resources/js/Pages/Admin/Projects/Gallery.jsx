@@ -275,7 +275,7 @@ export default function Gallery({ project, availableTemplates, faceRecognition }
                                 </label>
 
                                 <div className="mt-4 rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4 text-sm text-slate-600">
-                                    Servicio IA: {faceRecognition?.service_configured ? 'configurado' : 'pendiente de configurar FACE_AI_SERVICE_URL'}
+                                    Motor IA por cola: {faceRecognition?.service_configured ? 'configurado' : 'pendiente de configurar Redis/task queues'}
                                 </div>
 
                                 <div className="mt-4 grid gap-3 sm:grid-cols-3">

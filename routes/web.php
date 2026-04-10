@@ -45,46 +45,27 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard.alias');
-    Route::get('/website', [WebsiteController::class, 'index'])->name('admin.website');
-    Route::get('/automations', [AutomationController::class, 'index'])->name('admin.automations');
-    Route::post('/automations', [AutomationController::class, 'store'])->name('admin.automations.store');
-    Route::put('/automations/{automationRule}', [AutomationController::class, 'update'])->name('admin.automations.update');
-    Route::delete('/automations/{automationRule}', [AutomationController::class, 'destroy'])->name('admin.automations.delete');
-    Route::post('/automations/run', [AutomationController::class, 'run'])->name('admin.automations.run');
-    Route::put('/crm-tasks/{crmTask}/complete', [AutomationController::class, 'completeTask'])->name('admin.crm-tasks.complete');
-    Route::put('/website', [WebsiteController::class, 'update'])->name('admin.website.update');
-    Route::get('/contracts', [ContractController::class, 'index'])->name('admin.contracts');
-    Route::get('/contracts/{contract}/edit', [ContractController::class, 'edit'])->name('admin.contracts.edit');
-    Route::put('/contracts/{contract}', [ContractController::class, 'update'])->name('admin.contracts.update');
-    Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->name('admin.contracts.print');
-    Route::get('/contracts/{contract}', [ContractController::class, 'show'])->name('admin.contracts.show');
-    Route::get('/limits', [LimitsController::class, 'index'])->name('admin.limits');
-
-    
-    // Master Calendar
-    Route::get('/calendar', [EventController::class, 'index'])->name('admin.calendar');
-    Route::post('/events', [EventController::class, 'store'])->name('admin.events.store');
-    Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('admin.events.delete');
-
-    // Global Settings
     Route::get('/settings', [SettingsController::class, 'index'])->name('admin.settings');
-    Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('admin.settings.integrations');
-    Route::put('/settings/integrations', [SettingsController::class, 'updateIntegrations'])->name('admin.settings.integrations.update');
-    Route::get('/settings/tests', [SettingsController::class, 'tests'])->name('admin.settings.tests');
-    Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('admin.settings.billing');
-    Route::put('/settings/billing', [SettingsController::class, 'updateBilling'])->name('admin.settings.billing.update');
     Route::get('/settings/branding', [SettingsController::class, 'branding'])->name('admin.settings.branding');
     Route::post('/settings/branding', [SettingsController::class, 'updateBranding'])->name('admin.settings.branding.update');
-    Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');
-    Route::post('/settings/test/alanube', [SettingsController::class, 'testAlanube'])->name('admin.settings.test.alanube');
-    Route::post('/settings/test/cloudflare', [SettingsController::class, 'testCloudflare'])->name('admin.settings.test.cloudflare');
-    Route::post('/settings/test/tilopay', [SettingsController::class, 'testTilopay'])->name('admin.settings.test.tilopay');
+
     Route::middleware('developer')->group(function () {
+        Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('admin.settings.integrations');
+        Route::put('/settings/integrations', [SettingsController::class, 'updateIntegrations'])->name('admin.settings.integrations.update');
+        Route::get('/settings/tests', [SettingsController::class, 'tests'])->name('admin.settings.tests');
+        Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('admin.settings.billing');
+        Route::put('/settings/billing', [SettingsController::class, 'updateBilling'])->name('admin.settings.billing.update');
+        Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');
+        Route::post('/settings/test/alanube', [SettingsController::class, 'testAlanube'])->name('admin.settings.test.alanube');
+        Route::post('/settings/test/cloudflare', [SettingsController::class, 'testCloudflare'])->name('admin.settings.test.cloudflare');
+        Route::post('/settings/test/tilopay', [SettingsController::class, 'testTilopay'])->name('admin.settings.test.tilopay');
+        Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
         Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
         Route::get('/saas/tenants', [SaasTenantController::class, 'index'])->name('admin.saas.tenants.index');
         Route::post('/saas/tenants', [SaasTenantController::class, 'store'])->name('admin.saas.tenants.store');
         Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');
+        Route::put('/saas/tenants/{tenant}', [SaasTenantController::class, 'update'])->name('admin.saas.tenants.update');
         Route::post('/saas/tenants/{tenant}/domains', [SaasTenantController::class, 'storeDomain'])->name('admin.saas.tenants.domains.store');
         Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
         Route::get('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'edit'])->name('admin.saas.tenants.website.edit');
@@ -92,46 +73,60 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/saas/tenants/{tenant}/billing/manual', [SaasBillingController::class, 'manualUpdate'])->name('admin.saas.tenants.billing.manual');
         Route::post('/saas/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('admin.saas.tenants.billing.setup-token');
     });
-    
-    Route::get('/leads', [LeadController::class, 'index'])->name('admin.leads');
-    Route::get('/leads/create', [LeadController::class, 'create'])->name('admin.leads.create');
-    Route::post('/leads', [LeadController::class, 'store'])->name('admin.leads.store');
-    Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('admin.leads.show');
-    Route::put('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('admin.leads.status');
-    Route::get('/leads/{lead}/accounting', [LeadController::class, 'accountRedirect'])->name('admin.leads.accounting');
-    Route::put('/leads/{lead}/briefing', [LeadController::class, 'saveBriefing'])->name('admin.leads.briefing.update');
-    Route::post('/leads/{lead}/briefing/send', [LeadController::class, 'sendBriefing'])->name('admin.leads.briefing.send');
-    Route::post('/leads/{lead}/nps/send', [LeadController::class, 'sendNps'])->name('admin.leads.nps.send');
-    Route::get('/clients/{client}/accounting', [ClientAccountingController::class, 'show'])->name('admin.clients.accounting');
-    
-    // Project Conversion & Management
-    Route::post('/leads/{lead}/convert', [ProjectController::class, 'convert'])->name('admin.leads.convert');
-    Route::post('/projects', [ProjectController::class, 'storeDirect'])->name('admin.projects.store');
-    Route::get('/projects', [ProjectController::class, 'index'])->name('admin.projects');
-    Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('admin.projects.show');
-    Route::get('/projects/{project}/details', [ProjectController::class, 'details'])->name('admin.projects.details');
-    Route::get('/projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('admin.projects.gallery');
-    Route::get('/projects/{project}/management', [ProjectController::class, 'management'])->name('admin.projects.management');
-    Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('admin.projects.update');
-    Route::post('/projects/{project}/photos', [GalleryController::class, 'upload'])->name('admin.projects.photos.upload');
-    Route::put('/projects/{project}/photos/{photo}', [GalleryController::class, 'updatePhoto'])->name('admin.projects.photos.update');
-    Route::delete('/projects/{project}/photos/{photo}', [GalleryController::class, 'destroyPhoto'])->name('admin.projects.photos.delete');
-    Route::post('/projects/{project}/face-identities', [GalleryController::class, 'storeIdentity'])->name('admin.projects.face-identities.store');
-    Route::delete('/projects/{project}/face-identities/{faceIdentity}', [GalleryController::class, 'destroyIdentity'])->name('admin.projects.face-identities.delete');
-    Route::post('/projects/{project}/recognition/test', [GalleryController::class, 'testRecognition'])->name('admin.projects.recognition.test');
-    Route::post('/projects/{project}/recognition/run', [GalleryController::class, 'recognizeProject'])->name('admin.projects.recognition.run');
-    Route::delete('/projects/{project}/recognition', [GalleryController::class, 'clearProjectRecognition'])->name('admin.projects.recognition.clear');
-    Route::post('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'recognizePhoto'])->name('admin.projects.photos.recognition');
-    Route::delete('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'clearPhotoRecognition'])->name('admin.projects.photos.recognition.clear');
-    
-    // Contracts & Invoicing
-    Route::post('/projects/{project}/contract', [ProjectController::class, 'generateContract'])->name('admin.projects.contract.create');
-    Route::post('/projects/{project}/invoices', [InvoiceController::class, 'store'])->name('admin.projects.invoices.store');
-    Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
-    Route::put('/invoices/{invoice}/pay', [InvoiceController::class, 'markAsPaid'])->name('admin.invoices.pay');
-    Route::put('/invoices/{invoice}/toggle-tax', [InvoiceController::class, 'toggleTax'])->name('admin.invoices.toggle-tax');
-    Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('admin.invoices.payments.store');
-    Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
+
+    Route::middleware('studio.operator')->group(function () {
+        Route::get('/website', [WebsiteController::class, 'index'])->name('admin.website');
+        Route::get('/automations', [AutomationController::class, 'index'])->name('admin.automations');
+        Route::post('/automations', [AutomationController::class, 'store'])->name('admin.automations.store');
+        Route::put('/automations/{automationRule}', [AutomationController::class, 'update'])->name('admin.automations.update');
+        Route::delete('/automations/{automationRule}', [AutomationController::class, 'destroy'])->name('admin.automations.delete');
+        Route::post('/automations/run', [AutomationController::class, 'run'])->name('admin.automations.run');
+        Route::put('/crm-tasks/{crmTask}/complete', [AutomationController::class, 'completeTask'])->name('admin.crm-tasks.complete');
+        Route::put('/website', [WebsiteController::class, 'update'])->name('admin.website.update');
+        Route::get('/contracts', [ContractController::class, 'index'])->name('admin.contracts');
+        Route::get('/contracts/{contract}/edit', [ContractController::class, 'edit'])->name('admin.contracts.edit');
+        Route::put('/contracts/{contract}', [ContractController::class, 'update'])->name('admin.contracts.update');
+        Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->name('admin.contracts.print');
+        Route::get('/contracts/{contract}', [ContractController::class, 'show'])->name('admin.contracts.show');
+        Route::get('/limits', [LimitsController::class, 'index'])->name('admin.limits');
+        Route::get('/calendar', [EventController::class, 'index'])->name('admin.calendar');
+        Route::post('/events', [EventController::class, 'store'])->name('admin.events.store');
+        Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('admin.events.delete');
+        Route::get('/leads', [LeadController::class, 'index'])->name('admin.leads');
+        Route::get('/leads/create', [LeadController::class, 'create'])->name('admin.leads.create');
+        Route::post('/leads', [LeadController::class, 'store'])->name('admin.leads.store');
+        Route::get('/leads/{lead}', [LeadController::class, 'show'])->name('admin.leads.show');
+        Route::put('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->name('admin.leads.status');
+        Route::get('/leads/{lead}/accounting', [LeadController::class, 'accountRedirect'])->name('admin.leads.accounting');
+        Route::put('/leads/{lead}/briefing', [LeadController::class, 'saveBriefing'])->name('admin.leads.briefing.update');
+        Route::post('/leads/{lead}/briefing/send', [LeadController::class, 'sendBriefing'])->name('admin.leads.briefing.send');
+        Route::post('/leads/{lead}/nps/send', [LeadController::class, 'sendNps'])->name('admin.leads.nps.send');
+        Route::get('/clients/{client}/accounting', [ClientAccountingController::class, 'show'])->name('admin.clients.accounting');
+        Route::post('/leads/{lead}/convert', [ProjectController::class, 'convert'])->name('admin.leads.convert');
+        Route::post('/projects', [ProjectController::class, 'storeDirect'])->name('admin.projects.store');
+        Route::get('/projects', [ProjectController::class, 'index'])->name('admin.projects');
+        Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('admin.projects.show');
+        Route::get('/projects/{project}/details', [ProjectController::class, 'details'])->name('admin.projects.details');
+        Route::get('/projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('admin.projects.gallery');
+        Route::get('/projects/{project}/management', [ProjectController::class, 'management'])->name('admin.projects.management');
+        Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('admin.projects.update');
+        Route::post('/projects/{project}/photos', [GalleryController::class, 'upload'])->middleware('tenant.feature:photo_uploads')->name('admin.projects.photos.upload');
+        Route::put('/projects/{project}/photos/{photo}', [GalleryController::class, 'updatePhoto'])->name('admin.projects.photos.update');
+        Route::delete('/projects/{project}/photos/{photo}', [GalleryController::class, 'destroyPhoto'])->name('admin.projects.photos.delete');
+        Route::post('/projects/{project}/face-identities', [GalleryController::class, 'storeIdentity'])->middleware('tenant.feature:ai_scans')->name('admin.projects.face-identities.store');
+        Route::delete('/projects/{project}/face-identities/{faceIdentity}', [GalleryController::class, 'destroyIdentity'])->name('admin.projects.face-identities.delete');
+        Route::post('/projects/{project}/recognition/test', [GalleryController::class, 'testRecognition'])->name('admin.projects.recognition.test');
+        Route::post('/projects/{project}/recognition/run', [GalleryController::class, 'recognizeProject'])->middleware('tenant.feature:ai_scans')->name('admin.projects.recognition.run');
+        Route::delete('/projects/{project}/recognition', [GalleryController::class, 'clearProjectRecognition'])->name('admin.projects.recognition.clear');
+        Route::post('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'recognizePhoto'])->middleware('tenant.feature:ai_scans')->name('admin.projects.photos.recognition');
+        Route::delete('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'clearPhotoRecognition'])->name('admin.projects.photos.recognition.clear');
+        Route::post('/projects/{project}/contract', [ProjectController::class, 'generateContract'])->name('admin.projects.contract.create');
+        Route::post('/projects/{project}/invoices', [InvoiceController::class, 'store'])->name('admin.projects.invoices.store');
+        Route::get('/invoices/{invoice}/pdf', [InvoiceController::class, 'pdf'])->name('admin.invoices.pdf');
+        Route::put('/invoices/{invoice}/pay', [InvoiceController::class, 'markAsPaid'])->name('admin.invoices.pay');
+        Route::put('/invoices/{invoice}/toggle-tax', [InvoiceController::class, 'toggleTax'])->name('admin.invoices.toggle-tax');
+        Route::post('/invoices/{invoice}/payments', [InvoiceController::class, 'recordPayment'])->name('admin.invoices.payments.store');
+    });
 });
 
 Route::prefix('client')->middleware('auth')->group(function () {

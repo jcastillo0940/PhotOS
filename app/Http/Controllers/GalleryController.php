@@ -10,6 +10,7 @@ use App\Models\GalleryFavoriteLog;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Support\Tenancy\TenantContext;
 use App\Services\FaceRecognitionService;
 use App\Support\GalleryTemplate;
 use App\Services\CrmAutomationService;
@@ -24,6 +25,7 @@ class GalleryController extends Controller
     public function __construct(
         private readonly CrmAutomationService $automationService,
         private readonly FaceRecognitionService $faceRecognitionService,
+        private readonly TenantContext $tenantContext,
     ) {}
 
     public function show(Request $request, $token)
@@ -179,6 +181,13 @@ class GalleryController extends Controller
             'photos.*' => 'image|mimes:jpeg,png,jpg,webp|max:100000',
         ]);
 
+        $tenant = $this->tenantContext->tenant();
+        $incomingFiles = count($request->file('photos', []));
+
+        if ($tenant && !$tenant->canUseFeature('photo_uploads', $incomingFiles)) {
+            return back(status: 303)->with('error', 'Tu plan actual no permite subir esa cantidad de fotos este mes.');
+        }
+
         $incomingOriginalBytes = collect($request->file('photos'))->sum(fn ($file) => $file->getSize() ?: 0);
         $currentOriginalBytes = $project->originalsUsageBytes();
         $maxOriginalsBytes = (int) ($project->planDefinition()['max_originals_bytes'] ?? $project->storage_limit_bytes ?? 0);
@@ -328,7 +337,7 @@ class GalleryController extends Controller
         }
 
         if (!$this->faceRecognitionService->enabled()) {
-            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de registrar personas a reconocer.');
+            return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de registrar personas a reconocer.');
         }
 
         $validated = $request->validate([
@@ -336,28 +345,33 @@ class GalleryController extends Controller
             'reference_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:10000',
         ]);
 
-        $file = $request->file('reference_image');
-        $storedPath = $file->store('face-identities', 'public');
-        $absolutePath = storage_path('app/public/'.$storedPath);
+        $tenant = $this->tenantContext->tenant();
 
-        try {
-            $embedding = $this->faceRecognitionService->extractIdentityEmbedding($project, $absolutePath, $file->getClientOriginalName());
-        } catch (\Throwable $e) {
-            if (file_exists($absolutePath)) {
-                @unlink($absolutePath);
-            }
-
-            return back(status: 303)->with('error', $e->getMessage());
+        if ($tenant && !$tenant->canUseFeature('ai_scans')) {
+            return back(status: 303)->with('error', 'Tu plan actual alcanzo el limite mensual de analisis IA.');
         }
 
-        FaceIdentity::create([
+        $file = $request->file('reference_image');
+        $storedPath = $file->storeAs(
+            $project->tenant_id
+                ? 'tenants/'.$project->tenant_id.'/projects/'.$project->id.'/face-identities'
+                : 'face-identities',
+            uniqid('identity_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
+            'r2'
+        );
+
+        $identity = FaceIdentity::create([
             'project_id' => $project->id,
             'name' => trim((string) $validated['name']),
-            'embedding' => $embedding,
+            'embedding' => null,
             'path_reference' => $storedPath,
+            'processing_status' => 'pending',
+            'processing_note' => 'Persona enviada a cola para extraer embedding.',
         ]);
 
-        return back(status: 303)->with('success', 'Persona registrada para reconocimiento.');
+        $this->faceRecognitionService->dispatchIdentityExtraction($project, $identity);
+
+        return back(status: 303)->with('success', 'Persona registrada. El motor IA procesara el rostro en segundo plano.');
     }
 
     public function destroyIdentity(Project $project, FaceIdentity $faceIdentity)
@@ -365,6 +379,7 @@ class GalleryController extends Controller
         abort_unless($faceIdentity->project_id === $project->id, 404);
 
         if ($faceIdentity->path_reference) {
+            Storage::disk('r2')->delete($faceIdentity->path_reference);
             Storage::disk('public')->delete($faceIdentity->path_reference);
         }
 
@@ -390,7 +405,7 @@ class GalleryController extends Controller
         }
 
         if (!$this->faceRecognitionService->enabled()) {
-            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de analizar la galeria.');
+            return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de analizar la galeria.');
         }
 
         $project->load('photos', 'faceIdentities');
@@ -399,28 +414,16 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
-        $results = $this->faceRecognitionService->identifyProject($project);
+        $tenant = $this->tenantContext->tenant();
+        $photoCount = $project->photos->count();
 
-        foreach ($results as $row) {
-            $photo = $project->photos->firstWhere('id', $row['photo_id'] ?? null);
-
-            if (!$photo) {
-                continue;
-            }
-
-            $this->applyRecognitionResult(
-                $photo,
-                $row['people_tags'] ?? [],
-                $row['error'] ?? null,
-            );
+        if ($tenant && !$tenant->canUseFeature('ai_scans', max(1, $photoCount))) {
+            return back(status: 303)->with('error', 'Tu plan actual no tiene capacidad suficiente para encolar este lote de analisis IA.');
         }
 
-        $recognizedPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'matched')->count();
-        $noMatchPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'no_match')->count();
-        $noFacePhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'no_face')->count();
-        $errorPhotos = collect($results)->filter(fn ($row) => ($row['status'] ?? null) === 'error')->count();
+        $queued = $this->faceRecognitionService->dispatchProjectRecognition($project);
 
-        return back(status: 303)->with('success', "Analisis completado. Coincidencias: {$recognizedPhotos}. Sin coincidencias: {$noMatchPhotos}. Sin rostro: {$noFacePhotos}. Errores: {$errorPhotos}.");
+        return back(status: 303)->with('success', "Se enviaron {$queued} fotos a la cola de reconocimiento facial.");
     }
 
     public function testRecognition(Project $project)
@@ -431,7 +434,7 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', $e->getMessage());
         }
 
-        return back(status: 303)->with('success', 'Servicio IA disponible. Version: '.($health['version'] ?? 'n/d'));
+        return back(status: 303)->with('success', 'Cola IA disponible. Driver: '.($health['driver'] ?? 'n/d'));
     }
 
     public function recognizePhoto(Project $project, Photo $photo)
@@ -443,7 +446,7 @@ class GalleryController extends Controller
         }
 
         if (!$this->faceRecognitionService->enabled()) {
-            return back(status: 303)->with('error', 'Configura FACE_AI_SERVICE_URL antes de analizar fotos.');
+            return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de analizar fotos.');
         }
 
         $project->loadMissing('faceIdentities');
@@ -452,21 +455,15 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
-        try {
-            $people = $this->faceRecognitionService->identifyPhoto($project, $photo);
-        } catch (\Throwable $e) {
-            $this->applyRecognitionResult($photo, [], $e->getMessage());
+        $tenant = $this->tenantContext->tenant();
 
-            return back(status: 303)->with('error', $e->getMessage());
+        if ($tenant && !$tenant->canUseFeature('ai_scans')) {
+            return back(status: 303)->with('error', 'Tu plan actual alcanzo el limite mensual de analisis IA.');
         }
 
-        $this->applyRecognitionResult($photo, $people);
+        $this->faceRecognitionService->dispatchPhotoRecognition($project, $photo);
 
-        if (empty($people)) {
-            return back(status: 303)->with('success', "Analisis completado para la foto #{$photo->id}. No se encontro ninguna coincidencia.");
-        }
-
-        return back(status: 303)->with('success', "Analisis completado para la foto #{$photo->id}. Personas detectadas: ".implode(', ', $people).'.');
+        return back(status: 303)->with('success', "La foto #{$photo->id} fue enviada a la cola de reconocimiento.");
     }
 
     public function clearPhotoRecognition(Project $project, Photo $photo)

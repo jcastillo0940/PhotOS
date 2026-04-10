@@ -36,7 +36,11 @@ return [
     ],
 
     'face_ai' => [
-        'url' => env('FACE_AI_SERVICE_URL'),
+        'redis_url' => env('FACE_AI_REDIS_URL', env('REDIS_URL')),
+        'redis_connection' => env('FACE_AI_REDIS_CONNECTION', 'default'),
+        'task_queue' => env('FACE_AI_TASK_QUEUE', 'face-ai:tasks'),
+        'result_queue' => env('FACE_AI_RESULT_QUEUE', 'face-ai:results'),
+        'tolerance' => (float) env('FACE_AI_TOLERANCE', '0.6'),
     ],
 
     'cloudflare_saas' => [

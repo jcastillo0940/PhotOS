@@ -11,11 +11,13 @@ const items = [
 ];
 
 export default function SettingsNavigation() {
-    const { url } = usePage();
+    const { url, props } = usePage();
+    const isSystemOwner = ['developer', 'owner'].includes(props.auth?.user?.role);
+    const visibleItems = items.filter((item) => isSystemOwner || item.href === '/admin/settings/branding');
 
     return (
         <div className="grid gap-3 lg:grid-cols-4">
-            {items.map(({ href, label, helper, icon: Icon }) => (
+            {visibleItems.map(({ href, label, helper, icon: Icon }) => (
                 <Link
                     key={href}
                     href={href}

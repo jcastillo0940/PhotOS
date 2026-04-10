@@ -16,10 +16,14 @@ class FaceIdentity extends Model
         'name',
         'embedding',
         'path_reference',
+        'processing_status',
+        'processing_note',
+        'processed_at',
     ];
 
     protected $casts = [
         'embedding' => 'array',
+        'processed_at' => 'datetime',
     ];
 
     public function project()

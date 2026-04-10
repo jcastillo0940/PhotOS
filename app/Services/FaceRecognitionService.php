@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
+use App\Jobs\DispatchFaceRecognitionTaskJob;
 use App\Models\FaceIdentity;
 use App\Models\Photo;
 use App\Models\Project;
-use Illuminate\Http\Client\PendingRequest;
-use Illuminate\Http\Client\Response;
-use Illuminate\Support\Facades\Http;
+use App\Models\Tenant;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -15,191 +16,366 @@ class FaceRecognitionService
 {
     public function enabled(): bool
     {
-        return filled($this->baseUrl());
+        return filled($this->taskQueueName()) && filled($this->resultQueueName());
     }
 
     public function healthCheck(): array
     {
         if (!$this->enabled()) {
-            throw new \RuntimeException('FACE_AI_SERVICE_URL no esta configurado.');
+            throw new \RuntimeException('La cola del motor IA no esta configurada.');
         }
 
-        $response = $this->client()->get('/health');
+        Redis::connection($this->redisConnection())->client()->ping();
 
-        if (!$response->successful()) {
-            throw new \RuntimeException('El servicio IA no respondio correctamente.');
-        }
-
-        return $response->json();
+        return [
+            'status' => 'ok',
+            'driver' => 'redis',
+            'task_queue' => $this->taskQueueName(),
+            'result_queue' => $this->resultQueueName(),
+            'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
+        ];
     }
 
-    public function extractIdentityEmbedding(Project $project, string $absolutePath, string $filename): array
+    public function dispatchIdentityExtraction(Project $project, FaceIdentity $identity): void
     {
-        $response = $this->client()
-            ->attach('file', fopen($absolutePath, 'r'), $filename)
-            ->post('/extract-face');
-
-        if (!$response->successful()) {
-            throw new \RuntimeException($this->responseErrorMessage($response, 'No se pudo extraer el rostro de referencia.'));
-        }
-
-        $vector = $response->json('vector');
-
-        if (!is_array($vector) || count($vector) === 0) {
-            throw new \RuntimeException('El servicio no devolvio un vector valido.');
-        }
-
-        return $vector;
+        DispatchFaceRecognitionTaskJob::dispatch('extract_identity', $project->id, null, $identity->id);
     }
 
-    public function identifyPhoto(Project $project, Photo $photo): array
+    public function dispatchPhotoRecognition(Project $project, Photo $photo): void
     {
+        DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photo->id, null);
+    }
+
+    public function dispatchProjectRecognition(Project $project): int
+    {
+        $photos = $project->photos()->get(['id']);
+
+        foreach ($photos as $photo) {
+            DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photo->id, null);
+        }
+
+        return $photos->count();
+    }
+
+    public function enqueueIdentityExtraction(Project $project, FaceIdentity $identity): void
+    {
+        $tenant = $this->resolveTenant($project);
+        $imageUrl = $this->temporaryUrlForReferencePath($identity->path_reference);
+
+        if (!$imageUrl) {
+            $identity->update([
+                'processing_status' => 'error',
+                'processing_note' => 'No se encontro la imagen de referencia para procesar.',
+                'processed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $identity->update([
+            'processing_status' => 'queued',
+            'processing_note' => 'Enviado a cola para extraer embedding.',
+            'processed_at' => null,
+        ]);
+
+        $this->pushTask([
+            'task_type' => 'extract_identity',
+            'tenant_id' => $tenant?->id,
+            'project_id' => $project->id,
+            'face_identity_id' => $identity->id,
+            'image_url' => $imageUrl,
+            'filename' => basename((string) $identity->path_reference),
+        ]);
+    }
+
+    public function enqueuePhotoRecognition(Project $project, Photo $photo): void
+    {
+        $tenant = $this->resolveTenant($project);
         $identities = $project->faceIdentities()
             ->whereNotNull('embedding')
             ->get(['id', 'name', 'embedding']);
 
         if ($identities->isEmpty()) {
-            return [];
-        }
-
-        $absolutePath = $this->photoAbsolutePath($photo);
-        $filename = basename($absolutePath);
-
-        $database = $identities->map(fn (FaceIdentity $identity) => [
-            'id' => $identity->id,
-            'vector' => $identity->embedding,
-        ])->values()->all();
-
-        $response = $this->client()
-            ->attach('file', fopen($absolutePath, 'r'), $filename)
-            ->post('/compare-faces', [
-                'database' => json_encode($database),
+            $photo->update([
+                'recognition_status' => 'error',
+                'recognition_note' => 'No hay personas de referencia listas para comparar.',
+                'recognition_processed_at' => now(),
             ]);
 
-        if (!$response->successful()) {
-            throw new \RuntimeException($this->responseErrorMessage($response, 'No se pudo comparar la foto contra las personas registradas.'));
+            return;
         }
 
-        $foundIds = collect($response->json('found_ids', []))
-            ->map(fn ($id) => (int) $id)
-            ->filter()
-            ->values();
+        $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
+        $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
 
-        if ($foundIds->isEmpty()) {
-            return [];
+        $photo->update([
+            'recognition_status' => 'pending',
+            'recognition_note' => 'Foto enviada a cola para reconocimiento facial.',
+            'recognition_processed_at' => null,
+        ]);
+
+        $this->pushTask([
+            'task_type' => 'recognize_photo',
+            'tenant_id' => $tenant?->id,
+            'project_id' => $project->id,
+            'photo_id' => $photo->id,
+            'image_url' => $imageUrl,
+            'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
+            'database' => $identities->map(fn (FaceIdentity $identity) => [
+                'id' => $identity->id,
+                'name' => $identity->name,
+                'vector' => $identity->embedding,
+            ])->values()->all(),
+        ]);
+    }
+
+    public function popNextResult(int $timeout = 5): ?array
+    {
+        $payload = Redis::connection($this->redisConnection())->blpop($this->resultQueueName(), max(1, $timeout));
+
+        if (!$payload) {
+            return null;
         }
 
-        return $identities
-            ->whereIn('id', $foundIds->all())
+        $message = is_array($payload) ? Arr::last($payload) : $payload;
+        $decoded = json_decode((string) $message, true);
+
+        return is_array($decoded) ? $decoded : null;
+    }
+
+    public function processWorkerResult(array $message): void
+    {
+        $taskType = (string) ($message['task_type'] ?? '');
+
+        if ($taskType === 'extract_identity') {
+            $this->processIdentityResult($message);
+            return;
+        }
+
+        if ($taskType === 'recognize_photo') {
+            $this->processPhotoResult($message);
+        }
+    }
+
+    public function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void
+    {
+        $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
+
+        if ($error) {
+            $status = str_contains(mb_strtolower($error), 'ningun rostro') ? 'no_face' : 'error';
+            $note = $error;
+        } elseif (!empty($people)) {
+            $status = 'matched';
+            $note = 'Coincidencias detectadas: '.implode(', ', $people).'.';
+        } else {
+            $status = 'no_match';
+            $note = 'Se analizo la foto pero no hubo coincidencias con las personas registradas.';
+        }
+
+        $photo->update([
+            'people_tags' => $people,
+            'recognition_status' => $status,
+            'recognition_note' => $note,
+            'recognition_processed_at' => now(),
+        ]);
+    }
+
+    private function processIdentityResult(array $message): void
+    {
+        $identityId = (int) ($message['face_identity_id'] ?? 0);
+        $identity = FaceIdentity::withoutGlobalScope('tenant')->find($identityId);
+
+        if (!$identity) {
+            return;
+        }
+
+        $vector = $message['vector'] ?? null;
+        $error = trim((string) ($message['error'] ?? ''));
+
+        if (is_array($vector) && !empty($vector)) {
+            $identity->update([
+                'embedding' => $vector,
+                'processing_status' => 'ready',
+                'processing_note' => 'Embedding generado correctamente.',
+                'processed_at' => now(),
+            ]);
+
+            return;
+        }
+
+        $identity->update([
+            'processing_status' => 'error',
+            'processing_note' => $error ?: 'El worker no devolvio un embedding valido.',
+            'processed_at' => now(),
+        ]);
+    }
+
+    private function processPhotoResult(array $message): void
+    {
+        $photoId = (int) ($message['photo_id'] ?? 0);
+        $photo = Photo::withoutGlobalScope('tenant')->find($photoId);
+
+        if (!$photo) {
+            return;
+        }
+
+        $people = collect($message['matches'] ?? [])
             ->pluck('name')
             ->map(fn ($name) => trim((string) $name))
             ->filter()
-            ->unique()
             ->values()
             ->all();
+
+        $this->applyRecognitionResult($photo, $people, $message['error'] ?? null);
     }
 
-    public function identifyProject(Project $project): array
+    private function pushTask(array $payload): void
     {
-        $results = [];
+        Redis::connection($this->redisConnection())->rpush($this->taskQueueName(), json_encode($payload, JSON_UNESCAPED_SLASHES));
+    }
 
-        foreach ($project->photos as $photo) {
-            try {
-                $people = $this->identifyPhoto($project, $photo);
-                $results[] = [
-                    'photo_id' => $photo->id,
-                    'people_tags' => $people,
-                    'status' => empty($people) ? 'no_match' : 'matched',
-                ];
-            } catch (\Throwable $e) {
-                $results[] = [
-                    'photo_id' => $photo->id,
-                    'error' => $e->getMessage(),
-                    'status' => str_contains(mb_strtolower($e->getMessage()), 'ningun rostro') ? 'no_face' : 'error',
-                ];
+    private function redisConnection(): string
+    {
+        return (string) config('services.face_ai.redis_connection', 'default');
+    }
+
+    private function taskQueueName(): string
+    {
+        return (string) config('services.face_ai.task_queue', 'face-ai:tasks');
+    }
+
+    private function resultQueueName(): string
+    {
+        return (string) config('services.face_ai.result_queue', 'face-ai:results');
+    }
+
+    private function resolveTenant(Project $project): ?Tenant
+    {
+        return $project->tenant_id ? Tenant::withoutGlobalScope('tenant')->find($project->tenant_id) : null;
+    }
+
+    private function ensureOptimizedPhotoPath(Project $project, Photo $photo): string
+    {
+        if (filled($photo->optimized_path) && Storage::disk('r2')->exists($photo->optimized_path)) {
+            return $photo->optimized_path;
+        }
+
+        $sourcePath = $photo->original_path ?: $photo->optimized_path;
+
+        if (!$sourcePath || !Storage::disk('r2')->exists($sourcePath)) {
+            throw new \RuntimeException('No existe archivo base para generar la version optimizada.');
+        }
+
+        $tempDir = storage_path('app/tmp/face-ai');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $sourceExtension = pathinfo($sourcePath, PATHINFO_EXTENSION) ?: 'jpg';
+        $localSource = $tempDir.'/'.uniqid('source_', true).'.'.$sourceExtension;
+        $localOptimized = $tempDir.'/'.uniqid('optimized_', true).'.webp';
+
+        try {
+            file_put_contents($localSource, Storage::disk('r2')->get($sourcePath));
+            $this->createOptimizedWebp($localSource, $localOptimized);
+
+            $baseName = pathinfo($photo->original_path ?: $photo->optimized_path ?: ('photo-'.$photo->id), PATHINFO_FILENAME);
+            $optimizedPath = $project->webBucketPrefix().'/'.$baseName.'.webp';
+
+            Storage::disk('r2')->put($optimizedPath, fopen($localOptimized, 'r'), [
+                'ContentType' => 'image/webp',
+            ]);
+
+            $photo->update([
+                'optimized_path' => $optimizedPath,
+                'url' => $optimizedPath,
+                'thumbnail_url' => $optimizedPath,
+                'optimized_bytes' => @filesize($localOptimized) ?: null,
+            ]);
+
+            return $optimizedPath;
+        } finally {
+            if (file_exists($localSource)) {
+                @unlink($localSource);
+            }
+
+            if (file_exists($localOptimized)) {
+                @unlink($localOptimized);
+            }
+        }
+    }
+
+    private function createOptimizedWebp(string $originalPath, string $optimizedPath): void
+    {
+        $imageInfo = @getimagesize($originalPath);
+        $image = null;
+
+        if ($imageInfo) {
+            if ($imageInfo['mime'] === 'image/jpeg') {
+                $image = @imagecreatefromjpeg($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/png') {
+                $image = @imagecreatefrompng($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/webp') {
+                $image = @imagecreatefromwebp($originalPath);
             }
         }
 
-        return $results;
-    }
-
-    private function responseErrorMessage(Response $response, string $fallback): string
-    {
-        $json = $response->json();
-
-        if (is_array($json)) {
-            $detail = $json['detail'] ?? null;
-
-            if (is_string($detail) && filled($detail)) {
-                return $detail;
-            }
-
-            if (is_array($detail) && isset($detail[0]['msg']) && is_string($detail[0]['msg'])) {
-                return $detail[0]['msg'];
-            }
-
-            $error = $json['error'] ?? null;
-
-            if (is_string($error) && filled($error)) {
-                return $error;
-            }
+        if (!$image) {
+            copy($originalPath, $optimizedPath);
+            return;
         }
 
-        return $fallback;
-    }
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxDimension = 2200;
 
-    private function client(): PendingRequest
-    {
-        return Http::baseUrl($this->baseUrl())
-            ->timeout(120)
-            ->acceptJson();
-    }
+        if ($width > $maxDimension || $height > $maxDimension) {
+            $ratio = min($maxDimension / $width, $maxDimension / $height);
+            $newWidth = max(1, (int) round($width * $ratio));
+            $newHeight = max(1, (int) round($height * $ratio));
 
-    private function baseUrl(): ?string
-    {
-        return rtrim((string) config('services.face_ai.url'), '/');
-    }
-
-    private function photoAbsolutePath(Photo $photo): string
-    {
-        $relativePath = $photo->original_path ?: $photo->optimized_path ?: $photo->url;
-
-        if (!$relativePath) {
-            throw new \RuntimeException('La foto no tiene un archivo asociado para analisis.');
+            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($image);
+            $image = $resized;
         }
 
-        if (Str::startsWith($relativePath, ['http://', 'https://'])) {
-            $tmpDirectory = storage_path('app/tmp/face-ai');
+        $quality = 78;
+        imagewebp($image, $optimizedPath, $quality);
 
-            if (!is_dir($tmpDirectory)) {
-                mkdir($tmpDirectory, 0755, true);
-            }
-
-            $tmpPath = $tmpDirectory.'/'.uniqid('face-photo_', true).'.jpg';
-            file_put_contents($tmpPath, file_get_contents($relativePath));
-
-            return $tmpPath;
+        while (@filesize($optimizedPath) > 500 * 1024 && $quality > 50) {
+            $quality -= 5;
+            imagewebp($image, $optimizedPath, $quality);
         }
 
-        if (filled($photo->original_path)) {
-            return $this->downloadFromR2($photo->original_path, 'original');
-        }
-
-        return $this->downloadFromR2($photo->optimized_path, 'web');
+        imagedestroy($image);
     }
 
-    private function downloadFromR2(string $path, string $prefix): string
+    private function temporaryUrlForR2Path(string $path): string
     {
-        $tmpDirectory = storage_path('app/tmp/face-ai');
+        return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes(20));
+    }
 
-        if (!is_dir($tmpDirectory)) {
-            mkdir($tmpDirectory, 0755, true);
+    private function temporaryUrlForReferencePath(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
         }
 
-        $extension = pathinfo($path, PATHINFO_EXTENSION) ?: 'jpg';
-        $tmpPath = $tmpDirectory.'/'.uniqid("{$prefix}_", true).'.'.$extension;
-        file_put_contents($tmpPath, Storage::disk('r2')->get($path));
+        if (Str::startsWith($path, ['http://', 'https://'])) {
+            return $path;
+        }
 
-        return $tmpPath;
+        if (Storage::disk('r2')->exists($path)) {
+            return $this->temporaryUrlForR2Path($path);
+        }
+
+        if (Storage::disk('public')->exists($path)) {
+            return url(Storage::disk('public')->url($path));
+        }
+
+        return null;
     }
 }
