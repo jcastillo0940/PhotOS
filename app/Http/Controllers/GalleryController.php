@@ -838,10 +838,11 @@ class GalleryController extends Controller
 
     private function hasConfiguredR2(): bool
     {
-        return filled(Setting::get('r2_key'))
-            && filled(Setting::get('r2_secret'))
-            && filled(Setting::get('r2_bucket'))
-            && filled(Setting::get('r2_endpoint'));
+        // AppServiceProvider already loads R2 settings from DB into config at boot.
+        // Reading config() is reliable regardless of TenantContext state.
+        return filled(config('filesystems.disks.r2.key'))
+            && filled(config('filesystems.disks.r2.secret'))
+            && filled(config('filesystems.disks.r2.bucket'));
     }
 
     private function projectRecognitionEnabled(Project $project): bool
