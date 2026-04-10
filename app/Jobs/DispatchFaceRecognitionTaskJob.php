@@ -53,7 +53,7 @@ class DispatchFaceRecognitionTaskJob implements ShouldQueue
             return;
         }
 
-        $tenant = Tenant::find($tenantId);
+        $tenant = Tenant::withoutGlobalScope('tenant')->find($tenantId);
         if ($tenant?->slug) {
             config(['filesystems.disks.r2.root' => "tenants/{$tenant->slug}"]);
             \Illuminate\Support\Facades\Storage::forgetDisk('r2');

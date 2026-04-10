@@ -404,7 +404,7 @@ class FaceRecognitionService
 
     private function temporaryUrlForReferencePath(?string $path): ?string
     {
-        if (!$path) {
+        if (blank($path)) {
             return null;
         }
 
@@ -412,13 +412,18 @@ class FaceRecognitionService
             return $path;
         }
 
-        if (Storage::disk('r2')->exists($path)) {
+        // Favor R2 as primary storage — try to sign URL directly without mandatory HeadObject (exists) check
+        try {
             return $this->temporaryUrlForR2Path($path);
+        } catch (\Throwable $e) {
+            // Fall through to other disks if R2 fails (e.g. credentials not set)
         }
 
-        if (Storage::disk('public')->exists($path)) {
-            return url(Storage::disk('public')->url($path));
-        }
+        try {
+            if (Storage::disk('public')->exists($path)) {
+                return url(Storage::disk('public')->url($path));
+            }
+        } catch (\Throwable $e) {}
 
         return null;
     }
