@@ -58,6 +58,11 @@ class Tenant extends Model
         return $this->hasMany(User::class);
     }
 
+    public function tenantUsers(): HasMany
+    {
+        return $this->hasMany(User::class)->withoutGlobalScope('tenant');
+    }
+
     public function subscriptions(): HasMany
     {
         return $this->hasMany(TenantSubscription::class);

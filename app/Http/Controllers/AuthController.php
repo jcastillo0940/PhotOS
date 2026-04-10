@@ -53,11 +53,28 @@ class AuthController extends Controller
         $email = Str::lower(trim((string) $credentials['email']));
 
         $user = User::withoutGlobalScope('tenant')
-            ->where('tenant_id', $tenantId)
+            ->where(function ($query) use ($tenantId) {
+                // If on a tenant domain, allow users assigned to this tenant OR global global/system users
+                if ($tenantId) {
+                    $query->where('tenant_id', $tenantId)
+                          ->orWhereNull('tenant_id');
+                } else {
+                    // If on the root domain, ONLY allow global/system users
+                    $query->whereNull('tenant_id');
+                }
+            })
             ->where('email', $email)
             ->first();
 
         if ($user && Hash::check($credentials['password'], $user->password)) {
+            // Re-verify that if a global user logged in, their role actually permits cross-tenant access.
+            if ($tenantId && $user->tenant_id === null && !in_array($user->role, ['developer', 'operator', 'owner'])) {
+                // Failsafe: A normal user without a tenant id somehow exists but isn't an admin.
+                RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+                throw ValidationException::withMessages([
+                    'auth' => 'Acceso denegado a este dominio.',
+                ]);
+            }
             RateLimiter::clear($throttleKey);
             Auth::login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();

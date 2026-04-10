@@ -44,7 +44,7 @@ class UserController extends Controller
         $tenant = $validated['tenant_id'] ? Tenant::find($validated['tenant_id']) : null;
         if ($tenant) {
             $limit = $tenant->featureLimit('staff_limit');
-            if ($limit !== null && $tenant->users()->count() >= (int) $limit) {
+            if ($limit !== null && $tenant->tenantUsers()->count() >= (int) $limit) {
                 return back()->with('error', 'Has alcanzado el limite de usuarios de tu plan.');
             }
         }

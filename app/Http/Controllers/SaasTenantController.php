@@ -155,8 +155,11 @@ class SaasTenantController extends Controller
     {
         $tenant->load([
             'domains' => fn ($query) => $query->orderByDesc('is_primary')->orderBy('hostname'),
-            'users' => fn ($query) => $query->orderBy('name'),
         ]);
+
+        $users = $tenant->tenantUsers()
+            ->orderBy('name')
+            ->get();
 
         $subscription = $tenant->subscriptions()->latest('id')->with('transactions')->first();
         $billing = $this->billing->billingStateFor($tenant);
@@ -199,7 +202,7 @@ class SaasTenantController extends Controller
                         'occurred_at' => optional($transaction->occurred_at)?->toIso8601String(),
                     ]),
                 ] : null,
-                'users' => $tenant->users->map(fn (User $user) => [
+                'users' => $users->map(fn (User $user) => [
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
