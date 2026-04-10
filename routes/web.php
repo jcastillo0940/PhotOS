@@ -129,6 +129,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/projects/{project}', [ProjectController::class, 'show'])->name('admin.projects.show');
         Route::get('/projects/{project}/details', [ProjectController::class, 'details'])->name('admin.projects.details');
         Route::get('/projects/{project}/gallery', [ProjectController::class, 'gallery'])->name('admin.projects.gallery');
+        Route::get('/projects/{project}/design', [ProjectController::class, 'design'])->name('admin.projects.design');
+        Route::get('/projects/{project}/ai', [ProjectController::class, 'ai'])->name('admin.projects.ai');
         Route::get('/projects/{project}/management', [ProjectController::class, 'management'])->name('admin.projects.management');
         Route::put('/projects/{project}', [ProjectController::class, 'update'])->name('admin.projects.update');
         Route::post('/projects/{project}/photos', [GalleryController::class, 'upload'])->middleware('tenant.feature:photo_uploads')->name('admin.projects.photos.upload');

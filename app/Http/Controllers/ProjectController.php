@@ -59,6 +59,16 @@ class ProjectController extends Controller
         return Inertia::render('Admin/Projects/Gallery', $payload);
     }
 
+    public function design(Project $project)
+    {
+        return Inertia::render('Admin/Projects/Design', $this->projectAdminPayload($project));
+    }
+
+    public function ai(Project $project)
+    {
+        return Inertia::render('Admin/Projects/Ai', $this->projectAdminPayload($project));
+    }
+
     public function management(Project $project)
     {
         return Inertia::render('Admin/Projects/Management', $this->projectAdminPayload($project));

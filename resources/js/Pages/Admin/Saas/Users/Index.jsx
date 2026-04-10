@@ -85,8 +85,7 @@ function UserModal({ user, tenants, onClose }) {
                             <select 
                                 value={data.tenant_id} 
                                 onChange={e => setData('tenant_id', e.target.value)} 
-                                disabled={isEditing && !!user.tenant_id}
-                                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm outline-none focus:border-slate-900 transition-colors disabled:opacity-50"
+                                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm outline-none focus:border-slate-900 transition-colors"
                             >
                                 <option value="">Sin tenant (Acceso global)</option>
                                 {tenants.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}

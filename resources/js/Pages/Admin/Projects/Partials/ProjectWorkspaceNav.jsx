@@ -5,7 +5,9 @@ import { clsx } from 'clsx';
 
 const items = [
     { key: 'details', label: 'Detalles', icon: FolderKanban, href: (projectId) => `/admin/projects/${projectId}/details` },
-    { key: 'gallery', label: 'Galeria', icon: Images, href: (projectId) => `/admin/projects/${projectId}/gallery` },
+    { key: 'gallery', label: 'Fotos', icon: Images, href: (projectId) => `/admin/projects/${projectId}/gallery` },
+    { key: 'design', label: 'Diseno', icon: LayoutTemplate, href: (projectId) => `/admin/projects/${projectId}/design` },
+    { key: 'ai', label: 'Rostros', icon: Sparkles, href: (projectId) => `/admin/projects/${projectId}/ai` },
     { key: 'management', label: 'Gestion', icon: ReceiptText, href: (projectId) => `/admin/projects/${projectId}/management` },
 ];
 
@@ -23,7 +25,7 @@ export default function ProjectWorkspaceNav({ project, current }) {
                 </div>
             </div>
 
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 grid-cols-2 md:grid-cols-5">
                 {items.map(({ key, label, icon: Icon, href }) => (
                     <Link
                         key={key}
@@ -39,10 +41,12 @@ export default function ProjectWorkspaceNav({ project, current }) {
                             <Icon className={clsx('h-5 w-5', current === key ? 'text-white' : 'text-slate-700')} />
                         </div>
                         <p className="mt-4 text-sm font-semibold">{label}</p>
-                        <p className={clsx('mt-1 text-xs leading-5', current === key ? 'text-white/70' : 'text-slate-500')}>
-                            {key === 'details' && 'Nombre, fecha, estado y datos base del proyecto.'}
-                            {key === 'gallery' && 'Subida de fotos, portada, plantilla y material web.'}
-                            {key === 'management' && 'Contratos, facturas, cobro y limites del plan.'}
+                        <p className={clsx('mt-1 text-[11px] leading-4', current === key ? 'text-white/70' : 'text-slate-500')}>
+                            {key === 'details' && 'Nombre y estado.'}
+                            {key === 'gallery' && 'Subir fotos.'}
+                            {key === 'design' && 'Plantilla y accesos.'}
+                            {key === 'ai' && 'Identificar personas.'}
+                            {key === 'management' && 'Cobros y PDF.'}
                         </p>
                     </Link>
                 ))}

@@ -166,6 +166,7 @@ class TenantBillingService
             'application_context' => [
                 'brand_name' => 'PhotOS',
                 'locale' => 'es-PA',
+                'landing_page' => 'BILLING',
                 'user_action' => 'SUBSCRIBE_NOW',
                 'return_url' => route('public.saas.signup.success', $registration),
                 'cancel_url' => route('public.saas.signup.success', $registration),
