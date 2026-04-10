@@ -240,12 +240,13 @@ class SettingsController extends Controller
 
     public function testCloudflareSaas(CloudflareCustomHostnameService $cf)
     {
+        \Illuminate\Support\Facades\Log::info('Testing Cloudflare Saas. Token: ' . config('services.cloudflare_saas.api_token'));
         try {
             if (!$cf->enabled()) {
                 return back()->with('integration_test', [
                     'service' => 'cloudflare_saas',
                     'ok' => false,
-                    'message' => 'Cloudflare SaaS no esta habilitado en la configuracion.',
+                    'message' => 'Cloudflare SaaS no esta habilitado en la configuracion.'
                 ]);
             }
 
