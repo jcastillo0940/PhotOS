@@ -12,7 +12,20 @@ class GalleryTemplate
 
     public static function all(): array
     {
-        return config('gallery_templates.templates', []);
+        return \App\Models\GalleryTemplate::where('is_active', true)
+            ->get()
+            ->keyBy('code')
+            ->map(fn ($tpl) => [
+                'id' => $tpl->id,
+                'code' => $tpl->code,
+                'name' => $tpl->name,
+                'tagline' => $tpl->tagline,
+                'description' => $tpl->description,
+                'layout' => $tpl->layout,
+                'mood' => $tpl->mood,
+                'accent' => $tpl->accent_color,
+            ])
+            ->toArray();
     }
 
     public static function code(): string

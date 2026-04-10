@@ -40,6 +40,11 @@ class ResolveTenantFromHost
 
         $context->set($tenant, $host);
 
+        if ($tenant) {
+            // Isolation in R2: Each tenant has its own folder
+            config(['filesystems.disks.r2.root' => "tenants/{$tenant->slug}"]);
+        }
+
         if (!$tenant && $request->route()?->getName() !== null) {
             abort(404, 'No se encontro una cuenta activa para este dominio.');
         }

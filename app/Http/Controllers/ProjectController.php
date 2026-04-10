@@ -71,6 +71,12 @@ class ProjectController extends Controller
             'project_name' => 'required|string|max:255',
         ]);
 
+        $tenant = app(TenantContext::class)->tenant();
+        $projectLimit = $tenant?->featureLimit('projects_limit');
+        if ($projectLimit !== null && Project::count() >= (int) $projectLimit) {
+            return redirect()->back()->with('error', 'Has alcanzado el limite de proyectos de tu plan Starter (Limite: 1).');
+        }
+
         $client = Client::firstOrCreate(
             ['email' => strtolower(str_replace(' ', '', $request->client_name)) . '@client.local'],
             ['full_name' => $request->client_name]
@@ -112,6 +118,12 @@ class ProjectController extends Controller
     {
         if (Project::where('lead_id', $lead->id)->exists()) {
             return redirect()->back()->with('error', 'Lead already converted.');
+        }
+
+        $tenant = app(TenantContext::class)->tenant();
+        $projectLimit = $tenant?->featureLimit('projects_limit');
+        if ($projectLimit !== null && Project::count() >= (int) $projectLimit) {
+            return redirect()->back()->with('error', 'Has alcanzado el limite de proyectos de tu plan Starter (Limite: 1).');
         }
 
         $plan = InstallationPlan::current();

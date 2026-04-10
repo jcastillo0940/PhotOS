@@ -72,6 +72,25 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
         Route::get('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'edit'])->name('admin.saas.tenants.website.edit');
         Route::put('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'update'])->name('admin.saas.tenants.website.update');
+
+        // New Detailed CRUDs for SaaS Admin
+        Route::get('/saas/users', [App\Http\Controllers\Saas\UserController::class, 'index'])->name('admin.saas.users.index');
+        Route::post('/saas/users', [App\Http\Controllers\Saas\UserController::class, 'store'])->name('admin.saas.users.store');
+        Route::put('/saas/users/{user}', [App\Http\Controllers\Saas\UserController::class, 'update'])->name('admin.saas.users.update');
+        Route::delete('/saas/users/{user}', [App\Http\Controllers\Saas\UserController::class, 'destroy'])->name('admin.saas.users.destroy');
+
+        Route::get('/saas/plans', [App\Http\Controllers\Saas\PlanController::class, 'index'])->name('admin.saas.plans.index');
+        Route::post('/saas/plans', [App\Http\Controllers\Saas\PlanController::class, 'store'])->name('admin.saas.plans.store');
+        Route::put('/saas/plans/{plan}', [App\Http\Controllers\Saas\PlanController::class, 'update'])->name('admin.saas.plans.update');
+        Route::delete('/saas/plans/{plan}', [App\Http\Controllers\Saas\PlanController::class, 'destroy'])->name('admin.saas.plans.destroy');
+
+        Route::get('/saas/subscriptions', [App\Http\Controllers\Saas\SubscriptionController::class, 'index'])->name('admin.saas.subscriptions.index');
+        Route::post('/saas/subscriptions', [App\Http\Controllers\Saas\SubscriptionController::class, 'store'])->name('admin.saas.subscriptions.store');
+        Route::put('/saas/subscriptions/{subscription}', [App\Http\Controllers\Saas\SubscriptionController::class, 'update'])->name('admin.saas.subscriptions.update');
+        Route::post('/saas/subscriptions/{subscription}/manual-payment', [App\Http\Controllers\Saas\SubscriptionController::class, 'recordManualPayment'])->name('admin.saas.subscriptions.manual-payment');
+
+        Route::get('/saas/payments', [App\Http\Controllers\Saas\PaymentController::class, 'index'])->name('admin.saas.payments.index');
+
         Route::post('/saas/tenants/{tenant}/billing/manual', [SaasBillingController::class, 'manualUpdate'])->name('admin.saas.tenants.billing.manual');
         Route::post('/saas/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('admin.saas.tenants.billing.setup-token');
     });

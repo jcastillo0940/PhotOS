@@ -235,14 +235,26 @@ class TenantBillingService
                     'manual_override_status' => null,
                     'manual_override_reason' => null,
                 ]);
+
+                // Sync tenant status
+                $subscription->tenant?->update(['status' => 'active', 'grace_period_ends_at' => null]);
             }
 
             if (in_array($eventType, ['BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.CANCELLED', 'PAYMENT.SALE.DENIED', 'BILLING.SUBSCRIPTION.PAYMENT.FAILED'], true)) {
+                $graceDays = 3; // Business rule: 3 days grace
+                $status = $eventType === 'BILLING.SUBSCRIPTION.CANCELLED' ? 'canceled' : 'past_due';
+                
                 $subscription->update([
-                    'status' => $eventType === 'BILLING.SUBSCRIPTION.CANCELLED' ? 'canceled' : 'past_due',
+                    'status' => $status,
                     'failed_payments_count' => $subscription->failed_payments_count + 1,
-                    'grace_ends_at' => $subscription->grace_ends_at ?: now()->addDays(60),
+                    'grace_ends_at' => $subscription->grace_ends_at ?: now()->addDays($graceDays),
                     'suspended_at' => in_array($eventType, ['BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.CANCELLED'], true) ? now() : $subscription->suspended_at,
+                ]);
+
+                // Sync tenant
+                $subscription->tenant?->update([
+                    'status' => $status,
+                    'grace_period_ends_at' => $subscription->grace_ends_at ?: now()->addDays($graceDays)
                 ]);
             }
 
@@ -360,20 +372,21 @@ class TenantBillingService
 
     public function planDefinition(string $planCode, string $billingCycle): array
     {
-        $plans = [
-            'starter' => ['name' => 'Starter', 'monthly' => 19, 'annual' => 190],
-            'studio' => ['name' => 'Studio', 'monthly' => 49, 'annual' => 490],
-            'scale' => ['name' => 'Scale', 'monthly' => 99, 'annual' => 990],
-        ];
+        $plan = \App\Models\SaasPlan::where('code', $planCode)->first();
+        if (!$plan) {
+            throw new \RuntimeException("El plan {$planCode} no existe en la base de datos.");
+        }
 
-        $plan = $plans[$planCode] ?? $plans['studio'];
-        $amount = $billingCycle === 'annual' ? $plan['annual'] : $plan['monthly'];
+        $features = $plan->features ?? [];
+        $promoKey = $billingCycle === 'annual' ? 'price_yearly_promo' : 'price_monthly_promo';
+        $regularKey = $billingCycle === 'annual' ? 'price_yearly' : 'price_monthly';
 
         return [
             'code' => $planCode,
-            'name' => $plan['name'],
+            'name' => $plan->name,
             'billing_cycle' => $billingCycle,
-            'amount' => $amount,
+            'amount' => (float) ($features[$regularKey] ?? 0),
+            'promo_amount' => isset($features[$promoKey]) ? (float) $features[$promoKey] : null,
             'currency' => 'USD',
         ];
     }
@@ -390,26 +403,51 @@ class TenantBillingService
 
     private function createPlanForDefinition(array $plan, ?string $productId): array
     {
-        return $this->paypal->createPlan([
-            'product_id' => $productId,
-            'name' => 'PhotOS '.$plan['name'].' '.($plan['billing_cycle'] === 'annual' ? 'Anual' : 'Mensual'),
-            'description' => 'Cobro recurrente '.$plan['billing_cycle'].' para '.$plan['name'],
-            'status' => 'ACTIVE',
-            'billing_cycles' => [[
+        $cycles = [];
+        $currency = $plan['currency'] ?? 'USD';
+
+        // Add Promo/Trial Cycle if exists
+        if (!empty($plan['promo_amount'])) {
+            $cycles[] = [
                 'frequency' => [
                     'interval_unit' => $plan['billing_cycle'] === 'annual' ? 'YEAR' : 'MONTH',
                     'interval_count' => 1,
                 ],
-                'tenure_type' => 'REGULAR',
+                'tenure_type' => 'TRIAL',
                 'sequence' => 1,
-                'total_cycles' => 0,
+                'total_cycles' => 1, // Only the first cycle is promo
                 'pricing_scheme' => [
                     'fixed_price' => [
-                        'value' => number_format((float) $plan['amount'], 2, '.', ''),
-                        'currency_code' => $plan['currency'],
+                        'value' => number_format((float) $plan['promo_amount'], 2, '.', ''),
+                        'currency_code' => $currency,
                     ],
                 ],
-            ]],
+            ];
+        }
+
+        // Regular Cycle
+        $cycles[] = [
+            'frequency' => [
+                'interval_unit' => $plan['billing_cycle'] === 'annual' ? 'YEAR' : 'MONTH',
+                'interval_count' => 1,
+            ],
+            'tenure_type' => 'REGULAR',
+            'sequence' => empty($cycles) ? 1 : 2,
+            'total_cycles' => 0, // Infinite until cancel
+            'pricing_scheme' => [
+                'fixed_price' => [
+                    'value' => number_format((float) $plan['amount'], 2, '.', ''),
+                    'currency_code' => $currency,
+                ],
+            ],
+        ];
+
+        return $this->paypal->createPlan([
+            'product_id' => $productId,
+            'name' => 'PhotOS '.$plan['name'].' '.($plan['billing_cycle'] === 'annual' ? 'Anual' : 'Mensual'),
+            'description' => 'Suscripcion para plan '.$plan['name'],
+            'status' => 'ACTIVE',
+            'billing_cycles' => $cycles,
             'payment_preferences' => [
                 'auto_bill_outstanding' => true,
                 'setup_fee_failure_action' => 'CONTINUE',

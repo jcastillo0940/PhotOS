@@ -36,8 +36,12 @@ function getSections(userRole) {
                 label: 'Plataforma',
                 items: [
                     { href: '/admin', icon: LayoutDashboard, label: 'Resumen SaaS', match: ['/admin', '/admin/dashboard'] },
-                    { href: '/admin/saas/tenants', icon: ShieldEllipsis, label: 'Tenants', match: ['/admin/saas'] },
-                    { href: '/admin/templates', icon: Layers3, label: 'Planes y presets', match: ['/admin/templates'] },
+                    { href: '/admin/saas/tenants', icon: Building2, label: 'Tenants', match: ['/admin/saas/tenants'] },
+                    { href: '/admin/saas/users', icon: UserRound, label: 'Usuarios', match: ['/admin/saas/users'] },
+                    { href: '/admin/saas/plans', icon: Layers3, label: 'Planes', match: ['/admin/saas/plans'] },
+                    { href: '/admin/saas/subscriptions', icon: FileText, label: 'Suscripciones', match: ['/admin/saas/subscriptions'] },
+                    { href: '/admin/saas/payments', icon: CirclePlus, label: 'Pagos PayPal', match: ['/admin/saas/payments'] },
+                    { href: '/admin/saas/templates', icon: Camera, label: 'Plantillas/Templates', match: ['/admin/saas/templates'] },
                     { href: '/admin/settings', icon: Settings2, label: 'Configuracion global', match: ['/admin/settings'] },
                 ],
             },
@@ -85,7 +89,12 @@ function getPageTitles(userRole) {
         { match: ['/admin/automations'], title: 'Automatizaciones', description: 'Reglas, tareas y recordatorios por tipo de evento.' },
         { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
         { match: ['/admin/templates'], title: 'Planes y presets', description: 'Plantillas base, planes y configuracion avanzada del SaaS.' },
-        { match: ['/admin/saas'], title: 'Tenants y dominios', description: 'Clientes, suscripciones, onboarding y dominios custom.' },
+        { match: ['/admin/saas/tenants'], title: 'Tenants y dominios', description: 'Clientes, suscripciones, onboarding y dominios custom.' },
+        { match: ['/admin/saas/users'], title: 'Usuarios del sistema', description: 'Gestiona fotógrafos, dueños de estudio y administradores globales.' },
+        { match: ['/admin/saas/plans'], title: 'Planes SaaS', description: 'Define limites de fotos, escaneos IA y precios base.' },
+        { match: ['/admin/saas/subscriptions'], title: 'Suscripciones y cobros', description: 'Control de periodos, pagos manuales y estados de cuenta.' },
+        { match: ['/admin/saas/payments'], title: 'Historial de pagos PayPal', description: 'Seguimiento de transacciones recibidas por el gateway.' },
+        { match: ['/admin/saas/templates'], title: 'Plantillas de galeria', description: 'Administra los layouts y estilos visuales disponibles para los tenants.' },
         { match: ['/admin/settings'], title: isSystemOwner ? 'Configuracion global' : 'Branding del estudio', description: isSystemOwner ? 'R2, PayPal, Alanube, Cloudflare y parametros centrales del sistema.' : 'Nombre, logo, favicon y elementos visuales del estudio.' },
     ];
 }

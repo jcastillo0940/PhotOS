@@ -105,6 +105,15 @@ class FaceRecognitionService
             return;
         }
 
+        if ($tenant && !$tenant->canConsumeScan()) {
+            $photo->update([
+                'recognition_status' => 'error',
+                'recognition_note' => 'Has alcanzado el limite mensual de escaneos IA de tu plan.',
+                'recognition_processed_at' => now(),
+            ]);
+            return;
+        }
+
         $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
         $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
 
@@ -113,6 +122,10 @@ class FaceRecognitionService
             'recognition_note' => 'Foto enviada a cola para reconocimiento facial.',
             'recognition_processed_at' => null,
         ]);
+
+        if ($tenant) {
+            $tenant->incrementScanCount(1);
+        }
 
         $this->pushTask([
             'task_type' => 'recognize_photo',

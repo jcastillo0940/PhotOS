@@ -54,7 +54,8 @@ class Project extends Model
 
     public function planDefinition(): array
     {
-        return InstallationPlan::current();
+        $features = $this->tenant?->plan?->features ?? [];
+        return array_merge(InstallationPlan::current(), $features);
     }
 
     public function planName(): string
@@ -64,12 +65,12 @@ class Project extends Model
 
     public function originalsBucketPrefix(): string
     {
-        return 'tenants/'.$this->tenant_id.'/projects/'.$this->id.'/originals';
+        return 'projects/'.$this->id.'/originals';
     }
 
     public function webBucketPrefix(): string
     {
-        return 'tenants/'.$this->tenant_id.'/projects/'.$this->id.'/web';
+        return 'projects/'.$this->id.'/web';
     }
 
     public function effectiveWeeklyDownloadLimit(): ?int
