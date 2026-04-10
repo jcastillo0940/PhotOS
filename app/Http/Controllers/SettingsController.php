@@ -217,19 +217,38 @@ class SettingsController extends Controller
         }
     }
 
-    public function testCloudflare()
+    public function testCloudflare(Request $request)
     {
+        // Debug: Log complete R2 config
+        \Illuminate\Support\Facades\Log::debug('R2 Test Start', [
+            'driver' => config('filesystems.disks.r2.driver'),
+            'bucket' => config('filesystems.disks.r2.bucket'),
+            'endpoint' => config('filesystems.disks.r2.endpoint'),
+            'key_present' => !empty(config('filesystems.disks.r2.key')),
+            'secret_present' => !empty(config('filesystems.disks.r2.secret')),
+        ]);
+
         try {
-            $path = 'integration-checks/ping-'.now()->format('YmdHis').'.txt';
-            Storage::disk('r2')->put($path, 'PhotOS R2 ping '.now()->toDateTimeString());
-            Storage::disk('r2')->delete($path);
+            $disk = Storage::disk('r2');
+            $filename = 'test-'.time().'.txt';
+            $content = 'Test connection at '.now()->toDateTimeString();
+
+            \Illuminate\Support\Facades\Log::debug('R2 Uploading test file: ' . $filename);
+            $disk->put($filename, $content);
+
+            \Illuminate\Support\Facades\Log::debug('R2 Deleting test file: ' . $filename);
+            $disk->delete($filename);
 
             return back()->with('integration_test', [
                 'service' => 'cloudflare',
                 'ok' => true,
-                'message' => 'Cloudflare R2 respondio correctamente. Bucke: '.config('filesystems.disks.r2.bucket'),
+                'message' => 'Conexion con Cloudflare R2 establecida y prueba de lectura/escritura superada.'
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('R2 Test Fail: ' . $e->getMessage(), [
+                'exception' => get_class($e),
+                'trace' => substr($e->getTraceAsString(), 0, 500)
+            ]);
             return back()->with('integration_test', [
                 'service' => 'cloudflare',
                 'ok' => false,
@@ -240,9 +259,15 @@ class SettingsController extends Controller
 
     public function testCloudflareSaas(CloudflareCustomHostnameService $cf)
     {
-        \Illuminate\Support\Facades\Log::info('Testing Cloudflare Saas. Token: ' . config('services.cloudflare_saas.api_token'));
+        \Illuminate\Support\Facades\Log::debug('Cloudflare SaaS Test Start', [
+            'api_token_present' => !empty(config('services.cloudflare_saas.api_token')),
+            'zone_id' => config('services.cloudflare_saas.zone_id'),
+            'managed_cname_target' => config('services.cloudflare_saas.managed_cname_target'),
+        ]);
+
         try {
             if (!$cf->enabled()) {
+                \Illuminate\Support\Facades\Log::warning('Cloudflare SaaS Test aborted: Not enabled.');
                 return back()->with('integration_test', [
                     'service' => 'cloudflare_saas',
                     'ok' => false,
@@ -250,10 +275,14 @@ class SettingsController extends Controller
                 ]);
             }
 
-            // Realizar una peticion simple de prueba al endpoint de custom hostnames (limit 1)
             $response = Http::baseUrl('https://api.cloudflare.com/client/v4')
                 ->withToken(config('services.cloudflare_saas.api_token'))
                 ->get('/zones/'.config('services.cloudflare_saas.zone_id').'/custom_hostnames', ['per_page' => 1]);
+
+            \Illuminate\Support\Facades\Log::debug('Cloudflare SaaS Response', [
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
 
             if ($response->failed()) {
                 throw new \RuntimeException($response->json('errors.0.message') ?: 'Error de conexion con Cloudflare.');
@@ -265,6 +294,7 @@ class SettingsController extends Controller
                 'message' => 'Conexion con Cloudflare SaaS establecida correctamente.',
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Cloudflare SaaS Test Fail: ' . $e->getMessage());
             return back()->with('integration_test', [
                 'service' => 'cloudflare_saas',
                 'ok' => false,
@@ -275,8 +305,15 @@ class SettingsController extends Controller
 
     public function testPaypal(PayPalApiService $paypal)
     {
+        \Illuminate\Support\Facades\Log::debug('PayPal Test Start', [
+            'client_id_present' => !empty(config('services.paypal.client_id')),
+            'secret_present' => !empty(config('services.paypal.secret')),
+            'environment' => config('services.paypal.environment'),
+        ]);
+
         try {
             if (!$paypal->enabled()) {
+                \Illuminate\Support\Facades\Log::warning('PayPal Test aborted: Not enabled.');
                 return back()->with('integration_test', [
                     'service' => 'paypal',
                     'ok' => false,
@@ -285,6 +322,7 @@ class SettingsController extends Controller
             }
 
             $token = $paypal->accessToken();
+            \Illuminate\Support\Facades\Log::debug('PayPal Token Success');
 
             return back()->with('integration_test', [
                 'service' => 'paypal',
@@ -292,6 +330,7 @@ class SettingsController extends Controller
                 'message' => 'Conexion con PayPal establecida. Access Token obtenido correctamente ('.substr($token, 0, 8).'...).',
             ]);
         } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('PayPal Test Fail: ' . $e->getMessage());
             return back()->with('integration_test', [
                 'service' => 'paypal',
                 'ok' => false,
