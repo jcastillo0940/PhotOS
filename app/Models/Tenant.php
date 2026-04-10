@@ -96,6 +96,23 @@ class Tenant extends Model
         return $this->plan?->featureValue($feature);
     }
 
+    /**
+     * Check if a feature is available under the current plan.
+     * - null limit means unlimited (returns true)
+     * - numeric limit > 0 means the feature is enabled (returns true)
+     * - 0 or false means the feature is disabled (returns false)
+     */
+    public function canUseFeature(string $feature): bool
+    {
+        $limit = $this->featureLimit($feature);
+
+        if ($limit === null) {
+            return true; // Unlimited / no restriction
+        }
+
+        return (int) $limit > 0;
+    }
+
     public function canConsumeScan(): bool
     {
         $this->syncUsageLimits();
