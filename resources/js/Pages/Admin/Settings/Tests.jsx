@@ -68,6 +68,16 @@ export default function Tests() {
                         description="Sube y elimina un archivo temporal para confirmar acceso al bucket."
                         onClick={() => runTest('cloudflare')}
                     />
+                    <TestCard
+                        title="Cloudflare SaaS"
+                        description="Valida la conectividad con la API de Cloudflare para Custom Hostnames."
+                        onClick={() => runTest('cloudflare_saas')}
+                    />
+                    <TestCard
+                        title="PayPal"
+                        description="Intenta obtener un Access Token de la plataforma PayPal para validar credenciales."
+                        onClick={() => runTest('paypal')}
+                    />
                 </div>
 
                 <section className="rounded-[2rem] border border-slate-200 bg-slate-50 p-8">

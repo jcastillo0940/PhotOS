@@ -58,6 +58,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');
         Route::post('/settings/test/alanube', [SettingsController::class, 'testAlanube'])->name('admin.settings.test.alanube');
         Route::post('/settings/test/cloudflare', [SettingsController::class, 'testCloudflare'])->name('admin.settings.test.cloudflare');
+        Route::post('/settings/test/cloudflare_saas', [SettingsController::class, 'testCloudflareSaas'])->name('admin.settings.test.cloudflare_saas');
+        Route::post('/settings/test/paypal', [SettingsController::class, 'testPaypal'])->name('admin.settings.test.paypal');
         Route::post('/settings/test/tilopay', [SettingsController::class, 'testTilopay'])->name('admin.settings.test.tilopay');
         Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');

@@ -7,7 +7,10 @@ use App\Services\Billing\AlanubeService;
 use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
 use App\Support\InstallationPlan;
+use App\Services\Billing\PayPalApiService;
+use App\Services\Saas\CloudflareCustomHostnameService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -224,13 +227,74 @@ class SettingsController extends Controller
             return back()->with('integration_test', [
                 'service' => 'cloudflare',
                 'ok' => true,
-                'message' => 'Cloudflare R2 respondio correctamente.',
+                'message' => 'Cloudflare R2 respondio correctamente. Bucke: '.config('filesystems.disks.r2.bucket'),
             ]);
         } catch (\Throwable $e) {
             return back()->with('integration_test', [
                 'service' => 'cloudflare',
                 'ok' => false,
                 'message' => 'Error Cloudflare R2: '.$e->getMessage(),
+            ]);
+        }
+    }
+
+    public function testCloudflareSaas(CloudflareCustomHostnameService $cf)
+    {
+        try {
+            if (!$cf->enabled()) {
+                return back()->with('integration_test', [
+                    'service' => 'cloudflare_saas',
+                    'ok' => false,
+                    'message' => 'Cloudflare SaaS no esta habilitado en la configuracion.',
+                ]);
+            }
+
+            // Realizar una peticion simple de prueba al endpoint de custom hostnames (limit 1)
+            $response = Http::baseUrl('https://api.cloudflare.com/client/v4')
+                ->withToken(config('services.cloudflare_saas.api_token'))
+                ->get('/zones/'.config('services.cloudflare_saas.zone_id').'/custom_hostnames', ['per_page' => 1]);
+
+            if ($response->failed()) {
+                throw new \RuntimeException($response->json('errors.0.message') ?: 'Error de conexion con Cloudflare.');
+            }
+
+            return back()->with('integration_test', [
+                'service' => 'cloudflare_saas',
+                'ok' => true,
+                'message' => 'Conexion con Cloudflare SaaS establecida correctamente.',
+            ]);
+        } catch (\Throwable $e) {
+            return back()->with('integration_test', [
+                'service' => 'cloudflare_saas',
+                'ok' => false,
+                'message' => 'Error Cloudflare SaaS: '.$e->getMessage(),
+            ]);
+        }
+    }
+
+    public function testPaypal(PayPalApiService $paypal)
+    {
+        try {
+            if (!$paypal->enabled()) {
+                return back()->with('integration_test', [
+                    'service' => 'paypal',
+                    'ok' => false,
+                    'message' => 'PayPal no esta habilitado en la configuracion.',
+                ]);
+            }
+
+            $token = $paypal->accessToken();
+
+            return back()->with('integration_test', [
+                'service' => 'paypal',
+                'ok' => true,
+                'message' => 'Conexion con PayPal establecida. Access Token obtenido correctamente ('.substr($token, 0, 8).'...).',
+            ]);
+        } catch (\Throwable $e) {
+            return back()->with('integration_test', [
+                'service' => 'paypal',
+                'ok' => false,
+                'message' => 'Error PayPal: '.$e->getMessage(),
             ]);
         }
     }
