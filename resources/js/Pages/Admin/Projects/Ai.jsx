@@ -2,7 +2,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { Bot, ChevronLeft, Trash2, UserRound, WandSparkles } from 'lucide-react';
+import { Bot, Camera, ChevronLeft, ScanFace, Trash2, UserRound, WandSparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
 export default function Ai({ project, faceRecognition }) {
@@ -15,6 +15,7 @@ export default function Ai({ project, faceRecognition }) {
     const [faceRecognitionEnabled, setFaceRecognitionEnabled] = React.useState(!!project.face_recognition_enabled);
     const canUseRecognition = !!faceRecognitionEnabled && !!faceRecognition?.service_configured && !!faceRecognition?.database_ready;
     const recognitionSummary = faceRecognition?.summary || {};
+    const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
 
     const saveMeta = () => {
         router.put(`/admin/projects/${project.id}`, {
@@ -33,7 +34,7 @@ export default function Ai({ project, faceRecognition }) {
 
     return (
         <AdminLayout>
-            <Head title={`IA Rostros: ${project.name}`} />
+            <Head title={`${sportsModeEnabled ? 'IA Deportiva' : 'IA Visual'}: ${project.name}`} />
 
             <div className="space-y-8">
                 <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900">
@@ -52,19 +53,42 @@ export default function Ai({ project, faceRecognition }) {
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Reconocimiento facial</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Personas a reconocer en esta galeria</h3>
-                            <p className="mt-2 text-sm leading-7 text-slate-500">Activalo para detectar rostros y que los clientes puedan filtrar por personas.</p>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{sportsModeEnabled ? 'IA deportiva' : 'IA visual'}</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                                {sportsModeEnabled ? 'Rostros, dorsales, sponsors y contexto en una sola vista' : 'Reconocimiento visual para esta galeria'}
+                            </h3>
+                            <p className="mt-2 text-sm leading-7 text-slate-500">
+                                {sportsModeEnabled
+                                    ? 'Aqui controlas el entrenamiento de personas y el escaneo que despues alimenta filtros por dorsal, marcas, sponsors, balon, porteria y tipos de toma.'
+                                    : 'Aqui controlas el entrenamiento de personas y el escaneo visual de la galeria. Si algun tenant trabaja deportes, puede activar el modo deportivo desde Branding.'}
+                            </p>
                         </div>
                         <Bot className="h-8 w-8 text-slate-300" />
                     </div>
+
+                    {sportsModeEnabled ? (
+                        <div className="mt-6 grid gap-4 xl:grid-cols-4">
+                            <CapabilityCard icon={ScanFace} eyebrow="Identidad" title="Rostros y nombres" description="Entrena jugadores clave o protagonistas frecuentes para detectar personas conocidas." />
+                            <CapabilityCard icon={UserRound} eyebrow="OCR" title="Dorsales" description="Prepara la galeria para buscar rapido por numero de camiseta y entregar lotes por jugador." />
+                            <CapabilityCard icon={Camera} eyebrow="Comercial" title="Marcas y sponsors" description="Cuenta apariciones de logos y patrocinadores visibles en uniformes, vallas y activaciones." />
+                            <CapabilityCard icon={WandSparkles} eyebrow="Juego" title="Contexto" description="Clasifica escenas con balon, porteria, tarjeta, arbitro y agrupa la accion en solitario, duelo o equipo." />
+                        </div>
+                    ) : (
+                        <div className="mt-6 rounded-[1.5rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 text-sm leading-7 text-slate-500">
+                            Este tenant esta en modo general. La experiencia prioriza reconocimiento de personas y escaneo visual base. Si luego quieres usar filtros deportivos, activa <span className="font-semibold text-slate-900">Personalizar para deportes</span> en <span className="font-semibold text-slate-900">Settings &gt; Branding</span>.
+                        </div>
+                    )}
 
                     <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                         <div className="space-y-4">
                             <label className="flex items-center justify-between rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] px-5 py-5 text-sm text-slate-700">
                                 <div>
                                     <span className="font-semibold block">Activar IA para la galeria</span>
-                                    <span className="text-xs text-slate-500 block mt-1">Registra personas en el modelo predictivo.</span>
+                                    <span className="text-xs text-slate-500 block mt-1">
+                                        {sportsModeEnabled
+                                            ? 'Activa la canalizacion completa de rostros, dorsales, sponsors y contexto visual.'
+                                            : 'Activa el reconocimiento visual y el etiquetado inteligente de esta galeria.'}
+                                    </span>
                                 </div>
                                 <input
                                     type="checkbox"
@@ -75,12 +99,12 @@ export default function Ai({ project, faceRecognition }) {
                             </label>
 
                             <form onSubmit={createIdentity} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 space-y-3">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400 mb-2">Registrar Persona</p>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400 mb-2">{sportsModeEnabled ? 'Roster Base' : 'Base de Personas'}</p>
                                 <input
                                     type="text"
                                     value={identityForm.data.name}
                                     onChange={(event) => identityForm.setData('name', event.target.value)}
-                                    placeholder="Nombre de la persona (Ej. Maria)"
+                                    placeholder={sportsModeEnabled ? 'Nombre del jugador o protagonista (Ej. Jeremy)' : 'Nombre de la persona (Ej. Maria, Carlos, Sofia)'}
                                     className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none"
                                 />
                                 <input
@@ -99,7 +123,7 @@ export default function Ai({ project, faceRecognition }) {
                                             : 'border border-[#171411] bg-[#171411] text-white'
                                     )}
                                 >
-                                    {identityForm.processing ? 'Registrando...' : 'Agregar persona'}
+                                    {identityForm.processing ? 'Registrando...' : sportsModeEnabled ? 'Agregar rostro base' : 'Agregar persona'}
                                 </button>
                             </form>
 
@@ -135,14 +159,16 @@ export default function Ai({ project, faceRecognition }) {
                                     </div>
                                 )) : (
                                     <div className="rounded-2xl border border-dashed border-[#ddd5c9] px-4 py-8 text-center text-sm text-slate-400">
-                                        Todavia no hay personas registradas para reconocer.
+                                        {sportsModeEnabled
+                                            ? 'Todavia no hay rostros base registrados para enriquecer el reconocimiento deportivo.'
+                                            : 'Todavia no hay personas registradas para reconocer en esta galeria.'}
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         <div className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-6 lg:p-8">
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Estado del Escaneo</p>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{sportsModeEnabled ? 'Estado del Escaneo Deportivo' : 'Estado del Escaneo'}</p>
                             
                             {!faceRecognition?.service_configured && (
                                 <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
@@ -159,22 +185,26 @@ export default function Ai({ project, faceRecognition }) {
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Personas halladas</p>
                                     <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.people_detected_total || 0}</p>
                                 </div>
-                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Marcas detectadas</p>
-                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.brands_detected_total || 0}</p>
-                                </div>
-                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Dorsales detectados</p>
-                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.jerseys_detected_total || 0}</p>
-                                </div>
-                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sponsors detectados</p>
-                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
-                                </div>
-                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Contexto detectado</p>
-                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.context_detected_total || 0}</p>
-                                </div>
+                                {sportsModeEnabled && (
+                                    <>
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Marcas detectadas</p>
+                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.brands_detected_total || 0}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Dorsales detectados</p>
+                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.jerseys_detected_total || 0}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sponsors detectados</p>
+                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Contexto detectado</p>
+                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.context_detected_total || 0}</p>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             <div className="mt-4 grid gap-3 sm:grid-cols-3">
@@ -192,6 +222,15 @@ export default function Ai({ project, faceRecognition }) {
                                 </div>
                             </div>
 
+                            {sportsModeEnabled && (
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                    <SignalLine label="Escenas con jerseys" value={recognitionSummary.photos_with_jerseys || 0} />
+                                    <SignalLine label="Escenas con sponsors" value={recognitionSummary.photos_with_sponsors || 0} />
+                                    <SignalLine label="Escenas con contexto" value={recognitionSummary.photos_with_context || 0} />
+                                    <SignalLine label="Escenas con marcas" value={recognitionSummary.photos_with_brands || 0} />
+                                </div>
+                            )}
+
                             <div className="mt-8 h-3 overflow-hidden rounded-full bg-slate-200">
                                 <div
                                     className="h-full rounded-full bg-gradient-to-r from-[#171411] via-[#7c5d45] to-[#d1a673] transition-all duration-1000"
@@ -207,7 +246,9 @@ export default function Ai({ project, faceRecognition }) {
                                 />
                             </div>
                             <p className="mt-3 text-sm text-slate-500 font-medium">
-                                Progreso: {recognitionSummary.photos_with_people || 0} de {(project.photos || []).length} completadas.
+                                {sportsModeEnabled
+                                    ? `Progreso deportivo: ${recognitionSummary.photos_with_people || 0} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`
+                                    : `Progreso visual: ${recognitionSummary.photos_with_people || 0} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
                             </p>
 
                             <div className="mt-8 flex flex-col sm:flex-row gap-3">
@@ -223,7 +264,7 @@ export default function Ai({ project, faceRecognition }) {
                                     )}
                                 >
                                     <WandSparkles className="h-4 w-4" />
-                                    Escanear Galeria Completa
+                                    {sportsModeEnabled ? 'Escanear Galeria Deportiva' : 'Escanear Galeria'}
                                 </button>
                                 
                                 <button
@@ -266,6 +307,28 @@ export default function Ai({ project, faceRecognition }) {
                 </section>
             </div>
         </AdminLayout>
+    );
+}
+
+function CapabilityCard({ icon: Icon, eyebrow, title, description }) {
+    return (
+        <div className="rounded-[1.5rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e6e0d5] bg-white text-slate-700">
+                <Icon className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{eyebrow}</p>
+            <p className="mt-2 text-lg font-semibold text-slate-900">{title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+        </div>
+    );
+}
+
+function SignalLine({ label, value }) {
+    return (
+        <div className="flex items-center justify-between rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3">
+            <p className="text-sm text-slate-500">{label}</p>
+            <p className="text-sm font-semibold text-slate-900">{value}</p>
+        </div>
     );
 }
 

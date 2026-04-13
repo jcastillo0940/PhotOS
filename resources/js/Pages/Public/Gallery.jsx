@@ -344,6 +344,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const heroPhoto = photos.find(photo => photo.id === project.hero_photo_id) || photos[0];
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
     const isClientView = access?.mode === 'client';
+    const sportsModeEnabled = !!project?.sports_mode_enabled;
     const unlockForm = useForm({
         visitor_name: access?.registered_name || '',
         visitor_email: access?.registered_email || '',
@@ -432,7 +433,13 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
             ? true
             : (photo.context_tags || []).includes(contextFilter);
 
-        return generalMatch && peopleMatch && brandMatch && peopleCountMatch && jerseyMatch && sponsorMatch && contextMatch;
+        return generalMatch
+            && peopleMatch
+            && (!sportsModeEnabled || brandMatch)
+            && peopleCountMatch
+            && (!sportsModeEnabled || jerseyMatch)
+            && (!sportsModeEnabled || sponsorMatch)
+            && (!sportsModeEnabled || contextMatch);
     });
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
@@ -481,7 +488,9 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             <p className={clsx('mt-2 max-w-2xl text-sm leading-7', isDarkChrome ? 'text-white/75' : 'text-[#5c4939]')}>
                                 {isClientView
                                     ? 'Estas viendo la galeria completa del cliente. Aqui se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
-                                    : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa, marcar favoritos y descargar.'}
+                                    : sportsModeEnabled
+                                        ? 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa y aprovechar filtros deportivos cuando esten disponibles.'
+                                        : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa, marcar favoritos y descargar.'}
                             </p>
                             {typeof access?.public_photo_count === 'number' && typeof access?.client_photo_count === 'number' && (
                                 <p className={clsx('mt-2 text-xs uppercase tracking-[0.2em]', isDarkChrome ? 'text-white/45' : 'text-[#8b6d54]')}>
@@ -571,7 +580,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {brandCategories.length > 1 && (
+                        {sportsModeEnabled && brandCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -596,7 +605,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {peopleCountCategories.length > 1 && (
+                        {sportsModeEnabled && peopleCountCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <UserRound className="h-3.5 w-3.5" />
@@ -621,7 +630,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {jerseyCategories.length > 1 && (
+                        {sportsModeEnabled && jerseyCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <UserRound className="h-3.5 w-3.5" />
@@ -646,7 +655,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sponsorCategories.length > 1 && (
+                        {sportsModeEnabled && sponsorCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -671,7 +680,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {contextCategories.length > 1 && (
+                        {sportsModeEnabled && contextCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />

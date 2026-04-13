@@ -427,6 +427,7 @@ class ProjectController extends Controller
             ],
             'faceRecognition' => [
                 'enabled' => $project->face_recognition_enabled,
+                'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
                 'tenant_scope_enabled' => Setting::get('face_detection_scope', 'project_only') === 'all_galleries',
                 'service_configured' => filled(config('services.face_ai.task_queue')) && filled(config('services.face_ai.result_queue')),
                 'database_ready' => FaceIdentity::withoutGlobalScope('tenant')

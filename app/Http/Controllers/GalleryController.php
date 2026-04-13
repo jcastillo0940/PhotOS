@@ -56,6 +56,7 @@ class GalleryController extends Controller
                 ...collect($project->toArray())->except(['gallery_password'])->all(),
                 'originals_expired' => $project->originalsExpired(),
                 'high_res_available' => $hasClientAccess && $project->highResAvailable(),
+                'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
             ],
             'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess, $selectedPhotoIds))->values(),
             'galleryTemplate' => $project->resolvedGalleryTemplate(),

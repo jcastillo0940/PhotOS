@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import SettingsNavigation from '@/Pages/Admin/Settings/Partials/SettingsNavigation';
-import { ImageIcon, Save, Stamp, Type } from 'lucide-react';
+import { ImageIcon, Save, Sparkles, Stamp, Type } from 'lucide-react';
 
 const Field = ({ label, value, onChange, placeholder }) => (
     <div className="space-y-2">
@@ -38,6 +38,7 @@ export default function Branding({ settings }) {
         jurisdiction_country: settings?.jurisdiction_country?.value || '',
         platform_watermark_label: settings?.platform_watermark_label?.value || '',
         event_types: settings?.event_types?.value || '',
+        ai_sports_mode_enabled: settings?.ai_sports_mode_enabled?.value === '1',
         app_logo: null,
         app_favicon: null,
         photographer_watermark: null,
@@ -126,6 +127,28 @@ export default function Branding({ settings }) {
                                 />
                                 <p className="text-xs text-slate-400">Escribe un tipo por linea. Esta lista se usa en el lead manual y en el formulario publico.</p>
                             </div>
+                        </section>
+
+                        <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm space-y-5">
+                            <div className="flex items-center gap-3">
+                                <Sparkles className="h-5 w-5 text-slate-400" />
+                                <h2 className="text-lg font-semibold text-slate-900">Perfil de IA</h2>
+                            </div>
+
+                            <label className="flex items-center justify-between gap-4 rounded-[1.4rem] border border-slate-200 bg-slate-50 px-5 py-5">
+                                <div>
+                                    <p className="text-sm font-semibold text-slate-900">Personalizar para deportes</p>
+                                    <p className="mt-1 text-sm leading-6 text-slate-500">
+                                        Activa la experiencia deportiva para mostrar dorsales, sponsors, contexto de juego y lenguaje orientado a futbol u otros deportes.
+                                    </p>
+                                </div>
+                                <input
+                                    type="checkbox"
+                                    checked={!!data.ai_sports_mode_enabled}
+                                    onChange={(event) => setData('ai_sports_mode_enabled', event.target.checked)}
+                                    className="h-5 w-5 rounded border-slate-300"
+                                />
+                            </label>
                         </section>
                     </div>
 

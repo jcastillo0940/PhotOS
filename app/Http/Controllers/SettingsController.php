@@ -65,7 +65,7 @@ class SettingsController extends Controller
 
         return Inertia::render('Admin/Settings/Branding', [
             'settings' => Setting::query()
-                ->whereIn('group', ['app_branding', 'legal', 'branding', 'studio'])
+                ->whereIn('group', ['app_branding', 'legal', 'branding', 'studio', 'ai'])
                 ->get()
                 ->keyBy('key'),
         ]);
@@ -125,6 +125,7 @@ class SettingsController extends Controller
             'jurisdiction_country' => 'nullable|string|max:255',
             'platform_watermark_label' => 'nullable|string|max:255',
             'event_types' => 'nullable|string',
+            'ai_sports_mode_enabled' => 'nullable|boolean',
             'app_logo' => 'nullable|image|mimes:png,jpg,jpeg,webp,svg|max:4096',
             'app_favicon' => 'nullable|file|mimes:png,ico,svg,webp|max:2048',
             'photographer_watermark' => 'nullable|image|mimes:png,webp|max:4096',
@@ -139,6 +140,7 @@ class SettingsController extends Controller
         Setting::set('jurisdiction_country', $request->string('jurisdiction_country')->toString(), 'legal');
         Setting::set('platform_watermark_label', $request->string('platform_watermark_label')->toString(), 'branding');
         Setting::set('event_types', $request->string('event_types')->toString(), 'studio');
+        Setting::set('ai_sports_mode_enabled', ($validated['ai_sports_mode_enabled'] ?? false) ? '1' : '0', 'ai');
 
         if ($request->hasFile('app_logo')) {
             $path = $request->file('app_logo')->store('branding/app', 'public');
@@ -378,6 +380,7 @@ class SettingsController extends Controller
             ['key' => 'tilopay_secret_key', 'group' => 'payment', 'is_secret' => true],
             ['key' => 'platform_watermark_label', 'group' => 'branding', 'is_secret' => false, 'value' => 'PhotOS'],
             ['key' => 'photographer_watermark_path', 'group' => 'branding', 'is_secret' => false, 'value' => null],
+            ['key' => 'ai_sports_mode_enabled', 'group' => 'ai', 'is_secret' => false, 'value' => '0'],
             ['key' => 'event_types', 'group' => 'studio', 'is_secret' => false, 'value' => implode("\n", EventTypeSettings::defaults())],
             ['key' => 'photographer_business_name', 'group' => 'legal', 'is_secret' => false, 'value' => 'Mono Studio'],
             ['key' => 'photographer_document', 'group' => 'legal', 'is_secret' => false, 'value' => 'Cedula / RUC'],

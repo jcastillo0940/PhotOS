@@ -4,7 +4,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { Bot, Camera, FolderKanban, ScanFace, Trash2, UserRound, WandSparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
-export default function Index({ mode, serviceConfigured, projects = [], identities = [], stats = {} }) {
+export default function Index({ mode, sportsModeEnabled = false, serviceConfigured, projects = [], identities = [], stats = {} }) {
     const { flash } = usePage().props;
     const modeForm = useForm({ mode: mode || 'project_only', enable_existing_projects: mode === 'all_galleries' });
     const identityForm = useForm({ name: '', scope: 'global', project_id: '', reference_image: null });
@@ -25,7 +25,7 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
 
     return (
         <AdminLayout>
-            <Head title="Deteccion facial" />
+            <Head title={sportsModeEnabled ? 'IA Deportiva' : 'Deteccion facial'} />
 
             <div className="space-y-8">
                 {(flash?.success || flash?.error) && (
@@ -38,9 +38,13 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
                     <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
                         <div className="max-w-3xl">
                             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">IA visual</p>
-                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Deteccion facial</h2>
+                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
+                                {sportsModeEnabled ? 'Centro de IA deportiva' : 'Centro de reconocimiento visual'}
+                            </h2>
                             <p className="mt-3 text-sm leading-7 text-slate-500">
-                                Aqui centralizas todos los rostros con nombre del tenant y decides si la IA trabaja por galeria o en todas las galerias existentes y nuevas.
+                                {sportsModeEnabled
+                                    ? 'Aqui centralizas los rostros base del tenant y controlas la IA que luego detecta rostros, dorsales, marcas, sponsors y contexto de juego en todas las galerias.'
+                                    : 'Aqui centralizas los rostros base del tenant y controlas la IA visual general para todas las galerias del estudio.'}
                             </p>
                         </div>
 
@@ -72,24 +76,43 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
                         <StatCard label="Rostros globales" value={stats.global_identities_count || 0} detail="Disponibles para todas las galerias" />
                         <StatCard label="Pendientes" value={stats.photos_pending || 0} detail="Fotos aun no procesadas" />
                     </div>
+
+                    {sportsModeEnabled ? (
+                        <div className="mt-6 grid gap-4 xl:grid-cols-4">
+                            <InsightCard icon={ScanFace} title="Rostros conocidos" description="Entrena protagonistas para reconocer personas frecuentes con mas precision." />
+                            <InsightCard icon={UserRound} title="Busqueda por dorsal" description="Prepara la galeria para navegar por numero de camiseta cuando conectes OCR o vision deportiva." />
+                            <InsightCard icon={Camera} title="Sponsors y marcas" description="Cuenta apariciones comerciales en camisetas, vallas y activaciones del evento." />
+                            <InsightCard icon={Bot} title="Contexto de juego" description="Clasifica escenas con balon, porteria, tarjeta, arbitro y tipos de accion." />
+                        </div>
+                    ) : (
+                        <div className="mt-6 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fffdf9] px-5 py-5 text-sm leading-7 text-slate-500 shadow-sm">
+                            Este tenant esta en modo general. Si trabajas deportes y quieres habilitar dorsales, sponsors y contexto de juego, activa <span className="font-semibold text-slate-900">Personalizar para deportes</span> en <span className="font-semibold text-slate-900">Settings &gt; Branding</span>.
+                        </div>
+                    )}
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                     <form onSubmit={submitMode} className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm space-y-5">
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Modo de trabajo</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Como quieres usar la deteccion</h3>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                                {sportsModeEnabled ? 'Como quieres usar la IA deportiva' : 'Como quieres usar la IA visual'}
+                            </h3>
                         </div>
 
                         <ModeCard
                             title="Deteccion por galeria"
-                            description="Cada galeria decide si activa IA y puede mantener rostros locales propios."
+                            description={sportsModeEnabled
+                                ? 'Cada galeria decide si activa IA y puede mantener su propio roster base y pipeline deportivo.'
+                                : 'Cada galeria decide si activa IA y puede mantener su propia base de personas.'}
                             checked={modeForm.data.mode === 'project_only'}
                             onChange={() => modeForm.setData('mode', 'project_only')}
                         />
                         <ModeCard
                             title="Deteccion en todas las galerias"
-                            description="Las galerias nuevas nacen con IA activa y puedes encender las actuales para escaneo masivo."
+                            description={sportsModeEnabled
+                                ? 'Las galerias nuevas nacen con IA activa y puedes encender las actuales para escaneo deportivo masivo.'
+                                : 'Las galerias nuevas nacen con IA activa y puedes encender las actuales para escaneo masivo.'}
                             checked={modeForm.data.mode === 'all_galleries'}
                             onChange={() => modeForm.setData('mode', 'all_galleries')}
                         />
@@ -111,11 +134,18 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
 
                     <form onSubmit={submitIdentity} className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm space-y-5">
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rostros con nombre</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Registrar un nuevo rostro</h3>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{sportsModeEnabled ? 'Roster base' : 'Rostros con nombre'}</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                                {sportsModeEnabled ? 'Registrar un nuevo protagonista' : 'Registrar un nuevo rostro'}
+                            </h3>
                         </div>
 
-                        <Field label="Nombre" value={identityForm.data.name} onChange={(value) => identityForm.setData('name', value)} placeholder="Ej. Maria, Carlos, Sofia" />
+                        <Field
+                            label="Nombre"
+                            value={identityForm.data.name}
+                            onChange={(value) => identityForm.setData('name', value)}
+                            placeholder={sportsModeEnabled ? 'Ej. Jeremy, Portero, Arbitro central' : 'Ej. Maria, Carlos, Sofia'}
+                        />
 
                         <div className="grid gap-4 md:grid-cols-2">
                             <SelectField
@@ -157,7 +187,7 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
                                     : 'bg-[#171411] text-white'
                             )}
                         >
-                            {identityForm.processing ? 'Registrando...' : 'Guardar rostro'}
+                            {identityForm.processing ? 'Registrando...' : sportsModeEnabled ? 'Guardar protagonista' : 'Guardar rostro'}
                         </button>
                     </form>
                 </section>
@@ -208,7 +238,9 @@ export default function Index({ mode, serviceConfigured, projects = [], identiti
 
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Galerias</p>
-                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Estado de deteccion por galeria</h3>
+                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                        {sportsModeEnabled ? 'Estado de IA por galeria' : 'Estado de reconocimiento por galeria'}
+                    </h3>
                     <div className="mt-6 grid gap-4 xl:grid-cols-2">
                         {projects.map((project) => (
                             <article key={project.id} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
@@ -255,6 +287,18 @@ function StatCard({ label, value, detail }) {
             <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
             <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
             <p className="mt-1 text-sm text-slate-500">{detail}</p>
+        </div>
+    );
+}
+
+function InsightCard({ icon: Icon, title, description }) {
+    return (
+        <div className="rounded-[1.7rem] border border-[#e6e0d5] bg-[#fffdf9] px-5 py-5 shadow-sm">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e6e0d5] bg-white text-slate-700">
+                <Icon className="h-5 w-5" />
+            </div>
+            <p className="mt-4 text-base font-semibold text-slate-900">{title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
         </div>
     );
 }

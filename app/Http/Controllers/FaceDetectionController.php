@@ -64,6 +64,7 @@ class FaceDetectionController extends Controller
 
         return Inertia::render('Admin/FaceDetection/Index', [
             'mode' => Setting::get('face_detection_scope', 'project_only'),
+            'sportsModeEnabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
             'serviceConfigured' => $this->faceRecognitionService->enabled(),
             'projects' => $projectSummaries,
             'identities' => $identities,
