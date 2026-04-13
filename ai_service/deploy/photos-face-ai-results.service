@@ -11,8 +11,10 @@ WorkingDirectory=/var/www/photos
 ExecStart=/usr/bin/php artisan face-ai:consume-results --timeout=5
 Restart=always
 RestartSec=5
+RuntimeMaxSec=3600
 TimeoutStartSec=60
 TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
+

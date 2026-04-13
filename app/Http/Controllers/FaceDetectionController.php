@@ -54,6 +54,7 @@ class FaceDetectionController extends Controller
             'face_recognition_enabled' => (bool) $project->face_recognition_enabled,
             'photos_count' => (int) $project->photos_count,
             'detected_people_count' => (int) $project->photos()->whereNotNull('people_tags')->get()->sum(fn ($photo) => count($photo->people_tags ?? [])),
+            'detected_brands_count' => (int) $project->photos()->whereNotNull('brand_tags')->get()->sum(fn ($photo) => count($photo->brand_tags ?? [])),
             'local_identities_count' => FaceIdentity::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('project_id', $project->id)->count(),
             'database_ready' => $this->faceRecognitionService->hasRecognitionDatabase($project),
             'workspace_url' => "/admin/projects/{$project->id}/ai",

@@ -326,11 +326,21 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const [selectedPhoto, setSelectedPhoto] = useState(null);
     const [filter, setFilter] = useState('All');
     const [peopleFilter, setPeopleFilter] = useState('All');
+    const [brandFilter, setBrandFilter] = useState('All');
+    const [peopleCountFilter, setPeopleCountFilter] = useState('All');
+    const [jerseyFilter, setJerseyFilter] = useState('All');
+    const [sponsorFilter, setSponsorFilter] = useState('All');
+    const [contextFilter, setContextFilter] = useState('All');
     const [showClientAccess, setShowClientAccess] = useState(false);
     const templateCode = galleryTemplate?.code || 'cinematic-dark';
     const styles = TEMPLATE_STYLES[templateCode] || TEMPLATE_STYLES['cinematic-dark'];
     const categories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.tags?.length ? photo.tags : [photo.category]).filter(Boolean))], [photos]);
     const peopleCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.people_tags || []).filter(Boolean))], [photos]);
+    const brandCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.brand_tags || []).filter(Boolean))], [photos]);
+    const peopleCountCategories = useMemo(() => ['All', ...new Set(photos.map(photo => photo.people_count_label).filter(label => label && label !== '0 personas'))], [photos]);
+    const jerseyCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.jersey_numbers || []).filter(Boolean))], [photos]);
+    const sponsorCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.sponsor_tags || []).filter(Boolean))], [photos]);
+    const contextCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.context_tags || []).filter(Boolean))], [photos]);
     const heroPhoto = photos.find(photo => photo.id === project.hero_photo_id) || photos[0];
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
     const isClientView = access?.mode === 'client';
@@ -402,7 +412,27 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
             ? true
             : (photo.people_tags || []).includes(peopleFilter);
 
-        return generalMatch && peopleMatch;
+        const brandMatch = brandFilter === 'All'
+            ? true
+            : (photo.brand_tags || []).includes(brandFilter);
+
+        const peopleCountMatch = peopleCountFilter === 'All'
+            ? true
+            : photo.people_count_label === peopleCountFilter;
+
+        const jerseyMatch = jerseyFilter === 'All'
+            ? true
+            : (photo.jersey_numbers || []).includes(jerseyFilter);
+
+        const sponsorMatch = sponsorFilter === 'All'
+            ? true
+            : (photo.sponsor_tags || []).includes(sponsorFilter);
+
+        const contextMatch = contextFilter === 'All'
+            ? true
+            : (photo.context_tags || []).includes(contextFilter);
+
+        return generalMatch && peopleMatch && brandMatch && peopleCountMatch && jerseyMatch && sponsorMatch && contextMatch;
     });
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
@@ -535,6 +565,131 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                                             )}
                                         >
                                             {person}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {brandCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <Camera className="h-3.5 w-3.5" />
+                                    Marcas detectadas
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {brandCategories.map((brand) => (
+                                        <motion.button
+                                            key={brand}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setBrandFilter(brand)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                brandFilter === brand ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {brand}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {peopleCountCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <UserRound className="h-3.5 w-3.5" />
+                                    Conteo de personas
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {peopleCountCategories.map((countLabel) => (
+                                        <motion.button
+                                            key={countLabel}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setPeopleCountFilter(countLabel)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                peopleCountFilter === countLabel ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {countLabel}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {jerseyCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <UserRound className="h-3.5 w-3.5" />
+                                    Dorsales
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {jerseyCategories.map((jersey) => (
+                                        <motion.button
+                                            key={jersey}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setJerseyFilter(jersey)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                jerseyFilter === jersey ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            #{jersey}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {sponsorCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <Camera className="h-3.5 w-3.5" />
+                                    Sponsors
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {sponsorCategories.map((sponsor) => (
+                                        <motion.button
+                                            key={sponsor}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setSponsorFilter(sponsor)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                sponsorFilter === sponsor ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {sponsor}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {contextCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <Camera className="h-3.5 w-3.5" />
+                                    Contexto
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {contextCategories.map((contextTag) => (
+                                        <motion.button
+                                            key={contextTag}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setContextFilter(contextTag)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                contextFilter === contextTag ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {contextTag}
                                         </motion.button>
                                     ))}
                                 </div>

@@ -159,6 +159,22 @@ export default function Ai({ project, faceRecognition }) {
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Personas halladas</p>
                                     <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.people_detected_total || 0}</p>
                                 </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Marcas detectadas</p>
+                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.brands_detected_total || 0}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Dorsales detectados</p>
+                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.jerseys_detected_total || 0}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sponsors detectados</p>
+                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Contexto detectado</p>
+                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.context_detected_total || 0}</p>
+                                </div>
                             </div>
 
                             <div className="mt-4 grid gap-3 sm:grid-cols-3">

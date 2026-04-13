@@ -89,6 +89,7 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'face_identity_id' => $identity->id,
             'image_url' => $imageUrl,
+
             'filename' => basename((string) $identity->path_reference),
         ]);
     }
@@ -136,6 +137,7 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'photo_id' => $photo->id,
             'image_url' => $imageUrl,
+
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
             'database' => $identities->map(fn (FaceIdentity $identity) => [
                 'id' => $identity->id,
@@ -173,9 +175,25 @@ class FaceRecognitionService
         }
     }
 
-    public function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void
+    public function applyRecognitionResult(
+        Photo $photo,
+        array $people,
+        array $brands = [],
+        array $jerseyNumbers = [],
+        array $sponsors = [],
+        array $contextTags = [],
+        ?int $facesDetected = null,
+        ?string $error = null
+    ): void
     {
         $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
+        $brands = collect($brands)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
+        $jerseyNumbers = collect($jerseyNumbers)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
+        $sponsors = collect($sponsors)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
+        $contextTags = collect($contextTags)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
+        $peopleCount = $facesDetected !== null ? max(0, (int) $facesDetected) : count($people);
+        $peopleCountLabel = $this->peopleCountLabel($peopleCount);
+        $shotType = $this->shotType($peopleCount);
 
         if ($error) {
             $status = str_contains(mb_strtolower($error), 'ningun rostro') ? 'no_face' : 'error';
@@ -190,6 +208,13 @@ class FaceRecognitionService
 
         $photo->update([
             'people_tags' => $people,
+            'brand_tags' => $brands,
+            'jersey_numbers' => $jerseyNumbers,
+            'sponsor_tags' => $sponsors,
+            'context_tags' => $contextTags,
+            'people_count' => $peopleCount,
+            'people_count_label' => $peopleCountLabel,
+            'shot_type' => $shotType,
             'recognition_status' => $status,
             'recognition_note' => $note,
             'recognition_processed_at' => now(),
@@ -242,7 +267,37 @@ class FaceRecognitionService
             ->values()
             ->all();
 
-        $this->applyRecognitionResult($photo, $people, $message['error'] ?? null);
+        $brands = collect($message['brands'] ?? [])
+            ->map(fn ($name) => trim((string) $name))
+            ->filter()
+            ->values()
+            ->all();
+        $jerseyNumbers = collect($message['jersey_numbers'] ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+        $sponsors = collect($message['sponsors'] ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+        $contextTags = collect($message['context_tags'] ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->applyRecognitionResult(
+            $photo,
+            $people,
+            $brands,
+            $jerseyNumbers,
+            $sponsors,
+            $contextTags,
+            isset($message['faces_detected']) ? (int) $message['faces_detected'] : null,
+            $message['error'] ?? null
+        );
     }
 
     private function pushTask(array $payload): void
@@ -411,8 +466,7 @@ class FaceRecognitionService
         if (Str::startsWith($path, ['http://', 'https://'])) {
             return $path;
         }
-
-        // Favor R2 as primary storage — try to sign URL directly without mandatory HeadObject (exists) check
+        // Favor R2 as primary storage and avoid a mandatory exists() check when signing URLs
         try {
             return $this->temporaryUrlForR2Path($path);
         } catch (\Throwable $e) {
@@ -427,9 +481,25 @@ class FaceRecognitionService
 
         return null;
     }
+
+    private function peopleCountLabel(int $count): string
+    {
+        return match (true) {
+            $count <= 0 => '0 personas',
+            $count === 1 => '1 persona',
+            $count === 2 => '2 personas',
+            $count === 3 => '3 personas',
+            default => '4 o mas personas',
+        };
+    }
+
+    private function shotType(int $count): string
+    {
+        return match (true) {
+            $count <= 1 => 'jugador_en_solitario',
+            $count === 2 => 'duelo',
+            $count >= 11 => 'foto_de_equipo',
+            default => 'grupo',
+        };
+    }
 }
-
-
-
-
-

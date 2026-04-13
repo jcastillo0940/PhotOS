@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -6,6 +6,7 @@ import tempfile
 import time
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import face_recognition
 import numpy as np
@@ -20,6 +21,19 @@ TASK_QUEUE = os.getenv('FACE_AI_TASK_QUEUE', 'face-ai:tasks')
 RESULT_QUEUE = os.getenv('FACE_AI_RESULT_QUEUE', 'face-ai:results')
 POLL_TIMEOUT = max(1, int(os.getenv('FACE_AI_POLL_TIMEOUT', '5')))
 HTTP_TIMEOUT = int(os.getenv('FACE_AI_HTTP_TIMEOUT', '60'))
+BRAND_API_URL = os.getenv('FACE_AI_BRAND_API_URL', '').strip()
+BRAND_DETECTOR_MODE = os.getenv('FACE_AI_BRAND_DETECTOR', 'disabled').strip().lower()
+SPORTS_VISION_API_URL = os.getenv('FACE_AI_SPORTS_VISION_API_URL', '').strip()
+BRAND_KEYWORDS = [
+    keyword.strip()
+    for keyword in os.getenv('FACE_AI_BRAND_KEYWORDS', 'nike,adidas,puma,reebok,under armour,new balance,converse,vans').split(',')
+    if keyword.strip()
+]
+CONTEXT_KEYWORDS = [
+    keyword.strip()
+    for keyword in os.getenv('FACE_AI_CONTEXT_KEYWORDS', 'ball,goal,goalpost,net,card,referee,celebration').split(',')
+    if keyword.strip()
+]
 
 
 def redis_client() -> redis.Redis:
@@ -67,6 +81,164 @@ def parse_database(database: list[dict[str, Any]]) -> list[dict[str, Any]]:
         })
 
     return parsed
+
+
+def detect_brands(task: dict[str, Any], image_path: Path) -> list[str]:
+    if BRAND_API_URL:
+        return detect_brands_via_api(image_path)
+
+    if BRAND_DETECTOR_MODE == 'heuristic':
+        return detect_brands_from_task_context(task)
+
+    return []
+
+
+def detect_brands_via_api(image_path: Path) -> list[str]:
+    with image_path.open('rb') as handle:
+        response = requests.post(
+            BRAND_API_URL,
+            files={'image': (image_path.name, handle, 'application/octet-stream')},
+            timeout=HTTP_TIMEOUT,
+        )
+
+    response.raise_for_status()
+    payload = response.json()
+    brands = payload.get('brands', [])
+
+    if not isinstance(brands, list):
+        return []
+
+    return normalize_brands(brands)
+
+
+def detect_brands_from_task_context(task: dict[str, Any]) -> list[str]:
+    tokens: list[str] = []
+
+    for value in [task.get('filename'), task.get('image_url')]:
+        if not isinstance(value, str):
+            continue
+
+        parsed = urlparse(value)
+        tokens.append(parsed.path.lower())
+        tokens.append(value.lower())
+
+    matches = [brand for brand in BRAND_KEYWORDS if brand.lower() in ' '.join(tokens)]
+
+    return normalize_brands(matches)
+
+
+def normalize_brands(brands: list[Any]) -> list[str]:
+    normalized: list[str] = []
+
+    for brand in brands:
+        label = str(brand).strip()
+        if not label:
+            continue
+
+        titled = ' '.join(part.capitalize() for part in label.split())
+        if titled not in normalized:
+            normalized.append(titled)
+
+    return normalized
+
+
+def people_count_label(count: int) -> str:
+    if count <= 0:
+        return '0 personas'
+    if count == 1:
+        return '1 persona'
+    if count == 2:
+        return '2 personas'
+    if count == 3:
+        return '3 personas'
+    return '4 o mas personas'
+
+
+def detect_sports_metadata(task: dict[str, Any], image_path: Path) -> dict[str, list[str]]:
+    if SPORTS_VISION_API_URL:
+        return detect_sports_metadata_via_api(image_path)
+
+    return detect_sports_metadata_from_task_context(task)
+
+
+def detect_sports_metadata_via_api(image_path: Path) -> dict[str, list[str]]:
+    with image_path.open('rb') as handle:
+        response = requests.post(
+            SPORTS_VISION_API_URL,
+            files={'image': (image_path.name, handle, 'application/octet-stream')},
+            timeout=HTTP_TIMEOUT,
+        )
+
+    response.raise_for_status()
+    payload = response.json()
+
+    return {
+        'jersey_numbers': normalize_jersey_numbers(payload.get('jersey_numbers', [])),
+        'sponsors': normalize_brands(payload.get('sponsors', [])),
+        'context_tags': normalize_context_tags(payload.get('context_tags', [])),
+        'brands': normalize_brands(payload.get('brands', [])),
+    }
+
+
+def detect_sports_metadata_from_task_context(task: dict[str, Any]) -> dict[str, list[str]]:
+    haystack = ' '.join([
+        str(task.get('filename', '')).lower(),
+        str(task.get('image_url', '')).lower(),
+    ])
+
+    jersey_numbers = normalize_jersey_numbers([
+        token for token in haystack.replace('-', ' ').replace('_', ' ').split()
+        if token.isdigit() and 1 <= len(token) <= 2
+    ])
+    sponsors = normalize_brands([brand for brand in BRAND_KEYWORDS if brand.lower() in haystack])
+    context_tags = normalize_context_tags([keyword for keyword in CONTEXT_KEYWORDS if keyword.lower() in haystack])
+
+    return {
+        'jersey_numbers': jersey_numbers,
+        'sponsors': sponsors,
+        'context_tags': context_tags,
+        'brands': sponsors,
+    }
+
+
+def normalize_jersey_numbers(values: list[Any]) -> list[str]:
+    normalized: list[str] = []
+
+    for value in values:
+        digits = ''.join(character for character in str(value) if character.isdigit())
+        if not digits or len(digits) > 2:
+            continue
+
+        cleaned = str(int(digits))
+        if cleaned not in normalized:
+            normalized.append(cleaned)
+
+    return normalized
+
+
+def normalize_context_tags(values: list[Any]) -> list[str]:
+    normalized: list[str] = []
+
+    aliases = {
+        'goalpost': 'porteria',
+        'goal': 'porteria',
+        'net': 'porteria',
+        'ball': 'balon',
+        'card': 'tarjeta',
+        'referee': 'arbitro',
+        'celebration': 'festejo',
+    }
+
+    for value in values:
+        label = aliases.get(str(value).strip().lower(), str(value).strip().lower())
+        if not label:
+            continue
+
+        titled = label.replace('_', ' ')
+        if titled not in normalized:
+            normalized.append(titled)
+
+    return normalized
 
 
 def process_extract_identity(task: dict[str, Any]) -> dict[str, Any]:
@@ -117,6 +289,8 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
         image_path = download_image_to_temp(task['image_url'])
         image = load_image(image_path)
         unknown_encodings = extract_encodings(image)
+        sports_metadata = detect_sports_metadata(task, image_path)
+        brands = normalize_brands(detect_brands(task, image_path) + sports_metadata.get('brands', []))
 
         if len(unknown_encodings) == 0:
             raise ValueError('No se detecto ningun rostro en la foto a comparar.')
@@ -147,7 +321,12 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
             'photo_id': task.get('photo_id'),
             'status': 'success',
             'faces_detected': len(unknown_encodings),
+            'people_count_label': people_count_label(len(unknown_encodings)),
             'found_ids': list(found_ids),
+            'brands': brands,
+            'jersey_numbers': sports_metadata.get('jersey_numbers', []),
+            'sponsors': sports_metadata.get('sponsors', []),
+            'context_tags': sports_metadata.get('context_tags', []),
             'matches': matches,
             'tolerance': tolerance,
         }

@@ -306,6 +306,15 @@ class GalleryController extends Controller
             'tags.*' => 'string|max:50',
             'people_tags' => 'nullable|array',
             'people_tags.*' => 'string|max:80',
+            'brand_tags' => 'nullable|array',
+            'brand_tags.*' => 'string|max:80',
+            'jersey_numbers' => 'nullable|array',
+            'jersey_numbers.*' => 'string|max:10',
+            'sponsor_tags' => 'nullable|array',
+            'sponsor_tags.*' => 'string|max:80',
+            'context_tags' => 'nullable|array',
+            'context_tags.*' => 'string|max:80',
+            'people_count_label' => 'nullable|string|in:1 persona,2 personas,3 personas,4 o mas personas',
         ]);
 
         $peopleTags = collect($validated['people_tags'] ?? ($photo->people_tags ?? []))
@@ -314,6 +323,45 @@ class GalleryController extends Controller
             ->unique()
             ->values()
             ->all();
+        $brandTags = collect($validated['brand_tags'] ?? ($photo->brand_tags ?? []))
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $jerseyNumbers = collect($validated['jersey_numbers'] ?? ($photo->jersey_numbers ?? []))
+            ->map(fn ($tag) => preg_replace('/\D+/', '', (string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $sponsorTags = collect($validated['sponsor_tags'] ?? ($photo->sponsor_tags ?? []))
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $contextTags = collect($validated['context_tags'] ?? ($photo->context_tags ?? []))
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+        $peopleCountLabel = $validated['people_count_label'] ?? $photo->people_count_label;
+        $peopleCount = match ($peopleCountLabel) {
+            '1 persona' => 1,
+            '2 personas' => 2,
+            '3 personas' => 3,
+            '4 o mas personas' => 4,
+            default => $photo->people_count,
+        };
+        $shotType = match (true) {
+            ($peopleCount ?? 0) <= 1 => 'jugador_en_solitario',
+            ($peopleCount ?? 0) === 2 => 'duelo',
+            ($peopleCount ?? 0) >= 11 => 'foto_de_equipo',
+            default => filled($peopleCount) ? 'grupo' : $photo->shot_type,
+        };
+        $manualAiMetadata = !empty($peopleTags) || !empty($brandTags) || !empty($jerseyNumbers) || !empty($sponsorTags) || !empty($contextTags) || filled($peopleCountLabel);
 
         $photo->update([
             'category' => $validated['category'] ?? $photo->category,
@@ -325,9 +373,16 @@ class GalleryController extends Controller
                 ->values()
                 ->all(),
             'people_tags' => $peopleTags,
-            'recognition_status' => !empty($peopleTags) ? 'manual' : ($photo->recognition_status === 'manual' ? 'pending' : $photo->recognition_status),
-            'recognition_note' => !empty($peopleTags) ? 'Etiquetas ajustadas manualmente.' : ($photo->recognition_status === 'manual' ? 'Pendiente de nuevo analisis.' : $photo->recognition_note),
-            'recognition_processed_at' => !empty($peopleTags) ? now() : $photo->recognition_processed_at,
+            'brand_tags' => $brandTags,
+            'jersey_numbers' => $jerseyNumbers,
+            'sponsor_tags' => $sponsorTags,
+            'context_tags' => $contextTags,
+            'people_count' => $peopleCount,
+            'people_count_label' => $peopleCountLabel,
+            'shot_type' => $shotType,
+            'recognition_status' => $manualAiMetadata ? 'manual' : ($photo->recognition_status === 'manual' ? 'pending' : $photo->recognition_status),
+            'recognition_note' => $manualAiMetadata ? 'Etiquetas IA ajustadas manualmente.' : ($photo->recognition_status === 'manual' ? 'Pendiente de nuevo analisis.' : $photo->recognition_note),
+            'recognition_processed_at' => $manualAiMetadata ? now() : $photo->recognition_processed_at,
         ]);
 
         return to_route('admin.projects.gallery', $project, 303)->with('success', 'Foto actualizada.');
@@ -476,6 +531,13 @@ class GalleryController extends Controller
 
         $photo->update([
             'people_tags' => [],
+            'brand_tags' => [],
+            'jersey_numbers' => [],
+            'sponsor_tags' => [],
+            'context_tags' => [],
+            'people_count' => null,
+            'people_count_label' => null,
+            'shot_type' => null,
             'recognition_status' => 'pending',
             'recognition_note' => 'Deteccion limpiada manualmente.',
             'recognition_processed_at' => now(),
@@ -489,6 +551,13 @@ class GalleryController extends Controller
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         $project->photos()->update([
             'people_tags' => json_encode([]),
+            'brand_tags' => json_encode([]),
+            'jersey_numbers' => json_encode([]),
+            'sponsor_tags' => json_encode([]),
+            'context_tags' => json_encode([]),
+            'people_count' => null,
+            'people_count_label' => null,
+            'shot_type' => null,
             'recognition_status' => 'pending',
             'recognition_note' => 'Deteccion limpiada manualmente.',
             'recognition_processed_at' => now(),

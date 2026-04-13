@@ -12,8 +12,12 @@ EnvironmentFile=/etc/photos-face-ai.env
 ExecStart=/var/www/photos/ai_service/.venv/bin/python /var/www/photos/ai_service/main.py
 Restart=always
 RestartSec=5
+RuntimeMaxSec=3600
+MemoryHigh=1200M
+MemoryMax=1500M
 TimeoutStartSec=60
 TimeoutStopSec=30
 
 [Install]
 WantedBy=multi-user.target
+
