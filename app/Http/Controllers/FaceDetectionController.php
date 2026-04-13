@@ -8,11 +8,44 @@ use App\Models\Setting;
 use App\Services\FaceRecognitionService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class FaceDetectionController extends Controller
 {
+    private const CATALOG_TYPES = [
+        'brand' => [
+            'label' => 'Marcas',
+            'setting_key' => 'ai_brand_catalog',
+            'storage_dir' => 'face-detection/catalog/brands',
+            'success_store' => 'Marca agregada a la biblioteca IA.',
+            'success_delete' => 'Marca eliminada de la biblioteca IA.',
+        ],
+        'sponsor' => [
+            'label' => 'Sponsors',
+            'setting_key' => 'ai_sponsor_catalog',
+            'storage_dir' => 'face-detection/catalog/sponsors',
+            'success_store' => 'Sponsor agregado a la biblioteca IA.',
+            'success_delete' => 'Sponsor eliminado de la biblioteca IA.',
+        ],
+        'jersey' => [
+            'label' => 'Dorsales',
+            'setting_key' => 'ai_jersey_catalog',
+            'storage_dir' => 'face-detection/catalog/jerseys',
+            'success_store' => 'Dorsal agregado a la biblioteca IA.',
+            'success_delete' => 'Dorsal eliminado de la biblioteca IA.',
+        ],
+        'context' => [
+            'label' => 'Contexto',
+            'setting_key' => 'ai_context_catalog',
+            'storage_dir' => 'face-detection/catalog/context',
+            'success_store' => 'Contexto agregado a la biblioteca IA.',
+            'success_delete' => 'Contexto eliminado de la biblioteca IA.',
+        ],
+    ];
+
     public function __construct(
         private readonly FaceRecognitionService $faceRecognitionService,
         private readonly TenantContext $tenantContext,
@@ -61,6 +94,12 @@ class FaceDetectionController extends Controller
         ])->values();
 
         $photos = $projects->flatMap->photos;
+        $catalogs = collect(self::CATALOG_TYPES)->mapWithKeys(fn (array $config, string $type) => [
+            $type => [
+                'label' => $config['label'],
+                'items' => $this->catalogItems($type)->all(),
+            ],
+        ]);
 
         return Inertia::render('Admin/FaceDetection/Index', [
             'mode' => Setting::get('face_detection_scope', 'project_only'),
@@ -68,12 +107,17 @@ class FaceDetectionController extends Controller
             'serviceConfigured' => $this->faceRecognitionService->enabled(),
             'projects' => $projectSummaries,
             'identities' => $identities,
+            'catalogs' => $catalogs,
             'stats' => [
                 'projects_count' => $projects->count(),
                 'photos_count' => $photos->count(),
                 'global_identities_count' => $identities->where('scope', 'global')->count(),
                 'local_identities_count' => $identities->where('scope', 'project')->count(),
-                'photos_with_people' => $photos->filter(fn ($photo) => !empty($photo->people_tags))->count(),
+                'photos_with_people' => $photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
+                'catalog_brands_count' => count($catalogs['brand']['items'] ?? []),
+                'catalog_sponsors_count' => count($catalogs['sponsor']['items'] ?? []),
+                'catalog_jerseys_count' => count($catalogs['jersey']['items'] ?? []),
+                'catalog_context_count' => count($catalogs['context']['items'] ?? []),
                 'photos_pending' => $photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
             ],
         ]);
@@ -140,6 +184,46 @@ class FaceDetectionController extends Controller
         return back(status: 303)->with('success', 'Rostro registrado. El motor IA lo procesara en segundo plano.');
     }
 
+    public function storeCatalogItem(Request $request)
+    {
+        $validated = $request->validate([
+            'type' => 'required|string|in:brand,sponsor,jersey,context',
+            'name' => 'required|string|max:80',
+            'reference_image' => 'nullable|image|mimes:jpeg,jpg,png,webp|max:10000',
+        ]);
+
+        $type = (string) $validated['type'];
+        $config = $this->catalogConfig($type);
+        $items = $this->catalogItems($type);
+        $normalizedName = $this->normalizeCatalogName($type, $validated['name']);
+
+        if ($items->contains(fn (array $item) => strcasecmp((string) ($item['name'] ?? ''), $normalizedName) === 0)) {
+            return back(status: 303)->with('error', $config['label'].' ya existe en esta biblioteca.');
+        }
+
+        $referencePath = null;
+
+        if ($request->hasFile('reference_image')) {
+            $file = $request->file('reference_image');
+            $referencePath = $file->storeAs(
+                $config['storage_dir'],
+                uniqid($type.'_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
+                'r2'
+            );
+        }
+
+        $items->prepend([
+            'id' => (string) Str::uuid(),
+            'name' => $normalizedName,
+            'reference_path' => $referencePath,
+            'created_at' => now()->toIso8601String(),
+        ]);
+
+        Setting::set($config['setting_key'], $items->values()->toJson(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'ai');
+
+        return back(status: 303)->with('success', $config['success_store']);
+    }
+
     public function destroyIdentity(FaceIdentity $faceIdentity)
     {
         abort_unless((int) $faceIdentity->tenant_id === (int) $this->tenantContext->id(), 404);
@@ -165,6 +249,29 @@ class FaceDetectionController extends Controller
         return back(status: 303)->with('success', 'Rostro eliminado del tenant.');
     }
 
+    public function destroyCatalogItem(string $type, string $itemId)
+    {
+        $config = $this->catalogConfig($type);
+        $items = $this->catalogItems($type);
+        $item = $items->first(fn (array $entry) => (string) ($entry['id'] ?? '') === $itemId);
+
+        if (! $item) {
+            abort(404);
+        }
+
+        if (! empty($item['reference_path'])) {
+            Storage::disk('r2')->delete((string) $item['reference_path']);
+        }
+
+        $remaining = $items
+            ->reject(fn (array $entry) => (string) ($entry['id'] ?? '') === $itemId)
+            ->values();
+
+        Setting::set($config['setting_key'], $remaining->toJson(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'ai');
+
+        return back(status: 303)->with('success', $config['success_delete']);
+    }
+
     public function runAll()
     {
         $mode = Setting::get('face_detection_scope', 'project_only');
@@ -173,15 +280,15 @@ class FaceDetectionController extends Controller
         $queuedPhotos = 0;
 
         foreach ($projects as $project) {
-            if ($mode === 'all_galleries' && !$project->face_recognition_enabled) {
+            if ($mode === 'all_galleries' && ! $project->face_recognition_enabled) {
                 $project->update(['face_recognition_enabled' => true]);
             }
 
-            if (!$project->face_recognition_enabled && $mode !== 'all_galleries') {
+            if (! $project->face_recognition_enabled && $mode !== 'all_galleries') {
                 continue;
             }
 
-            if ($project->photos->isEmpty() || !$this->faceRecognitionService->hasRecognitionDatabase($project)) {
+            if ($project->photos->isEmpty() || ! $this->faceRecognitionService->hasRecognitionDatabase($project)) {
                 continue;
             }
 
@@ -194,7 +301,7 @@ class FaceDetectionController extends Controller
 
     private function previewUrl(?string $path): ?string
     {
-        if (!$path) {
+        if (! $path) {
             return null;
         }
 
@@ -203,5 +310,48 @@ class FaceDetectionController extends Controller
         } catch (\Throwable $e) {
             return $path;
         }
+    }
+
+    private function catalogItems(string $type): Collection
+    {
+        $config = $this->catalogConfig($type);
+        $decoded = json_decode((string) Setting::get($config['setting_key'], '[]'), true);
+
+        if (! is_array($decoded)) {
+            $decoded = [];
+        }
+
+        return collect($decoded)
+            ->filter(fn ($item) => is_array($item) && filled($item['name'] ?? null))
+            ->map(fn (array $item) => [
+                'id' => (string) ($item['id'] ?? Str::uuid()),
+                'name' => (string) $item['name'],
+                'reference_path' => $item['reference_path'] ?? null,
+                'preview_url' => $this->previewUrl($item['reference_path'] ?? null),
+                'created_at' => $item['created_at'] ?? null,
+            ])
+            ->values();
+    }
+
+    private function catalogConfig(string $type): array
+    {
+        if (! array_key_exists($type, self::CATALOG_TYPES)) {
+            abort(404);
+        }
+
+        return self::CATALOG_TYPES[$type];
+    }
+
+    private function normalizeCatalogName(string $type, string $name): string
+    {
+        $cleaned = trim(preg_replace('/\s+/', ' ', $name) ?? '');
+
+        if ($type === 'jersey') {
+            $digits = preg_replace('/\D+/', '', $cleaned) ?? '';
+
+            return $digits !== '' ? (string) ((int) $digits) : $cleaned;
+        }
+
+        return Str::title(Str::lower($cleaned));
     }
 }

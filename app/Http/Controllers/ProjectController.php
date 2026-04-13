@@ -2,24 +2,24 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Client;
+use App\Models\Contract;
+use App\Models\DownloadLog;
 use App\Models\Event;
 use App\Models\FaceIdentity;
+use App\Models\GalleryEmailRegistration;
+use App\Models\GalleryFavoriteLog;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Models\ProjectCollaborator;
-use App\Models\Contract;
-use App\Models\Client;
-use App\Models\DownloadLog;
-use App\Models\GalleryEmailRegistration;
-use App\Models\GalleryFavoriteLog;
 use App\Models\Setting;
+use App\Services\CrmAutomationService;
 use App\Support\ContractTemplate;
 use App\Support\EventTypeSettings;
 use App\Support\GalleryTemplate;
 use App\Support\InstallationPlan;
-use App\Support\TenantThemeSettings;
 use App\Support\Tenancy\TenantContext;
-use App\Services\CrmAutomationService;
+use App\Support\TenantThemeSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\URL;
@@ -113,14 +113,14 @@ class ProjectController extends Controller
         }
 
         $client = Client::firstOrCreate(
-            ['email' => strtolower(str_replace(' ', '', $request->client_name)) . '@client.local'],
+            ['email' => strtolower(str_replace(' ', '', $request->client_name)).'@client.local'],
             ['full_name' => $request->client_name]
         );
 
         $lead = Lead::create([
             'client_id' => $client->id,
             'name' => $request->client_name,
-            'email' => strtolower(str_replace(' ', '', $request->client_name)) . '-' . rand(100,999) . '@upload.dummy',
+            'email' => strtolower(str_replace(' ', '', $request->client_name)).'-'.rand(100, 999).'@upload.dummy',
             'event_type' => 'Direct Upload',
             'status' => 'project',
         ]);
@@ -169,7 +169,7 @@ class ProjectController extends Controller
             ['full_name' => $lead->name]
         );
 
-        if (!$lead->client_id) {
+        if (! $lead->client_id) {
             $lead->update(['client_id' => $client->id]);
         }
 
@@ -177,7 +177,7 @@ class ProjectController extends Controller
             'lead_id' => $lead->id,
             'client_id' => $client->id,
             'owner_user_id' => request()->user()?->id,
-            'name' => 'Project: ' . $lead->name . ' (' . $lead->event_type . ')',
+            'name' => 'Project: '.$lead->name.' ('.$lead->event_type.')',
             'event_date' => $lead->tentative_date,
             'status' => 'pending_payment',
             'gallery_token' => Str::random(40),
@@ -197,7 +197,7 @@ class ProjectController extends Controller
         if ($project->event_date) {
             Event::create([
                 'project_id' => $project->id,
-                'title' => 'Session: ' . $project->name,
+                'title' => 'Session: '.$project->name,
                 'start' => $project->event_date->startOfDay()->addHours(10),
                 'end' => $project->event_date->startOfDay()->addHours(18),
                 'type' => 'session',
@@ -220,6 +220,7 @@ class ProjectController extends Controller
                 'token' => Str::random(40),
             ]
         );
+
         return redirect()->back()->with('success', 'Contract generated successfully.');
     }
 
@@ -231,7 +232,10 @@ class ProjectController extends Controller
             'renderedContent' => ContractTemplate::render($contract),
             'theme' => TenantThemeSettings::get(app(TenantContext::class)->id()),
         ];
-        if ($contract->status === 'signed') return Inertia::render('Public/ContractSigned', $payload);
+        if ($contract->status === 'signed') {
+            return Inertia::render('Public/ContractSigned', $payload);
+        }
+
         return Inertia::render('Public/SignContract', $payload);
     }
 
@@ -240,6 +244,7 @@ class ProjectController extends Controller
         $contract = Contract::where('token', $token)->firstOrFail();
         $request->validate(['signature_data' => 'required|string']);
         $contract->update(['status' => 'signed', 'signed_at' => now(), 'signature_data' => $request->signature_data]);
+
         return redirect()->back();
     }
 
@@ -247,6 +252,7 @@ class ProjectController extends Controller
     {
         $validated = $request->validate(['roadmap' => 'required|array']);
         $project->update($validated);
+
         return to_route('admin.projects.show', $project, 303);
     }
 
@@ -289,7 +295,7 @@ class ProjectController extends Controller
                 ? $project->photos()->whereKey($validated['hero_photo_id'])->first()
                 : null;
 
-            if ($validated['hero_photo_id'] && !$heroPhoto) {
+            if ($validated['hero_photo_id'] && ! $heroPhoto) {
                 return redirect()->back()->with('error', 'La foto seleccionada no pertenece a este proyecto.');
             }
 
@@ -322,7 +328,7 @@ class ProjectController extends Controller
             $payload['face_recognition_enabled'] = (bool) $validated['face_recognition_enabled'];
         }
 
-        if (!empty($payload)) {
+        if (! empty($payload)) {
             $project->update($payload);
         }
 
@@ -382,11 +388,11 @@ class ProjectController extends Controller
 
     private function projectAdminPayload(Project $project): array
     {
-        if (!$project->gallery_token) {
+        if (! $project->gallery_token) {
             $project->update(['gallery_token' => Str::random(40)]);
         }
 
-        if (!$project->gallery_password) {
+        if (! $project->gallery_password) {
             $project->update(['gallery_password' => strtoupper(Str::random(8))]);
         }
 
@@ -420,7 +426,9 @@ class ProjectController extends Controller
                         'can_upload' => $collaborator->can_upload,
                         'can_manage_gallery' => $collaborator->can_manage_gallery,
                         'access_code' => $collaborator->access_code,
-                        'access_url' => URL::to('/admin/projects/'.$project->id.'/gallery?access_token='.$collaborator->access_token),
+                        'access_url' => $collaborator->plainAccessToken()
+                            ? route('project.invitations.show', $collaborator->plainAccessToken())
+                            : null,
                     ])
                     ->values()
                     ->all(),
@@ -443,11 +451,11 @@ class ProjectController extends Controller
                     ->whereNull('project_id')
                     ->count(),
                 'summary' => [
-                    'photos_with_people' => $project->photos->filter(fn ($photo) => !empty($photo->people_tags))->count(),
-                    'photos_with_brands' => $project->photos->filter(fn ($photo) => !empty($photo->brand_tags))->count(),
-                    'photos_with_jerseys' => $project->photos->filter(fn ($photo) => !empty($photo->jersey_numbers))->count(),
-                    'photos_with_sponsors' => $project->photos->filter(fn ($photo) => !empty($photo->sponsor_tags))->count(),
-                    'photos_with_context' => $project->photos->filter(fn ($photo) => !empty($photo->context_tags))->count(),
+                    'photos_with_people' => $project->photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
+                    'photos_with_brands' => $project->photos->filter(fn ($photo) => ! empty($photo->brand_tags))->count(),
+                    'photos_with_jerseys' => $project->photos->filter(fn ($photo) => ! empty($photo->jersey_numbers))->count(),
+                    'photos_with_sponsors' => $project->photos->filter(fn ($photo) => ! empty($photo->sponsor_tags))->count(),
+                    'photos_with_context' => $project->photos->filter(fn ($photo) => ! empty($photo->context_tags))->count(),
                     'photos_pending' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
                     'people_detected_total' => $project->photos->sum(fn ($photo) => count($photo->people_tags ?? [])),
                     'brands_detected_total' => $project->photos->sum(fn ($photo) => count($photo->brand_tags ?? [])),
@@ -614,10 +622,4 @@ class ProjectController extends Controller
             'photo_label' => $log->photo_id ? 'Foto #'.$log->photo_id : null,
         ];
     }
-
 }
-
-
-
-
-

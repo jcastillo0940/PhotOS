@@ -1,13 +1,53 @@
 ﻿import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Bot, Camera, FolderKanban, ScanFace, Trash2, UserRound, WandSparkles } from 'lucide-react';
+import { Bot, Camera, FolderKanban, ScanFace, Shield, Tags, Ticket, Trash2, UserRound, WandSparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 
-export default function Index({ mode, sportsModeEnabled = false, serviceConfigured, projects = [], identities = [], stats = {} }) {
+const CATALOG_META = {
+    brand: {
+        title: 'Marcas',
+        eyebrow: 'Biblioteca visual',
+        placeholder: 'Ej. Nike, Adidas, Puma',
+        helper: 'Carga marcas clave para tu tenant. Puedes adjuntar un logo o referencia visual.',
+        icon: Tags,
+        empty: 'Todavia no hay marcas cargadas.',
+        button: 'Guardar marca',
+    },
+    sponsor: {
+        title: 'Sponsors',
+        eyebrow: 'Biblioteca comercial',
+        placeholder: 'Ej. Fly Emirates, Pepsi, Copa Airlines',
+        helper: 'Usa esta biblioteca para patrocinadores principales en camisetas, vallas o activaciones.',
+        icon: Shield,
+        empty: 'Todavia no hay sponsors cargados.',
+        button: 'Guardar sponsor',
+    },
+    jersey: {
+        title: 'Dorsales',
+        eyebrow: 'Biblioteca deportiva',
+        placeholder: 'Ej. 10, 7, 21',
+        helper: 'Registra dorsales prioritarios para facilitar OCR y filtros por jugador.',
+        icon: Ticket,
+        empty: 'Todavia no hay dorsales cargados.',
+        button: 'Guardar dorsal',
+    },
+    context: {
+        title: 'Contexto',
+        eyebrow: 'Biblioteca de escenas',
+        placeholder: 'Ej. Balon, Porteria, Tarjeta roja',
+        helper: 'Define escenas importantes del partido o del evento para que el equipo las siga de cerca.',
+        icon: Bot,
+        empty: 'Todavia no hay contextos cargados.',
+        button: 'Guardar contexto',
+    },
+};
+
+export default function Index({ mode, sportsModeEnabled = false, serviceConfigured, projects = [], identities = [], catalogs = {}, stats = {} }) {
     const { flash } = usePage().props;
     const modeForm = useForm({ mode: mode || 'project_only', enable_existing_projects: mode === 'all_galleries' });
     const identityForm = useForm({ name: '', scope: 'global', project_id: '', reference_image: null });
+    const catalogForm = useForm({ type: 'brand', name: '', reference_image: null });
 
     const submitMode = (event) => {
         event.preventDefault();
@@ -22,6 +62,17 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
             onSuccess: () => identityForm.reset('name', 'project_id', 'reference_image'),
         });
     };
+
+    const submitCatalog = (event) => {
+        event.preventDefault();
+        catalogForm.post('/admin/face-detection/catalog', {
+            forceFormData: true,
+            preserveScroll: true,
+            onSuccess: () => catalogForm.reset('name', 'reference_image'),
+        });
+    };
+
+    const selectedCatalog = CATALOG_META[catalogForm.data.type] || CATALOG_META.brand;
 
     return (
         <AdminLayout>
@@ -43,8 +94,8 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                             </h2>
                             <p className="mt-3 text-sm leading-7 text-slate-500">
                                 {sportsModeEnabled
-                                    ? 'Aqui centralizas los rostros base del tenant y controlas la IA que luego detecta rostros, dorsales, marcas, sponsors y contexto de juego en todas las galerias.'
-                                    : 'Aqui centralizas los rostros base del tenant y controlas la IA visual general para todas las galerias del estudio.'}
+                                    ? 'Desde aqui gestionas toda la biblioteca IA del tenant: rostros, marcas, sponsors, dorsales y escenas clave. Luego el worker usa estas referencias para enriquecer el analisis de las galerias.'
+                                    : 'Desde aqui gestionas la biblioteca IA del tenant: rostros y referencias visuales base para todo el estudio.'}
                             </p>
                         </div>
 
@@ -77,12 +128,19 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                         <StatCard label="Pendientes" value={stats.photos_pending || 0} detail="Fotos aun no procesadas" />
                     </div>
 
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                        <StatCard label="Marcas" value={stats.catalog_brands_count || 0} detail="Referencias del tenant" />
+                        <StatCard label="Sponsors" value={stats.catalog_sponsors_count || 0} detail="Biblioteca comercial" />
+                        <StatCard label="Dorsales" value={stats.catalog_jerseys_count || 0} detail="Numeros priorizados" />
+                        <StatCard label="Contextos" value={stats.catalog_context_count || 0} detail="Escenas y objetos clave" />
+                    </div>
+
                     {sportsModeEnabled ? (
                         <div className="mt-6 grid gap-4 xl:grid-cols-4">
-                            <InsightCard icon={ScanFace} title="Rostros conocidos" description="Entrena protagonistas para reconocer personas frecuentes con mas precision." />
-                            <InsightCard icon={UserRound} title="Busqueda por dorsal" description="Prepara la galeria para navegar por numero de camiseta cuando conectes OCR o vision deportiva." />
-                            <InsightCard icon={Camera} title="Sponsors y marcas" description="Cuenta apariciones comerciales en camisetas, vallas y activaciones del evento." />
-                            <InsightCard icon={Bot} title="Contexto de juego" description="Clasifica escenas con balon, porteria, tarjeta, arbitro y tipos de accion." />
+                            <InsightCard icon={ScanFace} title="Rostros conocidos" description="Entrena protagonistas y arbitros con referencias base del tenant." />
+                            <InsightCard icon={Ticket} title="Dorsales priorizados" description="Mantiene una lista viva de numeros importantes para buscar jugadores rapido." />
+                            <InsightCard icon={Camera} title="Sponsors y marcas" description="Centraliza referencias comerciales para medir presencia en fotos del partido." />
+                            <InsightCard icon={Bot} title="Escenas clave" description="Agrupa contexto como balon, porteria, tarjeta o celebracion para venta y prensa." />
                         </div>
                     ) : (
                         <div className="mt-6 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fffdf9] px-5 py-5 text-sm leading-7 text-slate-500 shadow-sm">
@@ -92,7 +150,7 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-                    <form onSubmit={submitMode} className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm space-y-5">
+                    <form onSubmit={submitMode} className="space-y-5 rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Modo de trabajo</p>
                             <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
@@ -132,9 +190,9 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                         </button>
                     </form>
 
-                    <form onSubmit={submitIdentity} className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm space-y-5">
+                    <form onSubmit={submitIdentity} className="space-y-5 rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                         <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{sportsModeEnabled ? 'Roster base' : 'Rostros con nombre'}</p>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Roster y personas</p>
                             <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
                                 {sportsModeEnabled ? 'Registrar un nuevo protagonista' : 'Registrar un nuevo rostro'}
                             </h3>
@@ -167,15 +225,10 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                             />
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Imagen de referencia</label>
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(event) => identityForm.setData('reference_image', event.target.files?.[0] || null)}
-                                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none"
-                            />
-                        </div>
+                        <FileField
+                            label="Imagen de referencia"
+                            onChange={(file) => identityForm.setData('reference_image', file)}
+                        />
 
                         <button
                             type="submit"
@@ -192,13 +245,79 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                     </form>
                 </section>
 
+                <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
+                    <form onSubmit={submitCatalog} className="space-y-5 rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Biblioteca IA del tenant</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Subir marcas, sponsors, dorsales y contexto</h3>
+                            <p className="mt-2 text-sm leading-7 text-slate-500">Todo lo que cargues aqui queda centralizado en este tenant y viaja como referencia hacia el pipeline de analisis.</p>
+                        </div>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <SelectField
+                                label="Tipo de referencia"
+                                value={catalogForm.data.type}
+                                onChange={(value) => catalogForm.setData('type', value)}
+                                options={Object.entries(CATALOG_META).map(([value, meta]) => ({ value, label: meta.title }))}
+                            />
+                            <Field
+                                label="Nombre"
+                                value={catalogForm.data.name}
+                                onChange={(value) => catalogForm.setData('name', value)}
+                                placeholder={selectedCatalog.placeholder}
+                            />
+                        </div>
+
+                        <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-4 text-sm leading-6 text-slate-500">
+                            <p className="font-semibold text-slate-900">{selectedCatalog.title}</p>
+                            <p className="mt-1">{selectedCatalog.helper}</p>
+                        </div>
+
+                        <FileField
+                            label="Imagen de referencia opcional"
+                            onChange={(file) => catalogForm.setData('reference_image', file)}
+                        />
+
+                        <button
+                            type="submit"
+                            disabled={catalogForm.processing}
+                            className={clsx(
+                                'rounded-2xl px-5 py-3 text-sm font-semibold',
+                                catalogForm.processing
+                                    ? 'cursor-not-allowed border border-[#ddd5c9] bg-slate-100 text-slate-400'
+                                    : 'bg-[#171411] text-white'
+                            )}
+                        >
+                            {catalogForm.processing ? 'Guardando...' : selectedCatalog.button}
+                        </button>
+                    </form>
+
+                    <div className="space-y-4 rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Bibliotecas activas</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Todo lo que el tenant ya tiene cargado</h3>
+                        </div>
+
+                        <div className="grid gap-4 xl:grid-cols-2">
+                            {Object.entries(CATALOG_META).map(([type, meta]) => (
+                                <CatalogCard
+                                    key={type}
+                                    type={type}
+                                    meta={meta}
+                                    items={catalogs?.[type]?.items || []}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rostros registrados</p>
                     <div className="mt-5 grid gap-4 lg:grid-cols-2">
                         {identities.length > 0 ? identities.map((identity) => (
                             <article key={identity.id} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
                                 <div className="flex items-start justify-between gap-4">
-                                    <div className="flex items-center gap-4 min-w-0">
+                                    <div className="min-w-0 flex items-center gap-4">
                                         <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[#e6e0d5] bg-white">
                                             {identity.preview_url ? (
                                                 <img src={identity.preview_url} alt={identity.name} className="h-full w-full object-cover" />
@@ -214,17 +333,11 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                             <p className="mt-1 text-sm text-slate-500">{identity.processing_status}</p>
                                         </div>
                                     </div>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (window.confirm(`Eliminar a ${identity.name} del tenant?`)) {
-                                                router.post(`/admin/face-detection/identities/${identity.id}`, { _method: 'delete' }, { preserveScroll: true });
-                                            }
-                                        }}
-                                        className="rounded-full border border-[#e6e0d5] bg-white p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </button>
+                                    <DeleteButton onClick={() => {
+                                        if (window.confirm(`Eliminar a ${identity.name} del tenant?`)) {
+                                            router.delete(`/admin/face-detection/identities/${identity.id}`, { preserveScroll: true });
+                                        }
+                                    }} />
                                 </div>
                                 {identity.processing_note && <p className="mt-4 text-sm text-slate-500">{identity.processing_note}</p>}
                             </article>
@@ -249,7 +362,7 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                         <p className="text-lg font-semibold text-slate-900">{project.name}</p>
                                         <p className="mt-1 text-sm text-slate-500">{project.client_name || 'Cliente directo'} {project.event_type ? `· ${project.event_type}` : ''}</p>
                                     </div>
-                                    <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', project.face_recognition_enabled ? 'bg-[#e6f7ef] text-[#16794f]' : 'bg-white text-slate-500 border border-[#e6e0d5]')}>
+                                    <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', project.face_recognition_enabled ? 'bg-[#e6f7ef] text-[#16794f]' : 'border border-[#e6e0d5] bg-white text-slate-500')}>
                                         {project.face_recognition_enabled ? 'IA activa' : 'Manual'}
                                     </span>
                                 </div>
@@ -270,6 +383,66 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                 </section>
             </div>
         </AdminLayout>
+    );
+}
+
+function CatalogCard({ type, meta, items = [] }) {
+    const Icon = meta.icon;
+
+    return (
+        <article className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
+            <div className="flex items-start gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e6e0d5] bg-white text-slate-700">
+                    <Icon className="h-5 w-5" />
+                </div>
+                <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{meta.eyebrow}</p>
+                    <p className="mt-1 text-lg font-semibold text-slate-900">{meta.title}</p>
+                </div>
+            </div>
+
+            <div className="mt-4 space-y-3">
+                {items.length > 0 ? items.map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-3 rounded-2xl border border-[#e6e0d5] bg-white px-3 py-3">
+                        <div className="min-w-0 flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-2xl border border-[#ece5d8] bg-[#fbf9f6]">
+                                {item.preview_url ? (
+                                    <img src={item.preview_url} alt={item.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    <Icon className="h-4 w-4 text-slate-400" />
+                                )}
+                            </div>
+                            <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-slate-900">{type === 'jersey' ? `#${item.name}` : item.name}</p>
+                                <p className="text-xs text-slate-400">{item.reference_path ? 'Con referencia visual' : 'Solo etiqueta manual'}</p>
+                            </div>
+                        </div>
+                        <DeleteButton onClick={() => {
+                            const subject = type === 'jersey' ? `el dorsal ${item.name}` : item.name;
+                            if (window.confirm(`Eliminar ${subject} de la biblioteca IA?`)) {
+                                router.delete(`/admin/face-detection/catalog/${type}/${item.id}`, { preserveScroll: true });
+                            }
+                        }} />
+                    </div>
+                )) : (
+                    <div className="rounded-2xl border border-dashed border-[#ddd5c9] px-4 py-8 text-center text-sm text-slate-400">
+                        {meta.empty}
+                    </div>
+                )}
+            </div>
+        </article>
+    );
+}
+
+function DeleteButton({ onClick }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className="rounded-full border border-[#e6e0d5] bg-white p-2 text-slate-500 transition hover:bg-rose-50 hover:text-rose-600"
+        >
+            <Trash2 className="h-4 w-4" />
+        </button>
     );
 }
 
@@ -338,6 +511,20 @@ function Field({ label, value, onChange, placeholder = '' }) {
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
                 placeholder={placeholder}
+                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none"
+            />
+        </div>
+    );
+}
+
+function FileField({ label, onChange }) {
+    return (
+        <div className="space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</label>
+            <input
+                type="file"
+                accept="image/*"
+                onChange={(event) => onChange(event.target.files?.[0] || null)}
                 className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none"
             />
         </div>

@@ -61,3 +61,36 @@ The Laravel framework is open-sourced software licensed under the [MIT license](
 
 This project uses `public_html/` as the public web root instead of Laravel's default `public/`.
 When deploying to shared hosting such as Hostinger, point the domain or subdomain document root to `public_html/`.
+
+## Monitoring
+
+Laravel Pulse is installed and exposed at `/pulse`. Access is limited to `developer` and `owner` users via the `viewPulse` gate.
+
+Laravel Horizon is installed and exposed at `/horizon`. Access is limited to `developer` and `owner` users via the `viewHorizon` gate.
+
+This local Windows environment does not support running Horizon workers because the required PHP CLI extensions `pcntl` and `posix` are unavailable here. The dashboard routes and configuration are present, but the worker process itself should run on a Linux server with Redis.
+
+## Production Queue Setup
+
+For production, configure the app to use Redis-backed queues before starting Horizon:
+
+```env
+QUEUE_CONNECTION=redis
+CACHE_STORE=redis
+REDIS_CLIENT=phpredis
+HORIZON_ENABLED=true
+HORIZON_PATH=horizon
+HORIZON_PREFIX=photos_horizon:
+```
+
+Run Horizon on the Linux server with a process manager such as Supervisor or systemd:
+
+```bash
+php artisan horizon
+```
+
+The application scheduler should also be running in production so Horizon snapshots and Pulse collection continue updating:
+
+```bash
+php artisan schedule:work
+```

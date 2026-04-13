@@ -27,9 +27,11 @@ class ProjectCollaboratorController extends Controller
             ->where('email', $email)
             ->first();
 
-        if (!$user || !$user->isPhotographer()) {
+        if (! $user || ! $user->isPhotographer()) {
             return back()->with('error', 'El acceso solo puede asignarse a usuarios existentes con rol photographer.');
         }
+
+        $issuedToken = ProjectCollaborator::issueAccessToken();
 
         $collaborator = ProjectCollaborator::withoutGlobalScope('tenant')->updateOrCreate(
             [
@@ -43,16 +45,18 @@ class ProjectCollaboratorController extends Controller
                 'role' => 'photographer',
                 'status' => 'invited',
                 'access_code' => strtoupper(Str::random(6)),
-                'access_token' => Str::random(64),
+                'access_token' => $issuedToken['encrypted'],
+                'access_token_hash' => $issuedToken['hash'],
                 'can_upload' => (bool) ($validated['can_upload'] ?? true),
                 'can_manage_gallery' => (bool) ($validated['can_manage_gallery'] ?? false),
                 'accepted_at' => null,
             ]
         );
 
-        $mailError = $this->sendInvitationEmail($collaborator);
+        $invitationUrl = $this->accessUrl($collaborator, $issuedToken['plain']);
+        $mailError = $this->sendInvitationEmail($collaborator, $invitationUrl);
 
-        return back()->with('success', 'Invitacion creada. Link: '.$this->accessUrl($collaborator).($mailError ? ' | Correo no enviado: '.$mailError : ''));
+        return back()->with('success', 'Invitacion creada. Link: '.$invitationUrl.($mailError ? ' | Correo no enviado: '.$mailError : ''));
     }
 
     public function destroy(Project $project, ProjectCollaborator $collaborator)
@@ -70,14 +74,19 @@ class ProjectCollaboratorController extends Controller
         abort_unless($collaborator->project_id === $project->id, 404);
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
 
+        $issuedToken = ProjectCollaborator::issueAccessToken();
+
         $collaborator->update([
             'status' => 'invited',
             'access_code' => strtoupper(Str::random(6)),
-            'access_token' => Str::random(64),
+            'access_token' => $issuedToken['encrypted'],
+            'access_token_hash' => $issuedToken['hash'],
             'accepted_at' => null,
         ]);
 
-        $mailError = $this->sendInvitationEmail($collaborator->fresh(['project', 'invitedBy']));
+        $freshCollaborator = $collaborator->fresh(['project', 'invitedBy']);
+        $invitationUrl = $this->accessUrl($freshCollaborator, $issuedToken['plain']);
+        $mailError = $this->sendInvitationEmail($freshCollaborator, $invitationUrl);
 
         return back()->with('success', 'Acceso regenerado. El enlace anterior quedo invalidado.'.($mailError ? ' | Correo no enviado: '.$mailError : ''));
     }
@@ -95,18 +104,18 @@ class ProjectCollaboratorController extends Controller
         return back()->with('success', 'Acceso revocado para este fotografo.');
     }
 
-    private function accessUrl(ProjectCollaborator $collaborator): string
+    private function accessUrl(ProjectCollaborator $collaborator, ?string $plainToken = null): string
     {
-        return route('project.invitations.show', $collaborator->access_token);
+        return route('project.invitations.show', $plainToken ?: $collaborator->plainAccessToken());
     }
 
-    private function sendInvitationEmail(ProjectCollaborator $collaborator): ?string
+    private function sendInvitationEmail(ProjectCollaborator $collaborator, string $invitationUrl): ?string
     {
         try {
             $collaborator->loadMissing(['project', 'invitedBy']);
             Mail::send('emails.project-invitation', [
                 'collaborator' => $collaborator,
-                'invitationUrl' => $this->accessUrl($collaborator),
+                'invitationUrl' => $invitationUrl,
             ], function ($message) use ($collaborator) {
                 $message
                     ->to($collaborator->invited_email)

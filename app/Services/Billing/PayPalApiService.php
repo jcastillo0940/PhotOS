@@ -40,6 +40,21 @@ class PayPalApiService
         return $this->request()->post('/v1/billing/subscriptions', $payload)->throw()->json();
     }
 
+    public function createOrder(array $payload): array
+    {
+        return $this->request()->post('/v2/checkout/orders', $payload)->throw()->json();
+    }
+
+    public function getOrder(string $orderId): array
+    {
+        return $this->request()->get("/v2/checkout/orders/{$orderId}")->throw()->json();
+    }
+
+    public function captureOrder(string $orderId): array
+    {
+        return $this->request()->post("/v2/checkout/orders/{$orderId}/capture")->throw()->json();
+    }
+
     public function getSubscription(string $subscriptionId): array
     {
         return $this->request()->get("/v1/billing/subscriptions/{$subscriptionId}")->throw()->json();

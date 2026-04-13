@@ -10,10 +10,10 @@ use App\Models\GalleryFavoriteLog;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
-use App\Support\Tenancy\TenantContext;
-use App\Services\FaceRecognitionService;
-use App\Support\GalleryTemplate;
 use App\Services\CrmAutomationService;
+use App\Services\FaceRecognitionService;
+use App\Services\ProjectPhotoUploadService;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -25,6 +25,7 @@ class GalleryController extends Controller
     public function __construct(
         private readonly CrmAutomationService $automationService,
         private readonly FaceRecognitionService $faceRecognitionService,
+        private readonly ProjectPhotoUploadService $projectPhotoUploadService,
         private readonly TenantContext $tenantContext,
     ) {}
 
@@ -62,10 +63,10 @@ class GalleryController extends Controller
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
             'access' => [
                 'mode' => $hasClientAccess ? 'client' : 'public',
-                'can_unlock' => !$hasClientAccess,
+                'can_unlock' => ! $hasClientAccess,
                 'has_password' => filled($project->gallery_password),
                 'can_download_originals' => $hasClientAccess && $project->highResAvailable(),
-                'can_select_favorites' => $hasClientAccess && !$ownerViewing && (bool) $registeredVisitor,
+                'can_select_favorites' => $hasClientAccess && ! $ownerViewing && (bool) $registeredVisitor,
                 'public_photo_count' => $allPhotos->where('show_on_website', true)->count(),
                 'client_photo_count' => $allPhotos->count(),
                 'is_owner_session' => $ownerViewing,
@@ -137,7 +138,7 @@ class GalleryController extends Controller
             ]);
         }
 
-        if (!hash_equals((string) $project->gallery_password, trim((string) $validated['gallery_access_code']))) {
+        if (! hash_equals((string) $project->gallery_password, trim((string) $validated['gallery_access_code']))) {
             return back(status: 303)->withErrors([
                 'gallery_access_code' => 'El codigo de acceso no es correcto.',
             ]);
@@ -172,85 +173,11 @@ class GalleryController extends Controller
     public function upload(Request $request, Project $project)
     {
         abort_unless($project->userCan($request->user(), 'upload'), 403);
-
-        set_time_limit(0);
-
-        if (!$this->hasConfiguredR2()) {
-            return back(status: 303)->with('error', 'Cloudflare R2 no esta configurado. Completa bucket, endpoint y credenciales antes de subir archivos pesados.');
+        try {
+            $this->projectPhotoUploadService->upload($request, $project);
+        } catch (\RuntimeException $e) {
+            return back(status: 303)->with('error', $e->getMessage());
         }
-
-        $request->validate([
-            'photos' => 'required|array',
-            'photos.*' => 'image|mimes:jpeg,png,jpg,webp|max:100000',
-        ]);
-
-        $tenant = $this->tenantContext->tenant();
-        $incomingFiles = count($request->file('photos', []));
-
-        if ($tenant && !$tenant->canUseFeature('photo_uploads', $incomingFiles)) {
-            return back(status: 303)->with('error', 'Tu plan actual no permite subir esa cantidad de fotos este mes.');
-        }
-
-        $incomingOriginalBytes = collect($request->file('photos'))->sum(fn ($file) => $file->getSize() ?: 0);
-        $currentOriginalBytes = $project->originalsUsageBytes();
-        $maxOriginalsBytes = (int) ($project->planDefinition()['max_originals_bytes'] ?? $project->storage_limit_bytes ?? 0);
-
-        if ($maxOriginalsBytes > 0 && ($currentOriginalBytes + $incomingOriginalBytes) > $maxOriginalsBytes) {
-            return back(status: 303)->with('error', 'Espacio insuficiente para este evento.');
-        }
-
-        $orderIndex = $project->photos()->max('order_index') ?? 0;
-        $tempMasterDirectory = "uploads/project_{$project->id}/temp_masters";
-
-        foreach ($request->file('photos') as $file) {
-            $safeBaseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-            $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
-            $uniqueSuffix = uniqid();
-            $originalFileName = "{$safeBaseName}_{$uniqueSuffix}.{$extension}";
-            $optimizedFileName = "{$safeBaseName}_{$uniqueSuffix}.webp";
-
-            $localOriginalRelativePath = $file->storeAs($tempMasterDirectory, $originalFileName, 'local');
-            $absoluteOriginalPath = Storage::disk('local')->path($localOriginalRelativePath);
-
-            $optimizedLocalRelativePath = "{$tempMasterDirectory}/optimized/{$optimizedFileName}";
-            $absoluteOptimizedPath = Storage::disk('local')->path($optimizedLocalRelativePath);
-
-            if (!file_exists(dirname($absoluteOptimizedPath))) {
-                mkdir(dirname($absoluteOptimizedPath), 0755, true);
-            }
-
-            $this->createOptimizedWebp($absoluteOriginalPath, $absoluteOptimizedPath, $project);
-
-            $originalR2Path = $project->originalsBucketPrefix()."/{$originalFileName}";
-            $optimizedR2Path = $project->webBucketPrefix()."/{$optimizedFileName}";
-
-            Storage::disk('r2')->put($originalR2Path, fopen($absoluteOriginalPath, 'r'));
-            Storage::disk('r2')->put($optimizedR2Path, fopen($absoluteOptimizedPath, 'r'), [
-                'ContentType' => 'image/webp',
-            ]);
-
-            Photo::create([
-                'project_id' => $project->id,
-                'url' => $optimizedR2Path,
-                'thumbnail_url' => $optimizedR2Path,
-                'optimized_path' => $optimizedR2Path,
-                'original_path' => $originalR2Path,
-                'optimized_bytes' => @filesize($absoluteOptimizedPath) ?: null,
-                'original_bytes' => @filesize($absoluteOriginalPath) ?: null,
-                'mime_type' => $file->getMimeType(),
-                'order_index' => ++$orderIndex,
-                'category' => 'Master Set',
-                'tags' => ['master-set'],
-            ]);
-        }
-
-        $project->update([
-            'originals_expires_at' => now()->addDays($project->retention_days ?? $project->planDefinition()['retention_days'] ?? 90),
-        ]);
-
-        Storage::disk('local')->deleteDirectory($tempMasterDirectory);
-
-        $this->automationService->runImmediate('gallery_published', $project->load('lead', 'client'));
 
         return redirect()->back(status: 303)->with('success', 'Fotos originales y versiones web sincronizadas en Cloudflare R2.');
     }
@@ -362,7 +289,7 @@ class GalleryController extends Controller
             ($peopleCount ?? 0) >= 11 => 'foto_de_equipo',
             default => filled($peopleCount) ? 'grupo' : $photo->shot_type,
         };
-        $manualAiMetadata = !empty($peopleTags) || !empty($brandTags) || !empty($jerseyNumbers) || !empty($sponsorTags) || !empty($contextTags) || filled($peopleCountLabel);
+        $manualAiMetadata = ! empty($peopleTags) || ! empty($brandTags) || ! empty($jerseyNumbers) || ! empty($sponsorTags) || ! empty($contextTags) || filled($peopleCountLabel);
 
         $photo->update([
             'category' => $validated['category'] ?? $photo->category,
@@ -391,11 +318,11 @@ class GalleryController extends Controller
 
     public function storeIdentity(Request $request, Project $project)
     {
-        if (!$this->projectRecognitionEnabled($project)) {
+        if (! $this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial para esta galeria.');
         }
 
-        if (!$this->faceRecognitionService->enabled()) {
+        if (! $this->faceRecognitionService->enabled()) {
             return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de registrar personas a reconocer.');
         }
 
@@ -406,7 +333,7 @@ class GalleryController extends Controller
 
         $tenant = $this->tenantContext->tenant();
 
-        if ($tenant && !$tenant->canUseFeature('ai_scans')) {
+        if ($tenant && ! $tenant->canUseFeature('ai_scans')) {
             return back(status: 303)->with('error', 'Tu plan actual alcanzo el limite mensual de analisis IA.');
         }
 
@@ -460,24 +387,24 @@ class GalleryController extends Controller
 
     public function recognizeProject(Project $project)
     {
-        if (!$this->projectRecognitionEnabled($project)) {
+        if (! $this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
         }
 
-        if (!$this->faceRecognitionService->enabled()) {
+        if (! $this->faceRecognitionService->enabled()) {
             return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de analizar la galeria.');
         }
 
         $project->load('photos', 'faceIdentities');
 
-        if (!$this->faceRecognitionService->hasRecognitionDatabase($project)) {
+        if (! $this->faceRecognitionService->hasRecognitionDatabase($project)) {
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
         $tenant = $this->tenantContext->tenant();
         $photoCount = $project->photos->count();
 
-        if ($tenant && !$tenant->canUseFeature('ai_scans', max(1, $photoCount))) {
+        if ($tenant && ! $tenant->canUseFeature('ai_scans', max(1, $photoCount))) {
             return back(status: 303)->with('error', 'Tu plan actual no tiene capacidad suficiente para encolar este lote de analisis IA.');
         }
 
@@ -502,21 +429,21 @@ class GalleryController extends Controller
     {
         abort_unless($photo->project_id === $project->id, 404);
 
-        if (!$this->projectRecognitionEnabled($project)) {
+        if (! $this->projectRecognitionEnabled($project)) {
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial en esta galeria.');
         }
 
-        if (!$this->faceRecognitionService->enabled()) {
+        if (! $this->faceRecognitionService->enabled()) {
             return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de analizar fotos.');
         }
 
-        if (!$this->faceRecognitionService->hasRecognitionDatabase($project)) {
+        if (! $this->faceRecognitionService->hasRecognitionDatabase($project)) {
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
         $tenant = $this->tenantContext->tenant();
 
-        if ($tenant && !$tenant->canUseFeature('ai_scans')) {
+        if ($tenant && ! $tenant->canUseFeature('ai_scans')) {
             return back(status: 303)->with('error', 'Tu plan actual alcanzo el limite mensual de analisis IA.');
         }
 
@@ -595,7 +522,7 @@ class GalleryController extends Controller
         abort_unless($project, 404);
         abort_unless($this->hasClientGalleryAccess($request, $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
 
-        if ($project->originalsExpired() || !$photo->original_path) {
+        if ($project->originalsExpired() || ! $photo->original_path) {
             abort(403, 'Periodo de descarga de alta resolucion finalizado.');
         }
 
@@ -641,56 +568,6 @@ class GalleryController extends Controller
         abort(403, 'La descarga desde la galeria esta deshabilitada.');
     }
 
-    private function createOptimizedWebp(string $originalPath, string $optimizedPath, Project $project): void
-    {
-        $imageInfo = @getimagesize($originalPath);
-        $image = null;
-
-        if ($imageInfo) {
-            if ($imageInfo['mime'] === 'image/jpeg') {
-                $image = imagecreatefromjpeg($originalPath);
-            } elseif ($imageInfo['mime'] === 'image/png') {
-                $image = imagecreatefrompng($originalPath);
-            } elseif ($imageInfo['mime'] === 'image/webp') {
-                $image = imagecreatefromwebp($originalPath);
-            }
-        }
-
-        if (!$image) {
-            copy($originalPath, $optimizedPath);
-            return;
-        }
-
-        $width = imagesx($image);
-        $height = imagesy($image);
-        $maxDimension = 2200;
-
-        if ($width > $maxDimension || $height > $maxDimension) {
-            $ratio = min($maxDimension / $width, $maxDimension / $height);
-            $newWidth = max(1, (int) round($width * $ratio));
-            $newHeight = max(1, (int) round($height * $ratio));
-
-            $resized = imagecreatetruecolor($newWidth, $newHeight);
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-            imagedestroy($image);
-            $image = $resized;
-        }
-
-        $this->applyWatermark($image, $project);
-
-        $quality = 78;
-        imagewebp($image, $optimizedPath, $quality);
-
-        while (@filesize($optimizedPath) > 500 * 1024 && $quality > 50) {
-            $quality -= 5;
-            imagewebp($image, $optimizedPath, $quality);
-        }
-
-        imagedestroy($image);
-    }
-
     private function serializePhoto(Photo $photo, bool $hasClientAccess, array $selectedPhotoIds = []): array
     {
         return [
@@ -698,13 +575,13 @@ class GalleryController extends Controller
             'is_selected' => in_array($photo->id, $selectedPhotoIds, true),
             'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url,
             'thumbnail_url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->thumbnail_url,
-            'high_res_available' => $hasClientAccess && (bool) $photo->original_path && !$photo->project?->originalsExpired(),
+            'high_res_available' => $hasClientAccess && (bool) $photo->original_path && ! $photo->project?->originalsExpired(),
         ];
     }
 
     private function hasClientGalleryAccess(Request $request, ?Project $project): bool
     {
-        if (!$project) {
+        if (! $project) {
             return false;
         }
 
@@ -719,7 +596,7 @@ class GalleryController extends Controller
     {
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -736,7 +613,7 @@ class GalleryController extends Controller
         $perPage = $this->galleryPerPage($hasClientAccess);
 
         return $project->photos()
-            ->when(!$hasClientAccess, fn ($query) => $query->where('show_on_website', true))
+            ->when(! $hasClientAccess, fn ($query) => $query->where('show_on_website', true))
             ->paginate($perPage)
             ->withQueryString();
     }
@@ -802,7 +679,7 @@ class GalleryController extends Controller
     {
         $payload = $request->session()->get($this->registrationSessionKey($project));
 
-        if (!is_array($payload) || blank($payload['visitor_email'] ?? null) || blank($payload['client_hash'] ?? null)) {
+        if (! is_array($payload) || blank($payload['visitor_email'] ?? null) || blank($payload['client_hash'] ?? null)) {
             return null;
         }
 
@@ -812,107 +689,6 @@ class GalleryController extends Controller
     private function registrationSessionKey(Project $project): string
     {
         return 'gallery_registration.'.$project->gallery_token;
-    }
-
-    private function applyWatermark(\GdImage $image, Project $project): void
-    {
-        $mode = $project->planDefinition()['watermark_mode'] ?? null;
-
-        if ($mode === 'platform_forced') {
-            $this->applyTextWatermark($image, Setting::get('platform_watermark_label', 'PhotOS'));
-            return;
-        }
-
-        if ($mode === 'photographer_custom') {
-            $watermarkPath = Setting::get('photographer_watermark_path');
-
-            if ($watermarkPath) {
-                $absolutePath = storage_path('app/public/'.$watermarkPath);
-
-                if (file_exists($absolutePath) && $this->applyImageWatermark($image, $absolutePath)) {
-                    return;
-                }
-            }
-
-            $this->applyTextWatermark($image, 'Studio');
-        }
-    }
-
-    private function applyTextWatermark(\GdImage $image, string $label): void
-    {
-        $label = trim($label) ?: 'PhotOS';
-        $width = imagesx($image);
-        $height = imagesy($image);
-        $font = 5;
-        $textWidth = imagefontwidth($font) * strlen($label);
-        $textHeight = imagefontheight($font);
-        $padding = max(18, (int) round(min($width, $height) * 0.025));
-        $x = max(10, $width - $textWidth - $padding);
-        $y = max(10, $height - $textHeight - $padding);
-
-        $shadow = imagecolorallocatealpha($image, 0, 0, 0, 80);
-        $text = imagecolorallocatealpha($image, 255, 255, 255, 70);
-
-        imagestring($image, $font, $x + 1, $y + 1, $label, $shadow);
-        imagestring($image, $font, $x, $y, $label, $text);
-    }
-
-    private function applyImageWatermark(\GdImage $image, string $watermarkPath): bool
-    {
-        $mime = @mime_content_type($watermarkPath);
-        $watermark = null;
-
-        if ($mime === 'image/png') {
-            $watermark = @imagecreatefrompng($watermarkPath);
-        } elseif ($mime === 'image/webp') {
-            $watermark = @imagecreatefromwebp($watermarkPath);
-        }
-
-        if (!$watermark) {
-            return false;
-        }
-
-        imagealphablending($image, true);
-        imagesavealpha($image, true);
-
-        $imageWidth = imagesx($image);
-        $imageHeight = imagesy($image);
-        $wmWidth = imagesx($watermark);
-        $wmHeight = imagesy($watermark);
-
-        $targetWidth = max(120, (int) round($imageWidth * 0.18));
-        $ratio = min($targetWidth / max(1, $wmWidth), ($imageHeight * 0.16) / max(1, $wmHeight));
-        $drawWidth = max(1, (int) round($wmWidth * $ratio));
-        $drawHeight = max(1, (int) round($wmHeight * $ratio));
-        $padding = max(18, (int) round(min($imageWidth, $imageHeight) * 0.025));
-        $destX = $imageWidth - $drawWidth - $padding;
-        $destY = $imageHeight - $drawHeight - $padding;
-
-        imagecopyresampled(
-            $image,
-            $watermark,
-            $destX,
-            $destY,
-            0,
-            0,
-            $drawWidth,
-            $drawHeight,
-            $wmWidth,
-            $wmHeight
-        );
-
-        imagedestroy($watermark);
-
-        return true;
-    }
-
-    private function hasConfiguredR2(): bool
-    {
-        // AppServiceProvider already loads R2 settings from DB into config at boot.
-        // Reading config() is reliable regardless of TenantContext state.
-        return filled(config('filesystems.disks.r2.key'))
-            && filled(config('filesystems.disks.r2.secret'))
-            && filled(config('filesystems.disks.r2.bucket'));
     }
 
     private function projectRecognitionEnabled(Project $project): bool
@@ -928,7 +704,7 @@ class GalleryController extends Controller
         if ($error) {
             $status = str_contains(mb_strtolower($error), 'ningun rostro') ? 'no_face' : 'error';
             $note = $error;
-        } elseif (!empty($people)) {
+        } elseif (! empty($people)) {
             $status = 'matched';
             $note = 'Coincidencias detectadas: '.implode(', ', $people).'.';
         } else {
@@ -944,6 +720,3 @@ class GalleryController extends Controller
         ]);
     }
 }
-
-
-

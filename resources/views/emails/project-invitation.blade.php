@@ -23,7 +23,7 @@
         Codigo de acceso: <strong>{{ $collaborator->access_code }}</strong>
     </p>
     <p>
-        Primero inicia sesion con tu cuenta de fotografo y luego confirma el codigo.
+        Abre el enlace e ingresa el codigo para entrar directamente al workspace de subida.
     </p>
 </body>
 </html>

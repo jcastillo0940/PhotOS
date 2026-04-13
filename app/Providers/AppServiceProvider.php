@@ -2,9 +2,14 @@
 
 namespace App\Providers;
 
+use App\Models\Setting;
 use App\Services\Billing\TenantBillingService;
 use App\Support\Tenancy\TenantContext;
 use App\Support\TenantThemeSettings;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\ServiceProvider;
 use Inertia\Inertia;
 
@@ -12,12 +17,16 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->app->singleton(TenantContext::class, fn () => new TenantContext());
+        $this->app->singleton(TenantContext::class, fn () => new TenantContext);
     }
 
     public function boot(): void
     {
-        \Illuminate\Support\Facades\Schema::defaultStringLength(191);
+        Schema::defaultStringLength(191);
+
+        Gate::define('viewPulse', function ($user) {
+            return $user && ($user->isDeveloper() || $user->isOwner());
+        });
 
         Inertia::share('auth', fn () => [
             'user' => auth()->user()
@@ -68,7 +77,7 @@ class AppServiceProvider extends ServiceProvider
 
         Inertia::share('branding', function () {
             try {
-                if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                if (! Schema::hasTable('settings')) {
                     return [
                         'app_name' => config('app.name', 'PhotOS'),
                         'app_tagline' => 'Admin platform',
@@ -77,12 +86,12 @@ class AppServiceProvider extends ServiceProvider
                     ];
                 }
 
-                $logoPath = \App\Models\Setting::get('app_logo_path');
-                $faviconPath = \App\Models\Setting::get('app_favicon_path');
+                $logoPath = Setting::get('app_logo_path');
+                $faviconPath = Setting::get('app_favicon_path');
 
                 return [
-                    'app_name' => \App\Models\Setting::get('app_name', config('app.name', 'PhotOS')),
-                    'app_tagline' => \App\Models\Setting::get('app_tagline', 'Admin platform'),
+                    'app_name' => Setting::get('app_name', config('app.name', 'PhotOS')),
+                    'app_tagline' => Setting::get('app_tagline', 'Admin platform'),
                     'app_logo_url' => $logoPath ? asset('storage/'.$logoPath) : null,
                     'app_favicon_url' => $faviconPath ? asset('storage/'.$faviconPath) : null,
                 ];
@@ -105,8 +114,8 @@ class AppServiceProvider extends ServiceProvider
         });
 
         try {
-            if (\Illuminate\Support\Facades\Schema::hasTable('settings')) {
-                $dbSettings = \Illuminate\Support\Facades\DB::table('settings')
+            if (Schema::hasTable('settings')) {
+                $dbSettings = DB::table('settings')
                     ->whereNull('tenant_id')
                     ->get()
                     ->pluck('value', 'key');
@@ -124,7 +133,7 @@ class AppServiceProvider extends ServiceProvider
                         'filesystems.disks.r2.bucket' => $r2Bucket,
                         'filesystems.disks.r2.endpoint' => $r2Endpoint,
                     ]);
-                    \Illuminate\Support\Facades\Storage::forgetDisk('r2');
+                    Storage::forgetDisk('r2');
                 }
 
                 // Cloudflare SaaS
