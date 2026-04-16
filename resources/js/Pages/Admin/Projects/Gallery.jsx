@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function Gallery({ project, faceRecognition }) {
+    const peopleCountOptions = ['1 persona', '2 personas', '3 personas', '4 o mas personas'];
     const { flash } = usePage().props;
     const fileInputRef = React.useRef(null);
     const [isUploading, setIsUploading] = React.useState(false);
@@ -27,6 +28,10 @@ export default function Gallery({ project, faceRecognition }) {
             photo.id,
             {
                 tags: (photo.tags || []).join(', '),
+                people_tags: (photo.people_tags || []).join(', '),
+                brand_tags: (photo.brand_tags || []).join(', '),
+                sponsor_tags: (photo.sponsor_tags || []).join(', '),
+                people_count_label: photo.people_count_label || '',
                 show_on_website: !!photo.show_on_website,
             },
         ]))
@@ -42,7 +47,19 @@ export default function Gallery({ project, faceRecognition }) {
         const next = { ...(photoState[photoId] || {}), ...nextState };
         setPhotoState((current) => ({ ...current, [photoId]: next }));
         const tags = (next.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        router.put(`/admin/projects/${project.id}/photos/${photoId}`, { category: tags[0] || 'General', tags, show_on_website: next.show_on_website }, { preserveScroll: true, preserveState: true });
+        const peopleTags = (next.people_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const brandTags = (next.brand_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const sponsorTags = (next.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+
+        router.put(`/admin/projects/${project.id}/photos/${photoId}`, {
+            category: tags[0] || 'General',
+            tags,
+            people_tags: peopleTags,
+            brand_tags: brandTags,
+            sponsor_tags: sponsorTags,
+            people_count_label: next.people_count_label || null,
+            show_on_website: next.show_on_website,
+        }, { preserveScroll: true, preserveState: true });
     };
 
     const uploadPhotos = (files) => {
@@ -192,6 +209,50 @@ export default function Gallery({ project, faceRecognition }) {
                                             <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Etiquetas (Opcional)</label>
                                             <input value={photoState[photo.id]?.tags || ''} onChange={(event) => savePhoto(photo.id, { tags: event.target.value })} placeholder="Boda, Pareja, Fiesta..." className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white" />
                                         </div>}
+                                        {canManageGallery && (
+                                            <div className="grid gap-3">
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{sportsModeEnabled ? 'Jugador / Persona' : 'Persona'}</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.people_tags || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { people_tags: event.target.value })}
+                                                        placeholder={sportsModeEnabled ? 'Jeremy, Maria, Carlos...' : 'Maria, Carlos, Sofia...'}
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Cantidad de personas</label>
+                                                    <select
+                                                        value={photoState[photo.id]?.people_count_label || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { people_count_label: event.target.value })}
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    >
+                                                        <option value="">Sin definir</option>
+                                                        {peopleCountOptions.map((option) => (
+                                                            <option key={option} value={option}>{option}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Marca</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.brand_tags || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { brand_tags: event.target.value })}
+                                                        placeholder="Nike, Adidas, Puma..."
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sponsor</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.sponsor_tags || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { sponsor_tags: event.target.value })}
+                                                        placeholder="Patrocinador principal..."
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                            </div>
+                                        )}
                                         {canManageGallery && <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#e6e0d5] bg-slate-50 px-3 py-2.5 hover:bg-slate-100 transition">
                                             <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><Globe2 className="h-3.5 w-3.5 text-primary-500" />Mostrar en Web</span>
                                             <input type="checkbox" checked={!!photoState[photo.id]?.show_on_website} onChange={(event) => savePhoto(photo.id, { show_on_website: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
