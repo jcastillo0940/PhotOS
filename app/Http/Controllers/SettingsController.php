@@ -117,7 +117,7 @@ class SettingsController extends Controller
 
     public function updateBranding(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'app_name' => 'required|string|max:255',
             'app_tagline' => 'nullable|string|max:255',
             'photographer_document' => 'nullable|string|max:255',

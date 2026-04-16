@@ -23,3 +23,21 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+.aider*
+# Python virtual environments
+ai_service/.venv/
+.venv/
+venv/
+ENV/
+env/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# AI/ML Specific (opcional, pero recomendado)
+*.models
+*.weights
+ai_service/temp_photos/
