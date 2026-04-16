@@ -2,11 +2,11 @@ import React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { ChevronLeft, Globe2, LayoutTemplate, Trash2, UploadCloud } from 'lucide-react';
+import { Bot, ChevronLeft, Globe2, Sparkles, Trash2, UploadCloud } from 'lucide-react';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 
-export default function Gallery({ project }) {
+export default function Gallery({ project, faceRecognition }) {
     const { flash } = usePage().props;
     const fileInputRef = React.useRef(null);
     const [isUploading, setIsUploading] = React.useState(false);
@@ -14,6 +14,13 @@ export default function Gallery({ project }) {
     const [heroPhotoId, setHeroPhotoId] = React.useState(project.hero_photo_id || project.photos?.[0]?.id || null);
     const canUpload = !!project.permissions?.can_upload;
     const canManageGallery = !!project.permissions?.can_manage_gallery;
+    const recognitionSummary = faceRecognition?.summary || {};
+    const recognitionConfigured = !!faceRecognition?.service_configured;
+    const recognitionReady = !!project.face_recognition_enabled && recognitionConfigured && !!faceRecognition?.database_ready;
+    const analyzedPhotos = recognitionSummary.photos_with_people || 0;
+    const totalPhotos = (project.photos || []).length;
+    const processedPercentage = Math.max(0, Math.min(100, totalPhotos > 0 ? (analyzedPhotos / totalPhotos) * 100 : 0));
+    const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
 
     const buildPhotoState = React.useCallback((photos) => (
         Object.fromEntries((photos || []).map((photo) => [
@@ -89,6 +96,82 @@ export default function Gallery({ project }) {
 
                     <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="hidden" />
 
+                    {canManageGallery && (
+                        <div className="mt-8 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5 lg:p-6">
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="max-w-3xl">
+                                    <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e6e0d5] bg-white text-slate-700">
+                                        <Bot className="h-5 w-5" />
+                                    </div>
+                                    <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Procesamiento inteligente</p>
+                                    <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Procesar galeria</h3>
+                                    <p className="mt-2 text-sm leading-7 text-slate-500">
+                                        {sportsModeEnabled
+                                            ? 'El sistema analiza la galeria completa y detecta rostros, dorsales, marcas, sponsors y contexto automaticamente. No necesitas llenar esos campos foto por foto.'
+                                            : 'El sistema analiza la galeria completa y detecta personas automaticamente. No necesitas editar cada archivo para iniciar el proceso.'}
+                                    </p>
+                                </div>
+
+                                <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[280px]">
+                                    <button
+                                        type="button"
+                                        onClick={() => router.post(`/admin/projects/${project.id}/recognition/run`, {}, { preserveScroll: true })}
+                                        disabled={!recognitionReady || totalPhotos === 0}
+                                        className={clsx(
+                                            'inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-semibold',
+                                            !recognitionReady || totalPhotos === 0
+                                                ? 'cursor-not-allowed border border-[#ddd5c9] bg-slate-100 text-slate-400'
+                                                : 'bg-[#171411] text-white shadow-md transition hover:-translate-y-0.5'
+                                        )}
+                                    >
+                                        <Sparkles className="h-4 w-4" />
+                                        Procesar galeria
+                                    </button>
+                                    <Link
+                                        href={`/admin/projects/${project.id}/ai`}
+                                        className="inline-flex items-center justify-center rounded-2xl border border-[#ddd5c9] bg-white px-5 py-3.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                                    >
+                                        Abrir configuracion
+                                    </Link>
+                                </div>
+                            </div>
+
+                            <div className="mt-5 grid gap-3 md:grid-cols-3">
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Fotos</p>
+                                    <p className="mt-1 text-2xl font-semibold text-slate-900">{totalPhotos}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Analizadas</p>
+                                    <p className="mt-1 text-2xl font-semibold text-slate-900">{analyzedPhotos}</p>
+                                </div>
+                                <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4">
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Pendientes</p>
+                                    <p className="mt-1 text-2xl font-semibold text-slate-900">{recognitionSummary.photos_pending || 0}</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
+                                <div
+                                    className="h-full rounded-full bg-gradient-to-r from-[#171411] via-[#7c5d45] to-[#d1a673] transition-all duration-1000"
+                                    style={{ width: `${processedPercentage}%` }}
+                                />
+                            </div>
+
+                            <p className="mt-3 text-sm text-slate-500">
+                                {!project.face_recognition_enabled
+                                    ? 'Primero activa la IA de esta galeria en la configuracion.'
+                                    : !recognitionConfigured
+                                        ? 'El motor IA no esta configurado todavia.'
+                                        : !faceRecognition?.database_ready
+                                            ? 'Agrega al menos una persona de referencia para comenzar.'
+                                            : totalPhotos === 0
+                                                ? 'Sube fotos para poder procesar la galeria.'
+                                                : `Llevas ${analyzedPhotos} de ${totalPhotos} fotos procesadas.`}
+                            </p>
+                        </div>
+                    )}
+
                     <div className="mt-8">
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                             {(project.photos || []).length > 0 ? project.photos.map((photo) => (
@@ -100,7 +183,7 @@ export default function Gallery({ project }) {
                                                 {heroPhotoId === photo.id ? 'Portada de Galeria' : 'Hacer Portada'}
                                             </button>
                                         </div>}
-                                        {canManageGallery && <button type="button" onClick={() => { if (window.confirm('Eliminar esta foto del proyecto y del bucket?')) router.post(`/admin/projects/${project.id}/photos/${photo.id}`, { _method: 'delete' }, { preserveScroll: true }); }} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-600 shadow-sm opacity-0 transition-opacity group-hover:opacity-100 hover:text-rose-600">
+                                        {canManageGallery && <button type="button" onClick={() => { if (window.confirm('Eliminar esta foto del proyecto y del bucket?')) router.delete(`/admin/projects/${project.id}/photos/${photo.id}`, { preserveScroll: true }); }} className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600">
                                             <Trash2 className="h-4 w-4" />
                                         </button>}
                                     </div>

@@ -8,7 +8,7 @@ export default function ProjectWorkspaceNav({ project, current }) {
         { key: 'details', label: 'Detalles', icon: FolderKanban, href: (projectId) => `/admin/projects/${projectId}/details`, visible: !!project.permissions?.can_manage_gallery },
         { key: 'gallery', label: 'Fotos', icon: Images, href: (projectId) => `/admin/projects/${projectId}/gallery`, visible: true },
         { key: 'design', label: 'Diseno', icon: LayoutTemplate, href: (projectId) => `/admin/projects/${projectId}/design`, visible: !!project.permissions?.can_manage_gallery },
-        { key: 'ai', label: 'Rostros', icon: Sparkles, href: (projectId) => `/admin/projects/${projectId}/ai`, visible: !!project.permissions?.can_manage_gallery },
+        { key: 'ai', label: 'Procesar', icon: Sparkles, href: (projectId) => `/admin/projects/${projectId}/ai`, visible: !!project.permissions?.can_manage_gallery },
         { key: 'management', label: 'Gestion', icon: ReceiptText, href: (projectId) => `/admin/projects/${projectId}/management`, visible: !!project.permissions?.can_manage_finance },
     ].filter((item) => item.visible);
 
@@ -45,7 +45,7 @@ export default function ProjectWorkspaceNav({ project, current }) {
                             {key === 'details' && 'Nombre y estado.'}
                             {key === 'gallery' && 'Subir fotos.'}
                             {key === 'design' && 'Plantilla y accesos.'}
-                            {key === 'ai' && 'Identificar personas.'}
+                            {key === 'ai' && 'IA y procesamiento.'}
                             {key === 'management' && 'Cobros y PDF.'}
                         </p>
                     </Link>

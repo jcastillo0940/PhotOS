@@ -34,7 +34,7 @@ export default function Ai({ project, faceRecognition }) {
 
     return (
         <AdminLayout>
-            <Head title={`${sportsModeEnabled ? 'IA Deportiva' : 'IA Visual'}: ${project.name}`} />
+            <Head title={`${sportsModeEnabled ? 'Procesar galeria deportiva' : 'Procesar galeria'}: ${project.name}`} />
 
             <div className="space-y-8">
                 <Link href="/admin/projects" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900">
@@ -55,12 +55,12 @@ export default function Ai({ project, faceRecognition }) {
                         <div>
                             <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{sportsModeEnabled ? 'IA deportiva' : 'IA visual'}</p>
                             <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                                {sportsModeEnabled ? 'Rostros, dorsales, sponsors y contexto en una sola vista' : 'Reconocimiento visual para esta galeria'}
+                                {sportsModeEnabled ? 'Procesa la galeria y detecta jugadores, marcas y contexto' : 'Procesa la galeria y detecta personas'}
                             </h3>
                             <p className="mt-2 text-sm leading-7 text-slate-500">
                                 {sportsModeEnabled
-                                    ? 'Aqui controlas el entrenamiento de personas y el escaneo que despues alimenta filtros por dorsal, marcas, sponsors, balon, porteria y tipos de toma.'
-                                    : 'Aqui controlas el entrenamiento de personas y el escaneo visual de la galeria. Si algun tenant trabaja deportes, puede activar el modo deportivo desde Branding.'}
+                                    ? 'Desde aqui entrenas rostros base y luego ejecutas un solo procesamiento para que el sistema complete la galeria automaticamente. No hace falta llenar sponsor, marca o jugador en cada foto.'
+                                    : 'Desde aqui entrenas personas base y luego ejecutas un solo procesamiento para que el sistema complete la galeria automaticamente.'}
                             </p>
                         </div>
                         <Bot className="h-8 w-8 text-slate-300" />
@@ -264,7 +264,7 @@ export default function Ai({ project, faceRecognition }) {
                                     )}
                                 >
                                     <WandSparkles className="h-4 w-4" />
-                                    {sportsModeEnabled ? 'Escanear Galeria Deportiva' : 'Escanear Galeria'}
+                                    Procesar galeria
                                 </button>
                                 
                                 <button
@@ -331,4 +331,3 @@ function SignalLine({ label, value }) {
         </div>
     );
 }
-
