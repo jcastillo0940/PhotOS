@@ -12,6 +12,7 @@ import face_recognition
 import numpy as np
 import redis
 import requests
+import sponsor_detector
 
 APP_NAME = 'PhotOS Face AI Worker'
 APP_VERSION = '2.0.0'
@@ -122,7 +123,12 @@ def detect_brands_from_task_context(task: dict[str, Any]) -> list[str]:
         tokens.append(parsed.path.lower())
         tokens.append(value.lower())
 
-    matches = [brand for brand in BRAND_KEYWORDS if brand.lower() in ' '.join(tokens)]
+    haystack = ' '.join(tokens)
+
+    # Merge env-level keywords with catalog keywords sent in the task payload
+    task_brand_keywords = [str(k).lower() for k in task.get('brand_keywords', []) if k]
+    all_keywords = list({*BRAND_KEYWORDS, *task_brand_keywords})
+    matches = [brand for brand in all_keywords if brand.lower() in haystack]
 
     return normalize_brands(matches)
 
@@ -190,14 +196,24 @@ def detect_sports_metadata_from_task_context(task: dict[str, Any]) -> dict[str, 
         token for token in haystack.replace('-', ' ').replace('_', ' ').split()
         if token.isdigit() and 1 <= len(token) <= 2
     ])
-    sponsors = normalize_brands([brand for brand in BRAND_KEYWORDS if brand.lower() in haystack])
-    context_tags = normalize_context_tags([keyword for keyword in CONTEXT_KEYWORDS if keyword.lower() in haystack])
+
+    # Merge env-level keywords with catalog keywords from task payload
+    task_sponsor_keywords = [str(k).lower() for k in task.get('sponsor_keywords', []) if k]
+    task_brand_keywords = [str(k).lower() for k in task.get('brand_keywords', []) if k]
+    task_context_keywords = [str(k).lower() for k in task.get('context_keywords', []) if k]
+
+    all_brand_keywords = list({*BRAND_KEYWORDS, *task_brand_keywords, *task_sponsor_keywords})
+    all_context_keywords = list({*CONTEXT_KEYWORDS, *task_context_keywords})
+
+    sponsors = normalize_brands([kw for kw in task_sponsor_keywords if kw in haystack])
+    brands = normalize_brands([kw for kw in all_brand_keywords if kw in haystack])
+    context_tags = normalize_context_tags([kw for kw in all_context_keywords if kw in haystack])
 
     return {
         'jersey_numbers': jersey_numbers,
         'sponsors': sponsors,
         'context_tags': context_tags,
-        'brands': sponsors,
+        'brands': brands,
     }
 
 
@@ -292,6 +308,29 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
         sports_metadata = detect_sports_metadata(task, image_path)
         brands = normalize_brands(detect_brands(task, image_path) + sports_metadata.get('brands', []))
 
+        # --- Gemini Flash visual analysis (additive, does not affect faces) ---
+        gemini = sponsor_detector.analyze_image(
+            image_path,
+            sponsor_keywords=task.get('sponsor_keywords') or [],
+            brand_keywords=task.get('brand_keywords') or [],
+            jersey_catalog=task.get('jersey_keywords') or [],
+        )
+        # Merge sponsors: heuristic + Gemini, deduplicating
+        all_sponsors = list(dict.fromkeys(
+            sports_metadata.get('sponsors', []) + normalize_brands(gemini['sponsors'])
+        ))
+        # Merge brands: heuristic + Gemini
+        all_brands = normalize_brands(
+            brands + [b for b in gemini['brands'] if b not in brands]
+        )
+        # Merge jersey numbers: heuristic + Gemini
+        all_jersey_numbers = list(dict.fromkeys(
+            sports_metadata.get('jersey_numbers', []) + gemini['jersey_numbers']
+        ))
+        # Actions come exclusively from Gemini (visual detection)
+        action_tags = gemini['actions']
+        # -----------------------------------------------------------------------
+
         if len(unknown_encodings) == 0:
             raise ValueError('No se detecto ningun rostro en la foto a comparar.')
 
@@ -323,10 +362,11 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
             'faces_detected': len(unknown_encodings),
             'people_count_label': people_count_label(len(unknown_encodings)),
             'found_ids': list(found_ids),
-            'brands': brands,
-            'jersey_numbers': sports_metadata.get('jersey_numbers', []),
-            'sponsors': sports_metadata.get('sponsors', []),
+            'brands': all_brands,
+            'jersey_numbers': all_jersey_numbers,
+            'sponsors': all_sponsors,
             'context_tags': sports_metadata.get('context_tags', []),
+            'action_tags': action_tags,
             'matches': matches,
             'tolerance': tolerance,
         }

@@ -6,6 +6,7 @@ use App\Jobs\DispatchFaceRecognitionTaskJob;
 use App\Models\FaceIdentity;
 use App\Models\Photo;
 use App\Models\Project;
+use App\Models\Setting;
 use App\Models\Tenant;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Redis;
@@ -144,6 +145,11 @@ class FaceRecognitionService
                 'name' => $identity->name,
                 'vector' => $identity->embedding,
             ])->values()->all(),
+
+            'brand_keywords'   => $this->catalogKeywords('ai_brand_catalog'),
+            'sponsor_keywords' => $this->catalogKeywords('ai_sponsor_catalog'),
+            'jersey_keywords'  => $this->catalogKeywords('ai_jersey_catalog'),
+            'context_keywords' => $this->catalogKeywords('ai_context_catalog'),
         ]);
     }
 
@@ -182,6 +188,7 @@ class FaceRecognitionService
         array $jerseyNumbers = [],
         array $sponsors = [],
         array $contextTags = [],
+        array $actionTags = [],
         ?int $facesDetected = null,
         ?string $error = null
     ): void
@@ -191,6 +198,7 @@ class FaceRecognitionService
         $jerseyNumbers = collect($jerseyNumbers)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
         $sponsors = collect($sponsors)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
         $contextTags = collect($contextTags)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
+        $actionTags = collect($actionTags)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
         $peopleCount = $facesDetected !== null ? max(0, (int) $facesDetected) : count($people);
         $peopleCountLabel = $this->peopleCountLabel($peopleCount);
         $shotType = $this->shotType($peopleCount);
@@ -212,6 +220,7 @@ class FaceRecognitionService
             'jersey_numbers' => $jerseyNumbers,
             'sponsor_tags' => $sponsors,
             'context_tags' => $contextTags,
+            'action_tags' => $actionTags,
             'people_count' => $peopleCount,
             'people_count_label' => $peopleCountLabel,
             'shot_type' => $shotType,
@@ -288,6 +297,12 @@ class FaceRecognitionService
             ->values()
             ->all();
 
+        $actionTags = collect($message['action_tags'] ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->values()
+            ->all();
+
         $this->applyRecognitionResult(
             $photo,
             $people,
@@ -295,9 +310,36 @@ class FaceRecognitionService
             $jerseyNumbers,
             $sponsors,
             $contextTags,
+            $actionTags,
             isset($message['faces_detected']) ? (int) $message['faces_detected'] : null,
             $message['error'] ?? null
         );
+    }
+
+    private function catalogKeywords(string $settingKey): array
+    {
+        try {
+            $raw = Setting::withoutGlobalScope('tenant')
+                ->whereNull('tenant_id')
+                ->where('key', $settingKey)
+                ->value('value');
+
+            $items = json_decode((string) ($raw ?? '[]'), true);
+
+            if (! is_array($items)) {
+                return [];
+            }
+
+            return collect($items)
+                ->pluck('name')
+                ->filter()
+                ->map(fn ($name) => strtolower(trim((string) $name)))
+                ->unique()
+                ->values()
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     private function pushTask(array $payload): void
