@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Bot, Camera, FolderKanban, ScanFace, Shield, Tags, Ticket, Trash2, UserRound, WandSparkles } from 'lucide-react';
@@ -27,10 +27,10 @@ const CATALOG_META = {
         title: 'Dorsales',
         eyebrow: 'Biblioteca deportiva',
         placeholder: 'Ej. 10, 7, 21',
-        helper: 'Registra dorsales prioritarios para facilitar OCR y filtros por jugador.',
+        helper: 'Opcional. Gemini puede detectar dorsales visibles por patron en camiseta o pantaloneta sin cargar una biblioteca previa.',
         icon: Ticket,
         empty: 'Todavia no hay dorsales cargados.',
-        button: 'Guardar dorsal',
+        button: 'Guardar dorsal opcional',
     },
     context: {
         title: 'Contexto',
@@ -94,7 +94,7 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                             </h2>
                             <p className="mt-3 text-sm leading-7 text-slate-500">
                                 {sportsModeEnabled
-                                    ? 'Desde aqui gestionas toda la biblioteca IA del tenant: rostros, marcas, sponsors, dorsales y escenas clave. Luego el worker usa estas referencias para enriquecer el analisis de las galerias.'
+                                    ? 'Desde aqui gestionas la biblioteca IA del tenant: rostros, marcas, sponsors y escenas clave. Los dorsales Gemini los detecta visualmente sin necesidad de precargarlos.'
                                     : 'Desde aqui gestionas la biblioteca IA del tenant: rostros y referencias visuales base para todo el estudio.'}
                             </p>
                         </div>
@@ -131,14 +131,14 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                     <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                         <StatCard label="Marcas" value={stats.catalog_brands_count || 0} detail="Referencias del tenant" />
                         <StatCard label="Sponsors" value={stats.catalog_sponsors_count || 0} detail="Biblioteca comercial" />
-                        <StatCard label="Dorsales" value={stats.catalog_jerseys_count || 0} detail="Numeros priorizados" />
+                        <StatCard label="Dorsales" value={stats.catalog_jerseys_count || 0} detail="Biblioteca opcional" />
                         <StatCard label="Contextos" value={stats.catalog_context_count || 0} detail="Escenas y objetos clave" />
                     </div>
 
                     {sportsModeEnabled ? (
                         <div className="mt-6 grid gap-4 xl:grid-cols-4">
                             <InsightCard icon={ScanFace} title="Rostros conocidos" description="Entrena protagonistas y arbitros con referencias base del tenant." />
-                            <InsightCard icon={Ticket} title="Dorsales priorizados" description="Mantiene una lista viva de numeros importantes para buscar jugadores rapido." />
+                            <InsightCard icon={Ticket} title="Dorsales automaticos" description="Gemini busca numeros visibles en camiseta o pantaloneta sin depender de una carga previa." />
                             <InsightCard icon={Camera} title="Sponsors y marcas" description="Centraliza referencias comerciales para medir presencia en fotos del partido." />
                             <InsightCard icon={Bot} title="Escenas clave" description="Agrupa contexto como balon, porteria, tarjeta o celebracion para venta y prensa." />
                         </div>
@@ -249,8 +249,8 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                     <form onSubmit={submitCatalog} className="space-y-5 rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Biblioteca IA del tenant</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Subir marcas, sponsors, dorsales y contexto</h3>
-                            <p className="mt-2 text-sm leading-7 text-slate-500">Todo lo que cargues aqui queda centralizado en este tenant y viaja como referencia hacia el pipeline de analisis.</p>
+                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Subir marcas, sponsors y contexto</h3>
+                            <p className="mt-2 text-sm leading-7 text-slate-500">Todo lo que cargues aqui queda centralizado en este tenant y viaja como referencia hacia el pipeline de analisis. Los dorsales son opcionales porque Gemini puede leerlos directo en la imagen.</p>
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">

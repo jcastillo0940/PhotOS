@@ -242,6 +242,8 @@ class GalleryController extends Controller
             'sponsor_tags.*' => 'string|max:80',
             'context_tags' => 'nullable|array',
             'context_tags.*' => 'string|max:80',
+            'action_tags' => 'nullable|array',
+            'action_tags.*' => 'string|max:80',
             'people_count_label' => 'nullable|string|in:1 persona,2 personas,3 personas,4 o mas personas',
         ]);
 
@@ -275,6 +277,12 @@ class GalleryController extends Controller
             ->unique()
             ->values()
             ->all();
+        $actionTags = collect($validated['action_tags'] ?? ($photo->action_tags ?? []))
+            ->map(fn ($tag) => trim((string) $tag))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
         $peopleCountLabel = $validated['people_count_label'] ?? $photo->people_count_label;
         $peopleCount = match ($peopleCountLabel) {
             '1 persona' => 1,
@@ -289,7 +297,7 @@ class GalleryController extends Controller
             ($peopleCount ?? 0) >= 11 => 'foto_de_equipo',
             default => filled($peopleCount) ? 'grupo' : $photo->shot_type,
         };
-        $manualAiMetadata = ! empty($peopleTags) || ! empty($brandTags) || ! empty($jerseyNumbers) || ! empty($sponsorTags) || ! empty($contextTags) || filled($peopleCountLabel);
+        $manualAiMetadata = ! empty($peopleTags) || ! empty($brandTags) || ! empty($jerseyNumbers) || ! empty($sponsorTags) || ! empty($contextTags) || ! empty($actionTags) || filled($peopleCountLabel);
 
         $photo->update([
             'category' => $validated['category'] ?? $photo->category,
@@ -305,6 +313,7 @@ class GalleryController extends Controller
             'jersey_numbers' => $jerseyNumbers,
             'sponsor_tags' => $sponsorTags,
             'context_tags' => $contextTags,
+            'action_tags' => $actionTags,
             'people_count' => $peopleCount,
             'people_count_label' => $peopleCountLabel,
             'shot_type' => $shotType,
@@ -463,6 +472,7 @@ class GalleryController extends Controller
             'jersey_numbers' => [],
             'sponsor_tags' => [],
             'context_tags' => [],
+            'action_tags' => [],
             'people_count' => null,
             'people_count_label' => null,
             'shot_type' => null,
@@ -483,6 +493,7 @@ class GalleryController extends Controller
             'jersey_numbers' => json_encode([]),
             'sponsor_tags' => json_encode([]),
             'context_tags' => json_encode([]),
+            'action_tags' => json_encode([]),
             'people_count' => null,
             'people_count_label' => null,
             'shot_type' => null,

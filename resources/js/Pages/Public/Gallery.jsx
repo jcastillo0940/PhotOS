@@ -331,6 +331,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const [jerseyFilter, setJerseyFilter] = useState('All');
     const [sponsorFilter, setSponsorFilter] = useState('All');
     const [contextFilter, setContextFilter] = useState('All');
+    const [actionFilter, setActionFilter] = useState('All');
     const [showClientAccess, setShowClientAccess] = useState(false);
     const templateCode = galleryTemplate?.code || 'cinematic-dark';
     const styles = TEMPLATE_STYLES[templateCode] || TEMPLATE_STYLES['cinematic-dark'];
@@ -341,6 +342,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const jerseyCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.jersey_numbers || []).filter(Boolean))], [photos]);
     const sponsorCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.sponsor_tags || []).filter(Boolean))], [photos]);
     const contextCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.context_tags || []).filter(Boolean))], [photos]);
+    const actionCategories = useMemo(() => ['All', ...new Set(photos.flatMap(photo => photo.action_tags || []).filter(Boolean))], [photos]);
     const heroPhoto = photos.find(photo => photo.id === project.hero_photo_id) || photos[0];
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
     const isClientView = access?.mode === 'client';
@@ -433,13 +435,18 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
             ? true
             : (photo.context_tags || []).includes(contextFilter);
 
+        const actionMatch = actionFilter === 'All'
+            ? true
+            : (photo.action_tags || []).includes(actionFilter);
+
         return generalMatch
             && peopleMatch
             && (!sportsModeEnabled || brandMatch)
             && peopleCountMatch
             && (!sportsModeEnabled || jerseyMatch)
             && (!sportsModeEnabled || sponsorMatch)
-            && (!sportsModeEnabled || contextMatch);
+            && (!sportsModeEnabled || contextMatch)
+            && (!sportsModeEnabled || actionMatch);
     });
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
@@ -699,6 +706,31 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                                             )}
                                         >
                                             {contextTag}
+                                        </motion.button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {sportsModeEnabled && actionCategories.length > 1 && (
+                            <div className="flex w-full flex-col items-center gap-3">
+                                <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
+                                    <Camera className="h-3.5 w-3.5" />
+                                    Acciones
+                                </div>
+                                <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
+                                    {actionCategories.map((actionTag) => (
+                                        <motion.button
+                                            key={actionTag}
+                                            whileHover={{ scale: 1.05 }}
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => setActionFilter(actionTag)}
+                                            className={clsx(
+                                                'px-6 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.22em] transition-all border whitespace-nowrap',
+                                                actionFilter === actionTag ? styles.filterActive : styles.filterIdle
+                                            )}
+                                        >
+                                            {actionTag}
                                         </motion.button>
                                     ))}
                                 </div>

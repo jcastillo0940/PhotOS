@@ -18,7 +18,7 @@ export default function Gallery({ project, faceRecognition }) {
     const recognitionSummary = faceRecognition?.summary || {};
     const recognitionConfigured = !!faceRecognition?.service_configured;
     const recognitionReady = !!project.face_recognition_enabled && recognitionConfigured && !!faceRecognition?.database_ready;
-    const analyzedPhotos = recognitionSummary.photos_with_people || 0;
+    const analyzedPhotos = recognitionSummary.photos_processed || 0;
     const totalPhotos = (project.photos || []).length;
     const processedPercentage = Math.max(0, Math.min(100, totalPhotos > 0 ? (analyzedPhotos / totalPhotos) * 100 : 0));
     const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
@@ -30,7 +30,10 @@ export default function Gallery({ project, faceRecognition }) {
                 tags: (photo.tags || []).join(', '),
                 people_tags: (photo.people_tags || []).join(', '),
                 brand_tags: (photo.brand_tags || []).join(', '),
+                jersey_numbers: (photo.jersey_numbers || []).join(', '),
                 sponsor_tags: (photo.sponsor_tags || []).join(', '),
+                context_tags: (photo.context_tags || []).join(', '),
+                action_tags: (photo.action_tags || []).join(', '),
                 people_count_label: photo.people_count_label || '',
                 show_on_website: !!photo.show_on_website,
             },
@@ -49,14 +52,20 @@ export default function Gallery({ project, faceRecognition }) {
         const tags = (next.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const peopleTags = (next.people_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const brandTags = (next.brand_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const jerseyNumbers = (next.jersey_numbers || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const sponsorTags = (next.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const contextTags = (next.context_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const actionTags = (next.action_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
 
         router.put(`/admin/projects/${project.id}/photos/${photoId}`, {
             category: tags[0] || 'General',
             tags,
             people_tags: peopleTags,
             brand_tags: brandTags,
+            jersey_numbers: jerseyNumbers,
             sponsor_tags: sponsorTags,
+            context_tags: contextTags,
+            action_tags: actionTags,
             people_count_label: next.people_count_label || null,
             show_on_website: next.show_on_website,
         }, { preserveScroll: true, preserveState: true });
@@ -124,7 +133,7 @@ export default function Gallery({ project, faceRecognition }) {
                                     <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-900">Procesar galeria</h3>
                                     <p className="mt-2 text-sm leading-7 text-slate-500">
                                         {sportsModeEnabled
-                                            ? 'El sistema analiza la galeria completa y detecta rostros, dorsales, marcas, sponsors y contexto automaticamente. No necesitas llenar esos campos foto por foto.'
+                                            ? 'El sistema analiza la galeria completa y detecta rostros, dorsales, marcas, sponsors, contexto y acciones automaticamente. No necesitas llenar esos campos foto por foto.'
                                             : 'El sistema analiza la galeria completa y detecta personas automaticamente. No necesitas editar cada archivo para iniciar el proceso.'}
                                     </p>
                                 </div>
@@ -243,11 +252,38 @@ export default function Gallery({ project, faceRecognition }) {
                                                     />
                                                 </div>
                                                 <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Dorsal</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.jersey_numbers || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { jersey_numbers: event.target.value })}
+                                                        placeholder="10, 7, 21..."
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-2">
                                                     <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sponsor</label>
                                                     <input
                                                         value={photoState[photo.id]?.sponsor_tags || ''}
                                                         onChange={(event) => savePhoto(photo.id, { sponsor_tags: event.target.value })}
                                                         placeholder="Patrocinador principal..."
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Contexto</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.context_tags || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { context_tags: event.target.value })}
+                                                        placeholder="Balon, porteria, arbitro..."
+                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                    />
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Acciones</label>
+                                                    <input
+                                                        value={photoState[photo.id]?.action_tags || ''}
+                                                        onChange={(event) => savePhoto(photo.id, { action_tags: event.target.value })}
+                                                        placeholder="Gol, remate, celebracion..."
                                                         className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
                                                     />
                                                 </div>

@@ -20,8 +20,10 @@ Worker Python para reconocimiento facial asincrono de galerias.
 - `FACE_AI_BRAND_DETECTOR=disabled|heuristic`
 - `FACE_AI_BRAND_KEYWORDS=nike,adidas,puma,...`
 - `FACE_AI_BRAND_API_URL=https://tu-endpoint/logo-detector` (opcional)
-- `FACE_AI_SPORTS_VISION_API_URL=https://tu-endpoint/sports-vision` (OCR dorsales, sponsors, balon, porteria, tarjetas)
+- `FACE_AI_SPORTS_VISION_API_URL=https://tu-endpoint/sports-vision` (opcional, fallback externo)
 - `FACE_AI_CONTEXT_KEYWORDS=ball,goal,goalpost,net,card,referee,celebration`
+- `GEMINI_API_KEY=...`
+- `GEMINI_MODEL=gemini-2.0-flash`
 
 ## Local (Windows / WAMP)
 
@@ -77,6 +79,11 @@ Tambien se incluyen ejemplos alternativos en:
 
 ## Upgrade funcional
 
+El worker ahora combina dos capas:
+
+- `face_recognition` para rostros y cantidad de personas
+- Gemini Flash para sponsors, marcas, dorsales y acciones visuales
+
 El worker ahora devuelve:
 
 - `people_tags`: coincidencias faciales conocidas
@@ -84,6 +91,7 @@ El worker ahora devuelve:
 - `jersey_numbers`: dorsales detectados por OCR/vision
 - `sponsor_tags`: patrocinadores visibles
 - `context_tags`: contexto de juego como `balon`, `porteria`, `tarjeta`, `arbitro`, `festejo`
+- `action_tags`: acciones detectadas por Gemini como `gol`, `remate`, `celebracion`, etc.
 - `people_count` / `people_count_label`: conteo agrupado en `1 persona`, `2 personas`, `3 personas` o `4 o mas personas`
 
 Notas sobre marcas:
@@ -92,10 +100,17 @@ Notas sobre marcas:
 - Si no hay endpoint, puedes activar `FACE_AI_BRAND_DETECTOR=heuristic` como fallback basico por nombre de archivo/URL.
 - El modo por defecto es `disabled` para no prometer deteccion de logos sin un modelo real.
 
-Notas deportivas:
+Notas Gemini:
 
-- `FACE_AI_SPORTS_VISION_API_URL` es la opcion recomendada para produccion si quieres dorsales y contexto con precision real.
-- Sin ese endpoint, el worker solo aplica heuristicas basicas a nombre de archivo/URL para no bloquear el flujo.
+- `GEMINI_API_KEY` activa el analisis visual real dentro del worker.
+- Si no esta configurada, el pipeline facial sigue funcionando y Gemini devuelve listas vacias sin romper nada.
+- Los catalogos de marcas y sponsors se envian desde Laravel segun el tenant activo, asi que cada tenant analiza solo sus referencias.
+- Los dorsales no necesitan catalogo: Gemini puede leer numeros visibles directamente en camiseta o pantaloneta.
+
+Notas deportivas opcionales:
+
+- `FACE_AI_SPORTS_VISION_API_URL` puede seguir usandose como apoyo externo si quieres enriquecer OCR/contexto por otro servicio.
+- Sin ese endpoint, el worker mantiene heuristicas basicas para no bloquear el flujo.
 
 ## Notas
 

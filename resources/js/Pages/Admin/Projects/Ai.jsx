@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
@@ -15,6 +15,7 @@ export default function Ai({ project, faceRecognition }) {
     const [faceRecognitionEnabled, setFaceRecognitionEnabled] = React.useState(!!project.face_recognition_enabled);
     const canUseRecognition = !!faceRecognitionEnabled && !!faceRecognition?.service_configured && !!faceRecognition?.database_ready;
     const recognitionSummary = faceRecognition?.summary || {};
+    const processedPhotos = recognitionSummary.photos_processed || 0;
     const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
 
     const saveMeta = () => {
@@ -179,7 +180,7 @@ export default function Ai({ project, faceRecognition }) {
                             <div className="grid gap-4 sm:grid-cols-2 mt-6">
                                 <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fotos analizadas</p>
-                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.photos_with_people || 0}</p>
+                                    <p className="mt-2 text-3xl font-semibold text-slate-900">{processedPhotos}</p>
                                 </div>
                                 <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Personas halladas</p>
@@ -199,9 +200,13 @@ export default function Ai({ project, faceRecognition }) {
                                             <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sponsors detectados</p>
                                             <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
                                         </div>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
                                             <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Contexto detectado</p>
                                             <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.context_detected_total || 0}</p>
+                                        </div>
+                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Acciones detectadas</p>
+                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.actions_detected_total || 0}</p>
                                         </div>
                                     </>
                                 )}
@@ -227,6 +232,7 @@ export default function Ai({ project, faceRecognition }) {
                                     <SignalLine label="Escenas con jerseys" value={recognitionSummary.photos_with_jerseys || 0} />
                                     <SignalLine label="Escenas con sponsors" value={recognitionSummary.photos_with_sponsors || 0} />
                                     <SignalLine label="Escenas con contexto" value={recognitionSummary.photos_with_context || 0} />
+                                    <SignalLine label="Escenas con acciones" value={recognitionSummary.photos_with_actions || 0} />
                                     <SignalLine label="Escenas con marcas" value={recognitionSummary.photos_with_brands || 0} />
                                 </div>
                             )}
@@ -239,7 +245,7 @@ export default function Ai({ project, faceRecognition }) {
                                             0,
                                             Math.min(
                                                 100,
-                                                ((recognitionSummary.photos_with_people || 0) / Math.max(1, (project.photos || []).length)) * 100
+                                                (processedPhotos / Math.max(1, (project.photos || []).length)) * 100
                                             )
                                         )}%`,
                                     }}
@@ -247,8 +253,8 @@ export default function Ai({ project, faceRecognition }) {
                             </div>
                             <p className="mt-3 text-sm text-slate-500 font-medium">
                                 {sportsModeEnabled
-                                    ? `Progreso deportivo: ${recognitionSummary.photos_with_people || 0} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`
-                                    : `Progreso visual: ${recognitionSummary.photos_with_people || 0} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
+                                    ? `Progreso deportivo: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`
+                                    : `Progreso visual: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
                             </p>
 
                             <div className="mt-8 flex flex-col sm:flex-row gap-3">

@@ -146,10 +146,10 @@ class FaceRecognitionService
                 'vector' => $identity->embedding,
             ])->values()->all(),
 
-            'brand_keywords'   => $this->catalogKeywords('ai_brand_catalog'),
-            'sponsor_keywords' => $this->catalogKeywords('ai_sponsor_catalog'),
-            'jersey_keywords'  => $this->catalogKeywords('ai_jersey_catalog'),
-            'context_keywords' => $this->catalogKeywords('ai_context_catalog'),
+            'brand_keywords'   => $this->catalogKeywords('ai_brand_catalog', $tenant?->id),
+            'sponsor_keywords' => $this->catalogKeywords('ai_sponsor_catalog', $tenant?->id),
+            'jersey_keywords'  => $this->catalogKeywords('ai_jersey_catalog', $tenant?->id),
+            'context_keywords' => $this->catalogKeywords('ai_context_catalog', $tenant?->id),
         ]);
     }
 
@@ -316,13 +316,10 @@ class FaceRecognitionService
         );
     }
 
-    private function catalogKeywords(string $settingKey): array
+    private function catalogKeywords(string $settingKey, ?int $tenantId = null): array
     {
         try {
-            $raw = Setting::withoutGlobalScope('tenant')
-                ->whereNull('tenant_id')
-                ->where('key', $settingKey)
-                ->value('value');
+            $raw = Setting::getForTenant($tenantId, $settingKey, '[]');
 
             $items = json_decode((string) ($raw ?? '[]'), true);
 
