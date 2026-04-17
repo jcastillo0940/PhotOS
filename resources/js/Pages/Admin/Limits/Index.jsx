@@ -1,174 +1,171 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Check, Database, Download, Globe, Lock, Shield, Sparkles } from 'lucide-react';
-import { clsx } from 'clsx';
+import { BadgeCheck, Brain, Database, Globe, Shield, Sparkles, Users } from 'lucide-react';
 
-const ICONS = {
-    storage_limit_gb: Database,
-    weekly_download_limit: Download,
-    allows_custom_domain: Globe,
-    watermark_mode: Shield,
-    retention_days: Lock,
+const formatBoolean = (value, positive = 'Disponible', negative = 'No incluido') => (value ? positive : negative);
+
+const formatMaybeNumber = (value, suffix = '') => {
+    if (value === null || value === undefined) return 'Ilimitado';
+    return `${value}${suffix}`;
 };
 
-export default function Index({ plans, currentPlanCode, currentPlan }) {
-    const comparisons = [
-        {
-            key: 'storage_limit_gb',
-            label: 'Storage por evento',
-            format: (plan) => `${plan.storage_limit_gb} GB`,
-        },
-        {
-            key: 'retention_days',
-            label: 'Retencion de originales',
-            format: (plan) => `${plan.retention_days} dias`,
-        },
-        {
-            key: 'weekly_download_limit',
-            label: 'Descargas por cliente',
-            format: (plan) => `${plan.weekly_download_limit} / semana`,
-        },
-        {
-            key: 'allows_custom_domain',
-            label: 'Custom domain',
-            format: (plan) => (plan.allows_custom_domain ? 'Disponible' : 'No incluido'),
-        },
-        {
-            key: 'watermark_mode',
-            label: 'Marca de agua',
-            format: (plan) => {
-                if (plan.watermark_mode === 'photographer_custom') return 'Personalizable';
-                if (plan.watermark_mode === 'platform_forced') return 'Forzada por plataforma';
-                return plan.watermark_mode;
-            },
-        },
-    ];
+const planSummary = (plan) => [
+    {
+        key: 'storage',
+        label: 'Almacenamiento total',
+        value: formatMaybeNumber(plan?.storage_limit_gb, ' GB'),
+        icon: Database,
+    },
+    {
+        key: 'photos',
+        label: 'Fotos por mes',
+        value: formatMaybeNumber(plan?.photos_per_month),
+        icon: Sparkles,
+    },
+    {
+        key: 'staff',
+        label: 'Usuarios del equipo',
+        value: formatMaybeNumber(plan?.staff_limit),
+        icon: Users,
+    },
+    {
+        key: 'domain',
+        label: 'Custom domain',
+        value: formatBoolean(plan?.allows_custom_domain),
+        icon: Globe,
+    },
+];
+
+const aiCapabilities = (plan) => [
+    {
+        key: 'faces',
+        label: 'Reconocimiento facial',
+        value: formatBoolean(plan?.ai_face_recognition, 'Activo', 'Desactivado'),
+        icon: Brain,
+    },
+    {
+        key: 'sponsors',
+        label: 'Patrocinadores',
+        value: formatBoolean(plan?.ai_sponsor_detection, 'Activo', 'Desactivado'),
+        icon: Shield,
+    },
+    {
+        key: 'ai_quota',
+        label: 'Procesamientos IA por mes',
+        value: formatMaybeNumber(plan?.ai_scans_monthly),
+        icon: Sparkles,
+    },
+    {
+        key: 'sponsor_limit',
+        label: 'Patrocinadores por evento',
+        value: plan?.ai_sponsor_detection ? formatMaybeNumber(plan?.sponsor_selection_limit) : 'No aplica',
+        icon: BadgeCheck,
+    },
+    {
+        key: 'explicit',
+        label: 'Selección explícita requerida',
+        value: plan?.ai_sponsor_detection ? formatBoolean(plan?.requires_explicit_sponsors, 'Sí', 'No') : 'No aplica',
+        icon: Shield,
+    },
+];
+
+function StatCard({ item }) {
+    const Icon = item.icon;
+
+    return (
+        <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
+            <div className="inline-flex items-center gap-3 text-slate-500">
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white">
+                    <Icon className="h-5 w-5" />
+                </span>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
+            </div>
+            <p className="mt-4 text-2xl font-semibold text-slate-900">{item.value}</p>
+        </div>
+    );
+}
+
+export default function Index({ tenant, currentPlanCode, currentPlan }) {
+    const summary = planSummary(currentPlan);
+    const ai = aiCapabilities(currentPlan);
 
     return (
         <AdminLayout>
-            <Head title="Limites y paquetes" />
+            <Head title="Mi plan y limites" />
 
             <div className="space-y-8">
                 <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Installation</p>
-                    <div className="mt-4 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
                         <div>
-                            <h1 className="text-3xl font-semibold text-slate-900">Limites, cuotas y paquetes</h1>
+                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Mi suscripcion</p>
+                            <h1 className="mt-4 text-3xl font-semibold text-slate-900">Tu plan y sus límites operativos</h1>
                             <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-                                Esta vista le sirve al owner para auditar que ofrece cada plan y tambien al fotografo para entender
-                                los limites que impactan sus galerias, contratos, descargas y storage.
+                                Esta vista muestra únicamente el plan activo de tu cuenta para que puedas entender qué funciones tienes habilitadas
+                                y qué límites aplican a tus eventos, almacenamiento e IA.
                             </p>
                         </div>
-                        <div className="rounded-[1.4rem] border border-primary-100 bg-primary-50 px-5 py-4">
+
+                        <div className="rounded-[1.5rem] border border-primary-100 bg-primary-50 px-5 py-4">
                             <p className="text-[11px] uppercase tracking-[0.22em] text-primary-500">Plan activo</p>
-                            <p className="mt-2 text-lg font-semibold text-slate-900">{currentPlan?.name || currentPlanCode}</p>
-                            <p className="mt-1 text-sm text-slate-500">{currentPlan?.price_label}</p>
+                            <p className="mt-2 text-lg font-semibold text-slate-900">{currentPlan?.name || currentPlanCode || 'Sin plan'}</p>
+                            <p className="mt-1 text-sm text-slate-500">Tenant: {tenant?.name || 'No disponible'}</p>
                         </div>
                     </div>
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-2">
-                    {plans.map((plan) => (
-                        <article
-                            key={plan.code}
-                            className={clsx(
-                                'rounded-[2rem] border bg-white p-8 shadow-sm transition-all',
-                                plan.code === currentPlanCode ? 'border-primary-200 ring-2 ring-primary-100' : 'border-slate-200'
-                            )}
-                        >
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">{plan.billing_label}</p>
-                                    <h2 className="mt-3 text-2xl font-semibold text-slate-900">{plan.name}</h2>
-                                    <p className="mt-2 text-sm text-slate-500">{plan.tagline}</p>
-                                </div>
-                                {plan.code === currentPlanCode && (
-                                    <span className="rounded-full bg-primary-500 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white">
-                                        Activo
-                                    </span>
-                                )}
-                            </div>
+                    <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                        <h2 className="text-xl font-semibold text-slate-900">Resumen de tu plan</h2>
+                        <div className="mt-6 grid gap-4 md:grid-cols-2">
+                            {summary.map((item) => (
+                                <StatCard key={item.key} item={item} />
+                            ))}
+                        </div>
+                    </article>
 
-                            <div className="mt-6 grid gap-3">
-                                {comparisons.map((item) => {
-                                    const Icon = ICONS[item.key] || Sparkles;
-
-                                    return (
-                                        <div key={item.key} className="flex items-center justify-between rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
-                                            <div className="inline-flex items-center gap-3 text-slate-600">
-                                                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-slate-500">
-                                                    <Icon className="h-4 w-4" />
-                                                </span>
-                                                <span className="text-sm font-medium">{item.label}</span>
-                                            </div>
-                                            <span className="text-sm font-semibold text-slate-900">{item.format(plan)}</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Highlights</p>
-                                <div className="mt-4 grid gap-3">
-                                    {plan.highlights?.map((highlight) => (
-                                        <div key={highlight} className="inline-flex items-center gap-3 text-sm text-slate-600">
-                                            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-emerald-600">
-                                                <Check className="h-4 w-4" />
-                                            </span>
-                                            {highlight}
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </article>
-                    ))}
+                    <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                        <h2 className="text-xl font-semibold text-slate-900">Capacidades de IA y patrocinadores</h2>
+                        <div className="mt-6 grid gap-4 md:grid-cols-2">
+                            {ai.map((item) => (
+                                <StatCard key={item.key} item={item} />
+                            ))}
+                        </div>
+                    </article>
                 </section>
 
                 <section className="grid gap-6 xl:grid-cols-2">
                     <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                        <h2 className="text-xl font-semibold text-slate-900">Consumo y operacion del fotografo</h2>
-                        <div className="mt-6 grid gap-4 md:grid-cols-2">
+                        <h2 className="text-xl font-semibold text-slate-900">Cómo te impacta este plan</h2>
+                        <div className="mt-6 space-y-4">
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Storage por evento</p>
-                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlan?.storage_limit_gb} GB</p>
+                                <p className="text-sm text-slate-600">
+                                    El almacenamiento total limita cuánto contenido pesado puedes conservar antes de frenar nuevas subidas.
+                                </p>
                             </div>
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Descargas por cliente</p>
-                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlan?.weekly_download_limit} / semana</p>
+                                <p className="text-sm text-slate-600">
+                                    Las fotos y procesamientos IA mensuales determinan cuánto reconocimiento puedes ejecutar durante cada ciclo.
+                                </p>
                             </div>
-                        </div>
-
-                        <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Que debes vigilar</p>
-                            <div className="mt-4 space-y-3">
-                                <p className="text-sm leading-7 text-slate-600">Cada proyecto debe mantenerse dentro del storage contratado para no frenar nuevas subidas.</p>
-                                <p className="text-sm leading-7 text-slate-600">La ventana de retencion define cuanto tiempo permanecen disponibles los originales de alta resolucion.</p>
-                                <p className="text-sm leading-7 text-slate-600">El limite de descargas semanal impacta directamente la experiencia del cliente y conviene revisarlo por proyecto.</p>
+                            <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
+                                <p className="text-sm text-slate-600">
+                                    Si tu plan incluye patrocinadores, debes respetar el máximo permitido por evento y, en planes B2B, seleccionarlos explícitamente.
+                                </p>
                             </div>
                         </div>
                     </article>
 
                     <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                        <h2 className="text-xl font-semibold text-slate-900">Lectura para el cliente</h2>
-                        <div className="mt-6 space-y-4">
+                        <h2 className="text-xl font-semibold text-slate-900">Estado de la cuenta</h2>
+                        <div className="mt-6 grid gap-4">
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-sm text-slate-600">
-                                    Cada galeria hereda los limites del plan activo: storage disponible, tiempo de retencion,
-                                    numero de descargas semanales y si puede tener personalizacion avanzada.
-                                </p>
+                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Código del plan</p>
+                                <p className="mt-3 text-2xl font-semibold text-slate-900">{currentPlanCode || 'No definido'}</p>
                             </div>
                             <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-sm text-slate-600">
-                                    La vista publica de galeria ya puede comunicar estas cuotas para que el cliente entienda
-                                    si tiene originales activos, ventana de descarga y si la galeria completa esta desbloqueada.
-                                </p>
-                            </div>
-                            <div className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5">
-                                <p className="text-sm text-slate-600">
-                                    En cada proyecto el fotografo debe poder ver su consumo actual para decidir si necesita liberar espacio,
-                                    ampliar cuotas o cerrar la ventana de originales.
-                                </p>
+                                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Estado del tenant</p>
+                                <p className="mt-3 text-2xl font-semibold capitalize text-slate-900">{tenant?.status || 'No disponible'}</p>
                             </div>
                         </div>
                     </article>

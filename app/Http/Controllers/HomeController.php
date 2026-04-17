@@ -8,6 +8,7 @@ use App\Support\Tenancy\TenantContext;
 use App\Support\CalendarAvailability;
 use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
+use App\Support\SaasPlanCatalog;
 use App\Support\TenantThemeSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -173,17 +174,78 @@ class HomeController extends Controller
                 ['name' => 'Finanzas y contratos', 'copy' => 'Maneja contratos, pagos parciales, facturas y seguimiento financiero por cliente y proyecto.'],
                 ['name' => 'Automatizacion', 'copy' => 'Dispara tareas, correos y acciones por evento sin depender de herramientas externas.'],
             ],
-            'plans' => [
-                ['name' => 'Basic Vault', 'price' => '$0', 'description' => 'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.', 'items' => ['300 GB de originales', 'IA desactivada', 'Galerias publicas y privadas']],
-                ['name' => 'AI Starter', 'price' => '$29', 'description' => 'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.', 'items' => ['2,000 fotos por mes', 'Reconocimiento facial', 'Sin patrocinadores'], 'featured' => true],
-                ['name' => 'AI Pro', 'price' => '$79', 'description' => 'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.', 'items' => ['6,000 fotos por mes', 'Rostros y patrocinadores', 'Dominio propio']],
-                ['name' => 'AI Business', 'price' => '$149', 'description' => 'Mas volumen, mas staff y hasta 50 patrocinadores por evento.', 'items' => ['20,000 fotos por mes', 'Rostros y patrocinadores', 'Cloudflare for SaaS']],
-            ],
+            'plans' => $this->marketingPlans(),
             'faq' => [
                 ['question' => 'Puedo usar mi propio dominio?', 'answer' => 'Si. El sistema ya esta preparado para dominios custom con Cloudflare for SaaS y onboarding guiado.'],
                 ['question' => 'Cada fotografo tiene su propio home?', 'answer' => 'Si. El dominio principal vende la plataforma y cada tenant conserva su home, galerias, branding y contenido por separado.'],
                 ['question' => 'Sirve para estudios y no solo para un fotografo?', 'answer' => 'Si. La arquitectura soporta tenants, presets, multiusuario y crecimiento hacia SaaS white-label.'],
             ],
+        ];
+    }
+
+    private function marketingPlans(): array
+    {
+        $catalog = SaasPlanCatalog::defaults();
+
+        return [
+            $this->mapMarketingPlan(
+                $catalog['basic'],
+                'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.',
+                [
+                    'Almacenamiento total de 300 GB',
+                    'IA desactivada',
+                    'Galerias publicas y privadas',
+                ]
+            ),
+            $this->mapMarketingPlan(
+                $catalog['starter'],
+                'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.',
+                [
+                    '2,000 fotos por mes',
+                    'Reconocimiento facial',
+                    'Sin patrocinadores',
+                ],
+                true
+            ),
+            $this->mapMarketingPlan(
+                $catalog['pro'],
+                'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.',
+                [
+                    '6,000 fotos por mes',
+                    'Rostros y patrocinadores',
+                    'Dominio propio incluido',
+                ]
+            ),
+            $this->mapMarketingPlan(
+                $catalog['business'],
+                'Mas volumen, mas staff y hasta 50 patrocinadores por evento.',
+                [
+                    '20,000 fotos por mes',
+                    'Rostros y patrocinadores',
+                    'Dominio propio incluido',
+                ]
+            ),
+            $this->mapMarketingPlan(
+                $catalog['enterprise'],
+                'White-label completo para operaciones de alto volumen con patrocinadores ilimitados y dominio propio.',
+                [
+                    '75,000 fotos por mes',
+                    'Patrocinadores ilimitados',
+                    'White-label y dominio propio',
+                ]
+            ),
+        ];
+    }
+
+    private function mapMarketingPlan(array $plan, string $description, array $items, bool $featured = false): array
+    {
+        return [
+            'code' => $plan['code'],
+            'name' => $plan['name'],
+            'price' => '$'.(int) ($plan['price_monthly'] ?? 0),
+            'description' => $description,
+            'items' => $items,
+            'featured' => $featured,
         ];
     }
 
