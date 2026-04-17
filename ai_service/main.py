@@ -330,6 +330,7 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
         ))
         # Actions come exclusively from Gemini (visual detection)
         action_tags = gemini['actions']
+        gemini_tokens = int(gemini.get('tokens', 0))
         # -----------------------------------------------------------------------
 
         if len(unknown_encodings) == 0:
@@ -348,6 +349,7 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
                 'sponsors': all_sponsors,
                 'context_tags': sports_metadata.get('context_tags', []),
                 'action_tags': action_tags,
+                'gemini_tokens': gemini_tokens,
                 'matches': [],
                 'tolerance': float(task.get('tolerance', DEFAULT_TOLERANCE)),
             }
@@ -385,6 +387,7 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
             'sponsors': all_sponsors,
             'context_tags': sports_metadata.get('context_tags', []),
             'action_tags': action_tags,
+            'gemini_tokens': gemini_tokens,
             'matches': matches,
             'tolerance': tolerance,
         }

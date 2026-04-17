@@ -74,6 +74,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
         Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
+        Route::get('/saas/gemini-usage', [SaasTenantController::class, 'geminiUsage'])->name('admin.saas.gemini-usage');
         Route::get('/saas/tenants', [SaasTenantController::class, 'index'])->name('admin.saas.tenants.index');
         Route::post('/saas/tenants', [SaasTenantController::class, 'store'])->name('admin.saas.tenants.store');
         Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');

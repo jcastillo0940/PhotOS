@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { BadgeDollarSign, Building2, Cloud, CreditCard, Globe2, Layers3, ShieldEllipsis, UserRound, Wrench } from 'lucide-react';
+import { BadgeDollarSign, Building2, Cpu, Cloud, CreditCard, Globe2, Layers3, ShieldEllipsis, UserRound, Wrench } from 'lucide-react';
 
 function Stat({ label, value, helper, icon: Icon, tone = 'light' }) {
     const toneClass = tone === 'dark'
@@ -61,6 +61,10 @@ export default function Dashboard({ stats, system, tenants, users, plans, regist
                                 <Link href="/admin/saas/tenants" className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">
                                     <ShieldEllipsis className="h-4 w-4" />
                                     Ver tenants
+                                </Link>
+                                <Link href="/admin/saas/gemini-usage" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white">
+                                    <Cpu className="h-4 w-4" />
+                                    Tokens Gemini
                                 </Link>
                                 <Link href="/admin/settings" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white">
                                     <Wrench className="h-4 w-4" />

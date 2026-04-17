@@ -82,8 +82,9 @@ def analyze_image(
       - action_labels defaults to DEFAULT_ACTIONS; pass [] to disable
       - If GEMINI_API_KEY is absent -> returns all-empty dict immediately
     """
-    empty: dict[str, list[str]] = {
+    empty: dict = {
         'sponsors': [], 'brands': [], 'jersey_numbers': [], 'actions': [],
+        'tokens': 0,
     }
 
     api_key = os.getenv('GEMINI_API_KEY', '').strip()
@@ -127,15 +128,19 @@ def analyze_image(
         )
         response.raise_for_status()
 
+        body = response.json()
         raw_text = (
-            response.json()
+            body
             .get('candidates', [{}])[0]
             .get('content', {})
             .get('parts', [{}])[0]
             .get('text', '{}')
         )
+        usage = body.get('usageMetadata', {})
+        tokens = int(usage.get('totalTokenCount', 0))
 
         result = _parse_result(raw_text)
+        result['tokens'] = tokens
 
         if sponsors:
             result['sponsors'] = _match_catalog(result.get('sponsors', []), sponsors)

@@ -191,7 +191,8 @@ class FaceRecognitionService
         array $contextTags = [],
         array $actionTags = [],
         ?int $facesDetected = null,
-        ?string $error = null
+        ?string $error = null,
+        ?int $geminiTokens = null
     ): void
     {
         $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
@@ -215,7 +216,7 @@ class FaceRecognitionService
             $note = 'Se analizo la foto pero no hubo coincidencias con las personas registradas.';
         }
 
-        $photo->update([
+        $update = [
             'people_tags' => $people,
             'brand_tags' => $brands,
             'jersey_numbers' => $jerseyNumbers,
@@ -228,7 +229,13 @@ class FaceRecognitionService
             'recognition_status' => $status,
             'recognition_note' => $note,
             'recognition_processed_at' => now(),
-        ]);
+        ];
+
+        if ($geminiTokens !== null && $geminiTokens > 0) {
+            $update['gemini_tokens'] = $geminiTokens;
+        }
+
+        $photo->update($update);
     }
 
     private function processIdentityResult(array $message): void
@@ -313,7 +320,8 @@ class FaceRecognitionService
             $contextTags,
             $actionTags,
             isset($message['faces_detected']) ? (int) $message['faces_detected'] : null,
-            $message['error'] ?? null
+            $message['error'] ?? null,
+            isset($message['gemini_tokens']) ? (int) $message['gemini_tokens'] : null
         );
     }
 

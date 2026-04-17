@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Photo;
 use App\Models\SaasRegistration;
 use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use App\Services\Billing\TenantBillingService;
 use App\Services\Saas\CloudflareCustomHostnameService;
 use App\Support\TenantBrandPreset;
@@ -288,6 +290,49 @@ class SaasTenantController extends Controller
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'No se pudo sincronizar el dominio: '.$e->getMessage());
         }
+    }
+
+    public function geminiUsage()
+    {
+        $rows = DB::table('photos')
+            ->whereNotNull('gemini_tokens')
+            ->where('gemini_tokens', '>', 0)
+            ->select(
+                'tenant_id',
+                DB::raw('COUNT(*) as photos_count'),
+                DB::raw('SUM(gemini_tokens) as total_tokens'),
+                DB::raw('AVG(gemini_tokens) as avg_tokens'),
+                DB::raw('MAX(gemini_tokens) as max_tokens'),
+                DB::raw('MIN(gemini_tokens) as min_tokens'),
+            )
+            ->groupBy('tenant_id')
+            ->orderByDesc('total_tokens')
+            ->get();
+
+        $tenantIds = $rows->pluck('tenant_id')->filter()->unique();
+        $tenants = Tenant::withoutGlobalScopes()
+            ->whereIn('id', $tenantIds)
+            ->pluck('name', 'id');
+
+        $totals = [
+            'photos_count' => (int) $rows->sum('photos_count'),
+            'total_tokens' => (int) $rows->sum('total_tokens'),
+        ];
+
+        $data = $rows->map(fn ($row) => [
+            'tenant_id'   => $row->tenant_id,
+            'tenant_name' => $tenants[$row->tenant_id] ?? "Tenant #{$row->tenant_id}",
+            'photos_count' => (int) $row->photos_count,
+            'total_tokens' => (int) $row->total_tokens,
+            'avg_tokens'   => (int) round($row->avg_tokens),
+            'max_tokens'   => (int) $row->max_tokens,
+            'min_tokens'   => (int) $row->min_tokens,
+        ])->values();
+
+        return Inertia::render('Admin/Saas/GeminiUsage', [
+            'rows'   => $data,
+            'totals' => $totals,
+        ]);
     }
 
     private function cloudflarePayload(): array
