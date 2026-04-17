@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\SaasRegistration;
+use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\User;
@@ -160,9 +161,13 @@ class SaasOnboardingController extends Controller
 
     private function plans(): array
     {
-        return collect(SaasPlanCatalog::defaults())
-            ->map(function (array $plan) {
-                $features = $plan['features'] ?? [];
+        return SaasPlan::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get()
+            ->map(function (SaasPlan $plan) {
+                $definition = $plan->resolvedDefinition();
+                $features = $definition['features'] ?? [];
                 $items = [];
 
                 if (($features['storage_gb'] ?? null) !== null) {
@@ -195,15 +200,15 @@ class SaasOnboardingController extends Controller
                 }
 
                 return [
-                    'code' => $plan['code'],
-                    'name' => $plan['name'],
-                    'segment' => $plan['segment'] ?? null,
-                    'monthly_price' => $plan['price_monthly'] ?? 0,
-                    'annual_price' => $plan['price_yearly'] ?? 0,
-                    'description' => $this->planDescription($plan['code']),
+                    'code' => $definition['code'],
+                    'name' => $definition['name'],
+                    'segment' => $definition['segment'] ?? null,
+                    'monthly_price' => $definition['price_monthly'] ?? 0,
+                    'annual_price' => $definition['price_yearly'] ?? 0,
+                    'description' => $this->planDescription($definition['code']),
                     'items' => $items,
                     'features' => $features,
-                    'featured' => $plan['code'] === 'starter',
+                    'featured' => $definition['code'] === 'starter',
                 ];
             })
             ->values()

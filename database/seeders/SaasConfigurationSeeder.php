@@ -40,7 +40,11 @@ class SaasConfigurationSeeder extends Seeder
                 [
                     'name' => $definition['name'],
                     'is_active' => true,
-                    'features' => json_encode($definition['features'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                    'features' => json_encode(array_merge($definition['features'], [
+                        'segment' => $definition['segment'] ?? null,
+                        'price_monthly' => $definition['price_monthly'] ?? 0,
+                        'price_yearly' => $definition['price_yearly'] ?? 0,
+                    ]), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                     'updated_at' => now(),
                     'created_at' => now(),
                 ]

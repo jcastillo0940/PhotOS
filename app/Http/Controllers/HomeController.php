@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Photo;
 use App\Models\Project;
+use App\Models\SaasPlan;
 use App\Support\Tenancy\TenantContext;
 use App\Support\CalendarAvailability;
 use App\Support\EventTypeSettings;
@@ -185,56 +186,23 @@ class HomeController extends Controller
 
     private function marketingPlans(): array
     {
-        $catalog = SaasPlanCatalog::defaults();
+        return SaasPlan::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get()
+            ->map(function (SaasPlan $plan) {
+                $definition = $plan->resolvedDefinition();
+                $features = $definition['features'] ?? [];
 
-        return [
-            $this->mapMarketingPlan(
-                $catalog['basic'],
-                'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.',
-                [
-                    'Almacenamiento total de 300 GB',
-                    'IA desactivada',
-                    'Galerias publicas y privadas',
-                ]
-            ),
-            $this->mapMarketingPlan(
-                $catalog['starter'],
-                'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.',
-                [
-                    '2,000 fotos por mes',
-                    'Reconocimiento facial',
-                    'Sin patrocinadores',
-                ],
-                true
-            ),
-            $this->mapMarketingPlan(
-                $catalog['pro'],
-                'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.',
-                [
-                    '6,000 fotos por mes',
-                    'Rostros y patrocinadores',
-                    'Dominio propio incluido',
-                ]
-            ),
-            $this->mapMarketingPlan(
-                $catalog['business'],
-                'Mas volumen, mas staff y hasta 50 patrocinadores por evento.',
-                [
-                    '20,000 fotos por mes',
-                    'Rostros y patrocinadores',
-                    'Dominio propio incluido',
-                ]
-            ),
-            $this->mapMarketingPlan(
-                $catalog['enterprise'],
-                'White-label completo para operaciones de alto volumen con patrocinadores ilimitados y dominio propio.',
-                [
-                    '75,000 fotos por mes',
-                    'Patrocinadores ilimitados',
-                    'White-label y dominio propio',
-                ]
-            ),
-        ];
+                return $this->mapMarketingPlan(
+                    $definition,
+                    $this->marketingPlanDescription($definition['code']),
+                    $this->marketingPlanItems($definition['code'], $features),
+                    $definition['code'] === 'starter'
+                );
+            })
+            ->values()
+            ->all();
     }
 
     private function mapMarketingPlan(array $plan, string $description, array $items, bool $featured = false): array
@@ -247,6 +215,52 @@ class HomeController extends Controller
             'items' => $items,
             'featured' => $featured,
         ];
+    }
+
+    private function marketingPlanDescription(string $code): string
+    {
+        return match ($code) {
+            'basic' => 'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.',
+            'starter' => 'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.',
+            'pro' => 'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.',
+            'business' => 'Mas volumen, mas staff y hasta 50 patrocinadores por evento.',
+            'enterprise' => 'White-label completo para operaciones de alto volumen con patrocinadores ilimitados y dominio propio.',
+            default => 'Plan SaaS configurable para la operacion de tu estudio.',
+        };
+    }
+
+    private function marketingPlanItems(string $code, array $features): array
+    {
+        return match ($code) {
+            'basic' => [
+                'Almacenamiento total de '.($features['storage_gb'] ?? 0).' GB',
+                'IA desactivada',
+                'Galerias publicas y privadas',
+            ],
+            'starter' => [
+                number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',
+                'Reconocimiento facial',
+                'Sin patrocinadores',
+            ],
+            'pro' => [
+                number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',
+                'Rostros y patrocinadores',
+                'Dominio propio incluido',
+            ],
+            'business' => [
+                number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',
+                'Rostros y patrocinadores',
+                'Dominio propio incluido',
+            ],
+            'enterprise' => [
+                number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',
+                'Patrocinadores ilimitados',
+                'White-label y dominio propio',
+            ],
+            default => [
+                'Plan configurable',
+            ],
+        };
     }
 
     private function temporaryUrlOrFallback(string $path): string

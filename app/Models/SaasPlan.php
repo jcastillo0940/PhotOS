@@ -29,10 +29,19 @@ class SaasPlan extends Model
 
     public function resolvedDefinition(): array
     {
-        return SaasPlanCatalog::for($this->code, [
+        $features = $this->features ?? [];
+        $overrides = [
             'name' => $this->name,
-            'features' => $this->features ?? [],
-        ]);
+            'features' => $features,
+        ];
+
+        foreach (['segment', 'price_monthly', 'price_yearly', 'price_monthly_promo', 'price_yearly_promo'] as $key) {
+            if (array_key_exists($key, $features)) {
+                $overrides[$key] = $features[$key];
+            }
+        }
+
+        return SaasPlanCatalog::for($this->code, $overrides);
     }
 
     public function resolvedFeatures(): array

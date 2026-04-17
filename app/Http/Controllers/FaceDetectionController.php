@@ -308,7 +308,7 @@ class FaceDetectionController extends Controller
         try {
             return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes(30));
         } catch (\Throwable $e) {
-            return $path;
+            return filter_var($path, FILTER_VALIDATE_URL) ? $path : null;
         }
     }
 
