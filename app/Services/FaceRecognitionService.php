@@ -465,7 +465,7 @@ class FaceRecognitionService
 
         $width = imagesx($image);
         $height = imagesy($image);
-        $maxDimension = 2200;
+        $maxDimension = 2000;
 
         if ($width > $maxDimension || $height > $maxDimension) {
             $ratio = min($maxDimension / $width, $maxDimension / $height);
@@ -480,10 +480,10 @@ class FaceRecognitionService
             $image = $resized;
         }
 
-        $quality = 78;
+        $quality = 82;
         imagewebp($image, $optimizedPath, $quality);
 
-        while (@filesize($optimizedPath) > 500 * 1024 && $quality > 50) {
+        while (@filesize($optimizedPath) > 800 * 1024 && $quality > 50) {
             $quality -= 5;
             imagewebp($image, $optimizedPath, $quality);
         }

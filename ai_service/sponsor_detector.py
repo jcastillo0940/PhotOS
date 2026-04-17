@@ -24,7 +24,7 @@ import requests as http
 logger = logging.getLogger(__name__)
 
 GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
-GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.0-flash')
+GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-flash-latest')
 HTTP_TIMEOUT = int(os.getenv('FACE_AI_HTTP_TIMEOUT', '60'))
 
 # Default action labels used when no custom list is supplied.
@@ -113,7 +113,7 @@ def analyze_image(
             }],
             'generationConfig': {
                 'temperature': 0.1,
-                'maxOutputTokens': 512,
+                'maxOutputTokens': 1024,
                 'responseMimeType': 'application/json',
             },
         }
@@ -121,7 +121,7 @@ def analyze_image(
         url = f'{GEMINI_BASE_URL}/{GEMINI_MODEL}:generateContent'
         response = http.post(
             url,
-            params={'key': api_key},
+            headers={'X-goog-api-key': api_key},
             json=payload,
             timeout=HTTP_TIMEOUT,
         )

@@ -332,7 +332,24 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
         # -----------------------------------------------------------------------
 
         if len(unknown_encodings) == 0:
-            raise ValueError('No se detecto ningun rostro en la foto a comparar.')
+            return {
+                'task_type': 'recognize_photo',
+                'tenant_id': task.get('tenant_id'),
+                'project_id': task.get('project_id'),
+                'photo_id': task.get('photo_id'),
+                'status': 'error',
+                'error': 'No se detecto ningun rostro en la foto a comparar.',
+                'faces_detected': 0,
+                'people_count_label': '0 personas',
+                'found_ids': [],
+                'brands': all_brands,
+                'jersey_numbers': all_jersey_numbers,
+                'sponsors': all_sponsors,
+                'context_tags': sports_metadata.get('context_tags', []),
+                'action_tags': action_tags,
+                'matches': [],
+                'tolerance': float(task.get('tolerance', DEFAULT_TOLERANCE)),
+            }
 
         found_ids: set[Any] = set()
         matches: list[dict[str, Any]] = []

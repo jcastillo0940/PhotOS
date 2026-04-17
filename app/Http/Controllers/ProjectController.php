@@ -459,6 +459,8 @@ class ProjectController extends Controller
                     'photos_with_actions' => $project->photos->filter(fn ($photo) => ! empty($photo->action_tags))->count(),
                     'photos_processed' => $project->photos->filter(fn ($photo) => filled($photo->recognition_status) && $photo->recognition_status !== 'pending')->count(),
                     'photos_pending' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
+                    'photos_never_queued' => $project->photos->filter(fn ($photo) => blank($photo->recognition_status))->count(),
+                    'photos_queued_or_stuck' => $project->photos->where('recognition_status', 'pending')->count(),
                     'people_detected_total' => $project->photos->sum(fn ($photo) => count($photo->people_tags ?? [])),
                     'brands_detected_total' => $project->photos->sum(fn ($photo) => count($photo->brand_tags ?? [])),
                     'jerseys_detected_total' => $project->photos->sum(fn ($photo) => count($photo->jersey_numbers ?? [])),

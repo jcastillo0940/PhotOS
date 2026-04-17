@@ -330,7 +330,9 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                             <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
                                                 {identity.scope === 'global' ? 'Global' : identity.project_name || 'Galeria local'}
                                             </p>
-                                            <p className="mt-1 text-sm text-slate-500">{identity.processing_status}</p>
+                                            <p className={`mt-1 text-sm ${identity.processing_status === 'error' ? 'text-rose-500' : 'text-slate-500'}`}>
+                                                {identity.processing_status === 'ready' ? 'Entrenado' : identity.processing_status === 'queued' ? 'Procesando...' : identity.processing_status === 'error' ? 'Error al entrenar' : 'Pendiente'}
+                                            </p>
                                         </div>
                                     </div>
                                     <DeleteButton onClick={() => {

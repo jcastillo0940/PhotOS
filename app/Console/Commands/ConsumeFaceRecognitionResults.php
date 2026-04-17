@@ -26,9 +26,18 @@ class ConsumeFaceRecognitionResults extends Command
                 continue;
             }
 
-            $service->processWorkerResult($message);
-            $processed++;
-            $this->info('Resultado IA procesado.');
+            try {
+                $service->processWorkerResult($message);
+                $processed++;
+                $this->info('Resultado IA procesado.');
+            } catch (\Throwable $e) {
+                $photoId = $message['photo_id'] ?? $message['face_identity_id'] ?? '?';
+                $this->error("Error procesando resultado (id={$photoId}): {$e->getMessage()}");
+                \Illuminate\Support\Facades\Log::error('face-ai:consume-results failed', [
+                    'message' => $message,
+                    'error'   => $e->getMessage(),
+                ]);
+            }
         } while (!$this->option('once'));
 
         $this->line("Mensajes procesados: {$processed}");

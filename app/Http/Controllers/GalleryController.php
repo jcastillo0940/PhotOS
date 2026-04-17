@@ -244,7 +244,7 @@ class GalleryController extends Controller
             'context_tags.*' => 'string|max:80',
             'action_tags' => 'nullable|array',
             'action_tags.*' => 'string|max:80',
-            'people_count_label' => 'nullable|string|in:1 persona,2 personas,3 personas,4 o mas personas',
+            'people_count_label' => 'nullable|string|in:0 personas,1 persona,2 personas,3 personas,4 o mas personas',
         ]);
 
         $peopleTags = collect($validated['people_tags'] ?? ($photo->people_tags ?? []))
@@ -285,6 +285,7 @@ class GalleryController extends Controller
             ->all();
         $peopleCountLabel = $validated['people_count_label'] ?? $photo->people_count_label;
         $peopleCount = match ($peopleCountLabel) {
+            '0 personas' => 0,
             '1 persona' => 1,
             '2 personas' => 2,
             '3 personas' => 3,

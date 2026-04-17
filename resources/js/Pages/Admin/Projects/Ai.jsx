@@ -143,7 +143,9 @@ export default function Ai({ project, faceRecognition }) {
                                             )}
                                             <div>
                                                 <p className="text-sm font-semibold text-slate-900">{identity.name}</p>
-                                                <p className="mt-0.5 text-[11px] text-slate-500">{identity.processing_status === 'processed' ? 'Entrenado' : 'Pendiente'}</p>
+                                                <p className={`mt-0.5 text-[11px] ${identity.processing_status === 'error' ? 'text-rose-500' : 'text-slate-500'}`}>
+                                                    {identity.processing_status === 'ready' ? 'Entrenado' : identity.processing_status === 'queued' ? 'Procesando...' : identity.processing_status === 'error' ? 'Error al entrenar' : 'Pendiente'}
+                                                </p>
                                             </div>
                                         </div>
                                         <button

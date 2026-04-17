@@ -1,33 +1,47 @@
 ﻿import React from 'react';
-import { Head, router, usePage } from '@inertiajs/react';
-import { Camera, ImagePlus, ShieldCheck, UploadCloud } from 'lucide-react';
+import { Head, usePage } from '@inertiajs/react';
+import { Camera, CheckCircle2, ImagePlus, ShieldCheck, UploadCloud, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { usePhotoUploader } from '@/hooks/usePhotoUploader';
 
 export default function ProjectCollaboratorGallery({ workspace }) {
     const { flash } = usePage().props;
     const fileInputRef = React.useRef(null);
-    const [isUploading, setIsUploading] = React.useState(false);
-    const [uploadProgress, setUploadProgress] = React.useState(0);
     const canUpload = !!workspace?.project?.can_upload;
     const photos = workspace?.photos || [];
+    const { state: upload, upload: startUpload } = usePhotoUploader({
+        uploadUrl: `/project-invitations/${workspace.token}/photos`,
+        batchSize: 1,
+        reloadOnly: ['workspace'],
+    });
+
+    const [isDragging, setIsDragging] = React.useState(false);
+    const dragCounter = React.useRef(0);
 
     const uploadPhotos = (files) => {
         if (!files?.length || !canUpload) return;
+        if (fileInputRef.current) fileInputRef.current.value = '';
+        startUpload(files);
+    };
 
-        const formData = new FormData();
-        Array.from(files).forEach((file) => formData.append('photos[]', file));
-        setIsUploading(true);
-
-        router.post(`/project-invitations/${workspace.token}/photos`, formData, {
-            forceFormData: true,
-            preserveScroll: true,
-            onProgress: (event) => setUploadProgress(event?.percentage || 0),
-            onFinish: () => {
-                setIsUploading(false);
-                setUploadProgress(0);
-                if (fileInputRef.current) fileInputRef.current.value = '';
-            },
-        });
+    const handleDragEnter = (e) => {
+        e.preventDefault();
+        dragCounter.current++;
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) setIsDragging(true);
+    };
+    const handleDragLeave = (e) => {
+        e.preventDefault();
+        dragCounter.current--;
+        if (dragCounter.current === 0) setIsDragging(false);
+    };
+    const handleDragOver = (e) => e.preventDefault();
+    const handleDrop = (e) => {
+        e.preventDefault();
+        dragCounter.current = 0;
+        setIsDragging(false);
+        if (!canUpload) return;
+        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
+        if (files.length) uploadPhotos(files);
     };
 
     return (
@@ -59,7 +73,13 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                     </div>
                 </section>
 
-                <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-8 shadow-sm">
+                <section
+                    className={`rounded-[2rem] border bg-white p-8 shadow-sm transition-colors duration-150 ${isDragging ? 'border-slate-400 bg-slate-50 ring-2 ring-slate-300' : 'border-[#e6e0d5]'}`}
+                    onDragEnter={handleDragEnter}
+                    onDragLeave={handleDragLeave}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                >
                     <div className="flex flex-col gap-4 border-b border-[#e6e0d5] pb-6 md:flex-row md:items-center md:justify-between">
                         <div>
                             <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Subida directa</p>
@@ -92,11 +112,11 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                                 </div>
                             </article>
                         )) : (
-                            <div className="col-span-full rounded-[1.8rem] border border-dashed border-[#ddd5c9] bg-slate-50 px-6 py-20 text-center">
-                                <UploadCloud className="mx-auto mb-4 h-12 w-12 text-slate-300" />
-                                <h3 className="text-xl font-semibold text-slate-900">Todavia no hay material cargado</h3>
-                                <p className="mt-2 text-sm text-slate-500">Cuando subas fotos apareceran aqui para confirmar que llegaron al proyecto.</p>
-                                {canUpload && (
+                            <div className={`col-span-full rounded-[1.8rem] border border-dashed px-6 py-20 text-center transition-colors duration-150 ${isDragging ? 'border-slate-400 bg-white' : 'border-[#ddd5c9] bg-slate-50'}`}>
+                                <UploadCloud className={`mx-auto mb-4 h-12 w-12 transition-colors ${isDragging ? 'text-slate-600' : 'text-slate-300'}`} />
+                                <h3 className="text-xl font-semibold text-slate-900">{isDragging ? 'Suelta las fotos aqui' : 'Todavia no hay material cargado'}</h3>
+                                <p className="mt-2 text-sm text-slate-500">{isDragging ? 'Se subiran automaticamente al soltar' : 'Arrastra fotos aqui o busca en tu computadora.'}</p>
+                                {canUpload && !isDragging && (
                                     <button onClick={() => fileInputRef.current?.click()} className="mt-6 rounded-2xl border border-[#ddd5c9] bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
                                         Subir primeras fotos
                                     </button>
@@ -114,16 +134,65 @@ export default function ProjectCollaboratorGallery({ workspace }) {
             </div>
 
             <AnimatePresence>
-                {isUploading && (
+                {(upload.isUploading || upload.isDone) && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
-                        <div className="w-[380px] rounded-[2rem] bg-white p-10 text-center shadow-2xl">
-                            <UploadCloud className="mx-auto mb-4 h-14 w-14 animate-pulse text-slate-900" />
-                            <h2 className="text-xl font-semibold text-slate-900">Subiendo material</h2>
-                            <p className="mt-2 text-sm text-slate-500">Enviando originales y generando versiones web...</p>
-                            <div className="mt-6 h-2 overflow-hidden rounded-full bg-slate-100">
-                                <motion.div className="h-full rounded-full bg-slate-900" initial={{ width: 0 }} animate={{ width: `${uploadProgress || 0}%` }} />
+                        <div className="w-[420px] rounded-[2rem] bg-white p-10 shadow-2xl">
+                            <div className="flex flex-col items-center text-center">
+                                {upload.isDone && upload.failedFiles === 0 ? (
+                                    <CheckCircle2 className="mb-4 h-14 w-14 text-emerald-500" />
+                                ) : upload.isDone ? (
+                                    <XCircle className="mb-4 h-14 w-14 text-rose-500" />
+                                ) : (
+                                    <UploadCloud className="mb-4 h-14 w-14 animate-pulse text-slate-800" />
+                                )}
+                                <h2 className="text-xl font-semibold text-slate-900">
+                                    {upload.isDone ? (upload.failedFiles === 0 ? 'Subida completa' : 'Subida con errores') : 'Subiendo fotos'}
+                                </h2>
+                                <p className="mt-2 text-sm text-slate-500">{upload.statusMessage}</p>
                             </div>
-                            <p className="mt-3 text-sm font-semibold text-slate-900">{Math.round(uploadProgress || 0)}%</p>
+
+                            {upload.isUploading && (
+                                <div className="mt-6 space-y-3">
+                                    <div>
+                                        <div className="mb-1 flex justify-between text-xs text-slate-400">
+                                            <span>Progreso general</span>
+                                            <span className="font-semibold text-slate-600">{upload.uploadedFiles} / {upload.totalFiles} fotos</span>
+                                        </div>
+                                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
+                                            <motion.div
+                                                className="h-full rounded-full bg-slate-800"
+                                                animate={{ width: upload.totalFiles > 0 ? `${Math.round((upload.uploadedFiles / upload.totalFiles) * 100)}%` : '0%' }}
+                                                transition={{ duration: 0.3 }}
+                                            />
+                                        </div>
+                                    </div>
+                                    {upload.totalBatches > 1 && (
+                                        <div>
+                                            <div className="mb-1 flex justify-between text-xs text-slate-400">
+                                                <span>Lote actual {upload.currentBatch} de {upload.totalBatches}</span>
+                                                <span className="font-semibold text-slate-600">{upload.batchProgress}%</span>
+                                            </div>
+                                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
+                                                <motion.div
+                                                    className="h-full rounded-full bg-slate-400"
+                                                    animate={{ width: `${upload.batchProgress}%` }}
+                                                    transition={{ duration: 0.1 }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {upload.isDone && upload.errors.length > 0 && (
+                                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700 space-y-1">
+                                    {upload.errors.map((e, i) => <p key={i}>{e}</p>)}
+                                </div>
+                            )}
+
+                            {!upload.isUploading && (
+                                <p className="mt-4 text-center text-xs text-slate-400">Actualizando galeria...</p>
+                            )}
                         </div>
                     </motion.div>
                 )}
