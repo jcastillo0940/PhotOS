@@ -123,6 +123,9 @@ class FaceRecognitionService
         $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
         $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
 
+        $aiPath = $this->ensureAiPhotoPath($project, $photo);
+        $aiImageUrl = $this->temporaryUrlForR2Path($aiPath);
+
         $photo->update([
             'recognition_status' => 'pending',
             'recognition_note' => 'Foto enviada a cola para reconocimiento facial.',
@@ -139,6 +142,7 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'photo_id' => $photo->id,
             'image_url' => $imageUrl,
+            'ai_image_url' => $aiImageUrl,
 
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
             'database' => $identities->map(fn (FaceIdentity $identity) => [
@@ -500,6 +504,97 @@ class FaceRecognitionService
         while (@filesize($optimizedPath) > 800 * 1024 && $quality > 50) {
             $quality -= 5;
             imagewebp($image, $optimizedPath, $quality);
+        }
+
+        imagedestroy($image);
+    }
+
+    private function ensureAiPhotoPath(Project $project, Photo $photo): string
+    {
+        $baseName = pathinfo($photo->original_path ?: $photo->optimized_path ?: ('photo-'.$photo->id), PATHINFO_FILENAME);
+        $aiPath = $project->aiBucketPrefix().'/'.$baseName.'.webp';
+
+        if (Storage::disk('r2')->exists($aiPath)) {
+            return $aiPath;
+        }
+
+        $sourcePath = $photo->optimized_path ?: $photo->original_path;
+
+        if (!$sourcePath || !Storage::disk('r2')->exists($sourcePath)) {
+            throw new \RuntimeException('No existe archivo base para generar la version AI.');
+        }
+
+        $tempDir = storage_path('app/tmp/face-ai');
+        if (!is_dir($tempDir)) {
+            mkdir($tempDir, 0755, true);
+        }
+
+        $sourceExtension = pathinfo($sourcePath, PATHINFO_EXTENSION) ?: 'webp';
+        $localSource = $tempDir.'/'.uniqid('ai_src_', true).'.'.$sourceExtension;
+        $localAi = $tempDir.'/'.uniqid('ai_', true).'.webp';
+
+        try {
+            file_put_contents($localSource, Storage::disk('r2')->get($sourcePath));
+            $this->createAiWebp($localSource, $localAi);
+
+            Storage::disk('r2')->put($aiPath, fopen($localAi, 'r'), [
+                'ContentType' => 'image/webp',
+            ]);
+
+            return $aiPath;
+        } finally {
+            if (file_exists($localSource)) {
+                @unlink($localSource);
+            }
+            if (file_exists($localAi)) {
+                @unlink($localAi);
+            }
+        }
+    }
+
+    private function createAiWebp(string $originalPath, string $outputPath): void
+    {
+        $imageInfo = @getimagesize($originalPath);
+        $image = null;
+
+        if ($imageInfo) {
+            if ($imageInfo['mime'] === 'image/jpeg') {
+                $image = @imagecreatefromjpeg($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/png') {
+                $image = @imagecreatefrompng($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/webp') {
+                $image = @imagecreatefromwebp($originalPath);
+            }
+        }
+
+        if (!$image) {
+            copy($originalPath, $outputPath);
+            return;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxDimension = 800;
+
+        if ($width > $maxDimension || $height > $maxDimension) {
+            $ratio = min($maxDimension / $width, $maxDimension / $height);
+            $newWidth = max(1, (int) round($width * $ratio));
+            $newHeight = max(1, (int) round($height * $ratio));
+
+            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($image);
+            $image = $resized;
+        }
+
+        $quality = 65;
+        imagewebp($image, $outputPath, $quality);
+
+        while (@filesize($outputPath) > 100 * 1024 && $quality > 40) {
+            $quality -= 5;
+            imagewebp($image, $outputPath, $quality);
         }
 
         imagedestroy($image);

@@ -75,6 +75,11 @@ class Project extends Model
         return 'projects/'.$this->id.'/web';
     }
 
+    public function aiBucketPrefix(): string
+    {
+        return 'projects/'.$this->id.'/ai';
+    }
+
     public function effectiveWeeklyDownloadLimit(): ?int
     {
         if ($this->is_full_gallery_purchased) {

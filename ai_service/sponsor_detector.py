@@ -84,7 +84,7 @@ def analyze_image(
     """
     empty: dict = {
         'sponsors': [], 'brands': [], 'jersey_numbers': [], 'actions': [],
-        'tokens': 0,
+        'tokens': 0, 'faces_detected': 0,
     }
 
     api_key = os.getenv('GEMINI_API_KEY', '').strip()
@@ -129,18 +129,21 @@ def analyze_image(
         response.raise_for_status()
 
         body = response.json()
-        raw_text = (
+        parts = (
             body
             .get('candidates', [{}])[0]
             .get('content', {})
-            .get('parts', [{}])[0]
-            .get('text', '{}')
+            .get('parts', [])
         )
+        raw_text = ''.join(p.get('text', '') for p in parts) if parts else '{}'
         usage = body.get('usageMetadata', {})
-        tokens = int(usage.get('totalTokenCount', 0))
+        prompt_tokens = int(usage.get('promptTokenCount', 0))
+        output_tokens = int(usage.get('candidatesTokenCount', 0))
+        tokens = prompt_tokens + output_tokens
 
         result = _parse_result(raw_text)
         result['tokens'] = tokens
+        result.setdefault('faces_detected', 0)
 
         if sponsors:
             result['sponsors'] = _match_catalog(result.get('sponsors', []), sponsors)
@@ -185,66 +188,41 @@ def _build_prompt(
     sponsors: list[str],
     brands: list[str],
     jerseys: list[str],
-    actions: list[str],
+    actions: list[str],  # kept for API compatibility
 ) -> str:
-    sections: list[str] = [
-        'You are analyzing a sports photograph. '
-        'Reply ONLY with a valid JSON object - no markdown, no explanation.\n'
-        'Use this exact schema:\n'
-        '{\n'
-        '  "sponsors": [],\n'
-        '  "brands": [],\n'
-        '  "jersey_numbers": [],\n'
-        '  "actions": []\n'
-        '}\n',
-    ]
+    sponsors_csv = ','.join(sponsors[:30]) if sponsors else ''
+    brands_csv = ','.join(brands[:20]) if brands else ''
+    jerseys_csv = ','.join(jerseys[:20]) if jerseys else ''
 
-    if sponsors:
-        catalog = ', '.join(f'"{s}"' for s in sponsors)
-        sections.append(
-            f'"sponsors": From this list [{catalog}], '
-            'return only the ones whose logo is CLEARLY visible in the image '
-            '(jersey, banner, equipment, background). '
-            'Use the exact spelling from the list.'
-        )
+    detect_lines = ['1. Faces: count visible human faces']
+
+    if sponsors_csv:
+        detect_lines.append(f'2. Sponsors: logos/text matching: {sponsors_csv}')
     else:
-        sections.append('"sponsors": Always return [].')
+        detect_lines.append('2. Sponsors: return []')
 
-    if brands:
-        catalog = ', '.join(f'"{b}"' for b in brands)
-        sections.append(
-            f'"brands": From this list [{catalog}], '
-            'return only the ones whose logo is CLEARLY visible. '
-            'Use the exact spelling from the list.'
-        )
+    if brands_csv:
+        detect_lines.append(f'3. Brands: visible brands from: {brands_csv}')
     else:
-        sections.append('"brands": Always return [].')
+        detect_lines.append('3. Brands: return []')
 
-    if jerseys:
-        catalog = ', '.join(f'"{j}"' for j in jerseys)
-        sections.append(
-            f'"jersey_numbers": From this list [{catalog}], '
-            'return only the numbers actually visible on players jerseys or shorts. '
-            'Ignore scoreboard, ads, clocks, stands, banners and unrelated numbers.'
-        )
+    if jerseys_csv:
+        detect_lines.append(f'4. Jerseys: team jerseys from: {jerseys_csv}')
     else:
-        sections.append(
-            '"jersey_numbers": Return all one or two digit jersey numbers that are clearly visible '
-            'on players shirts, backs or shorts. Return them as strings. '
-            'Ignore scoreboard, ads, clocks, banners and any non-uniform numbers.'
-        )
+        detect_lines.append('4. Jerseys: any one or two digit number visible on player uniforms')
 
-    if actions:
-        labels = ', '.join(f'"{a}"' for a in actions)
-        sections.append(
-            f'"actions": From this list [{labels}], '
-            'return all labels that accurately describe what is happening in the image. '
-            'You may return multiple. Use the exact spelling from the list.'
-        )
-    else:
-        sections.append('"actions": Always return [].')
+    detect_section = '\n'.join(detect_lines)
 
-    return '\n\n'.join(sections)
+    return (
+        'Analyze image. Respond ONLY valid JSON, no markdown.\n\n'
+        f'DETECT:\n{detect_section}\n\n'
+        'OUTPUT FORMAT:\n'
+        '{"faces":N,"sponsors":["name",...],"brands":["name",...],"jerseys":["name",...]}\n\n'
+        'RULES:\n'
+        '- Only include items actually visible, not guessed\n'
+        '- Empty array [] if nothing found\n'
+        '- No explanations, no extra fields'
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -252,26 +230,54 @@ def _build_prompt(
 # ---------------------------------------------------------------------------
 
 def _parse_result(text: str) -> dict[str, list[str]]:
-    """Parse Gemini's JSON response, tolerating markdown fences."""
+    """Parse Gemini's JSON response, tolerating markdown fences and truncated JSON."""
     clean = text.strip()
     if clean.startswith('```'):
         clean = re.sub(r'^```[a-z]*\n?', '', clean)
         clean = re.sub(r'\n?```$', '', clean.rstrip())
 
+    parsed = _try_json_loads(clean)
+
+    if parsed is None:
+        logger.warning('No se pudo parsear respuesta Gemini: %s', text[:200])
+        return {'sponsors': [], 'brands': [], 'jersey_numbers': [], 'actions': [], 'faces_detected': 0}
+
+    faces = parsed.get('faces', 0)
+    return {
+        'sponsors': _to_str_list(parsed.get('sponsors')),
+        'brands': _to_str_list(parsed.get('brands')),
+        'jersey_numbers': _to_str_list(parsed.get('jerseys') or parsed.get('jersey_numbers')),
+        'actions': _to_str_list(parsed.get('actions')),
+        'faces_detected': int(faces) if isinstance(faces, (int, float)) else 0,
+    }
+
+
+def _try_json_loads(text: str) -> dict | None:
+    """Try to parse JSON, repairing truncated responses if needed."""
     try:
-        parsed = json.loads(clean)
+        parsed = json.loads(text)
         if isinstance(parsed, dict):
-            return {
-                'sponsors': _to_str_list(parsed.get('sponsors')),
-                'brands': _to_str_list(parsed.get('brands')),
-                'jersey_numbers': _to_str_list(parsed.get('jersey_numbers')),
-                'actions': _to_str_list(parsed.get('actions')),
-            }
+            return parsed
     except (json.JSONDecodeError, ValueError):
         pass
 
-    logger.warning('No se pudo parsear respuesta Gemini: %s', text[:200])
-    return {'sponsors': [], 'brands': [], 'jersey_numbers': [], 'actions': []}
+    # Attempt repair: find the last complete key-value pair and close the object
+    last_brace = text.rfind('"')
+    if last_brace == -1:
+        return None
+
+    # Truncate at the last comma before the incomplete field and close the object
+    last_comma = text.rfind(',')
+    candidate = (text[:last_comma] if last_comma > 0 else text).rstrip() + '}'
+    try:
+        parsed = json.loads(candidate)
+        if isinstance(parsed, dict):
+            logger.warning('JSON truncado reparado (eliminado ultimo campo incompleto)')
+            return parsed
+    except (json.JSONDecodeError, ValueError):
+        pass
+
+    return None
 
 
 def _to_str_list(value: object) -> list[str]:

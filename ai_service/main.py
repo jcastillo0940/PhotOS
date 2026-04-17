@@ -297,6 +297,7 @@ def process_extract_identity(task: dict[str, Any]) -> dict[str, Any]:
 
 def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
     image_path: Path | None = None
+    ai_image_path: Path | None = None
 
     try:
         known_people = parse_database(task.get('database', []))
@@ -310,8 +311,15 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
         brands = normalize_brands(detect_brands(task, image_path) + sports_metadata.get('brands', []))
 
         # --- Gemini Flash visual analysis (additive, does not affect faces) ---
+        ai_url = task.get('ai_image_url', '').strip()
+        if ai_url and sponsor_detector.is_enabled():
+            try:
+                ai_image_path = download_image_to_temp(ai_url)
+            except Exception as exc:
+                print(f'[warn] No se pudo descargar ai_image_url, usando imagen principal: {exc}')
+
         gemini = sponsor_detector.analyze_image(
-            image_path,
+            ai_image_path or image_path,
             sponsor_keywords=task.get('sponsor_keywords') or [],
             brand_keywords=task.get('brand_keywords') or [],
             jersey_catalog=task.get('jersey_keywords') or [],
@@ -403,6 +411,8 @@ def process_recognize_photo(task: dict[str, Any]) -> dict[str, Any]:
     finally:
         if image_path and image_path.exists():
             image_path.unlink(missing_ok=True)
+        if ai_image_path and ai_image_path.exists():
+            ai_image_path.unlink(missing_ok=True)
 
 
 def process_task(task: dict[str, Any]) -> dict[str, Any]:
