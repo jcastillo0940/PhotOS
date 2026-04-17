@@ -2,8 +2,8 @@ import React from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeft, ArrowRight, BadgeCheck, CreditCard, Globe2, ShieldCheck } from 'lucide-react';
 
-export default function SaasSignup({ plans = [], presets = [], paymentGateways = [], centralDomain, selectedPlanCode = 'studio' }) {
-    const featuredPlan = plans.find((plan) => plan.code === selectedPlanCode)?.code || plans.find((plan) => plan.featured)?.code || plans[0]?.code || 'studio';
+export default function SaasSignup({ plans = [], presets = [], paymentGateways = [], centralDomain, selectedPlanCode = 'starter' }) {
+    const featuredPlan = plans.find((plan) => plan.code === selectedPlanCode)?.code || plans.find((plan) => plan.featured)?.code || plans[0]?.code || 'starter';
     const form = useForm({
         studio_name: '',
         slug: '',
@@ -63,7 +63,7 @@ export default function SaasSignup({ plans = [], presets = [], paymentGateways =
 
                         <div className="mt-5">
                             <Field label="Dominio propio (opcional)" value={form.data.requested_domain} onChange={(value) => form.setData('requested_domain', value.toLowerCase())} error={form.errors.requested_domain} placeholder="fotos.tudominio.com" />
-                            <p className="mt-2 text-sm text-[#7d6554]">Si no conectas uno ahora, te dejamos listo un subdominio inicial en `{centralDomain}`.</p>
+                            <p className="mt-2 text-sm text-[#7d6554]">Si no conectas uno ahora, te dejamos listo un subdominio inicial en `{centralDomain}`. Los planes Pro, Business y Enterprise tambien pueden usar dominio propio.</p>
                         </div>
 
                         <label className="mt-6 flex items-start gap-3 rounded-[1.4rem] border border-[#eadbca] bg-[#faf5ef] px-4 py-4 text-sm text-[#5e4a3c]">
@@ -159,3 +159,4 @@ function SelectField({ label, value, onChange, options = [], error }) {
         </div>
     );
 }
+

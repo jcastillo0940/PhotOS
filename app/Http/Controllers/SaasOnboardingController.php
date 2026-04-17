@@ -8,6 +8,7 @@ use App\Models\TenantDomain;
 use App\Models\User;
 use App\Services\Billing\PayPalApiService;
 use App\Services\Billing\TenantBillingService;
+use App\Support\SaasPlanCatalog;
 use App\Support\TenantBrandPreset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -31,7 +32,7 @@ class SaasOnboardingController extends Controller
             'presets' => TenantBrandPreset::options(),
             'paymentGateways' => $this->paymentGateways(),
             'centralDomain' => $this->marketingCentralDomain(),
-            'selectedPlanCode' => (string) $request->query('plan', 'studio'),
+            'selectedPlanCode' => (string) $request->query('plan', 'starter'),
         ]);
     }
 
@@ -57,6 +58,10 @@ class SaasOnboardingController extends Controller
         $selectedPrice = $billingCycle === 'annual'
             ? ($selectedPlan['annual_price'] ?? null)
             : ($selectedPlan['monthly_price'] ?? null);
+        $features = $selectedPlan['features'] ?? [];
+        $requestedDomain = filled($validated['requested_domain'] ?? null)
+            ? Str::lower(trim((string) $validated['requested_domain']))
+            : null;
 
         $tenant = Tenant::create([
             'name' => $validated['studio_name'],
@@ -65,8 +70,9 @@ class SaasOnboardingController extends Controller
             'plan_code' => $validated['plan_code'],
             'billing_email' => $validated['owner_email'],
             'storage_limit_bytes' => 0,
-            'ai_enabled' => true,
-            'custom_domain_enabled' => true,
+            'ai_enabled' => (bool) (($features['ai_face_recognition'] ?? false) || ($features['ai_sponsor_detection'] ?? false)),
+            'custom_domain_enabled' => (bool) ($features['custom_domain'] ?? false),
+            'custom_domain' => (bool) ($features['custom_domain'] ?? false) ? $requestedDomain : null,
             'metadata' => [
                 'created_via' => 'public-saas-onboarding',
                 'billing_cycle' => $validated['billing_cycle'],
@@ -74,6 +80,7 @@ class SaasOnboardingController extends Controller
                 'payment_gateway' => $validated['payment_gateway'] ?? $this->defaultGatewayCode(),
                 'selected_plan_name' => $selectedPlan['name'] ?? $validated['plan_code'],
                 'selected_price' => $selectedPrice,
+                'plan_segment' => $selectedPlan['segment'] ?? null,
             ],
         ]);
 
@@ -93,7 +100,7 @@ class SaasOnboardingController extends Controller
             'name' => $validated['owner_name'],
             'email' => Str::lower(trim((string) $validated['owner_email'])),
             'password' => Hash::make($validated['owner_password']),
-            'role' => 'photographer',
+            'role' => 'owner',
             'email_verified_at' => now(),
         ]);
 
@@ -109,7 +116,7 @@ class SaasOnboardingController extends Controller
             'billing_cycle' => $validated['billing_cycle'],
             'payment_gateway' => $validated['payment_gateway'] ?? $this->defaultGatewayCode(),
             'status' => 'pending_payment',
-            'requested_domain' => $validated['requested_domain'] ?? null,
+            'requested_domain' => $requestedDomain,
             'provisioned_hostname' => $hostname,
             'tenant_id' => $tenant->id,
             'metadata' => [
@@ -118,6 +125,7 @@ class SaasOnboardingController extends Controller
                 'selected_plan_name' => $selectedPlan['name'] ?? $validated['plan_code'],
                 'selected_price' => $selectedPrice,
                 'selected_currency' => 'USD',
+                'plan_segment' => $selectedPlan['segment'] ?? null,
             ],
         ]);
 
@@ -152,34 +160,66 @@ class SaasOnboardingController extends Controller
 
     private function plans(): array
     {
-        return [
-            [
-                'code' => 'starter',
-                'name' => 'STARTER (Free)',
-                'monthly_price' => 0,
-                'annual_price' => 0,
-                'description' => 'Ideal para pruebas y proyectos pequeños.',
-                'items' => ['1 Proyecto activo', '1GB Almacenamiento', '50 escaneos IA / mes', 'Watermark PhotOS'],
-            ],
-            [
-                'code' => 'professional',
-                'name' => 'PROFESSIONAL',
-                'monthly_price' => 29,
-                'annual_price' => 199, // Promo price for 1st year
-                'regular_annual_price' => 290,
-                'description' => 'El mas vendido. Ideal para fotografos independientes.',
-                'items' => ['Proyectos ilimitados', '50GB Almacenamiento', '2,500 escaneos IA / mes', 'Marca de agua propia'],
-                'featured' => true,
-            ],
-            [
-                'code' => 'studio_gold',
-                'name' => 'STUDIO GOLD',
-                'monthly_price' => 59,
-                'annual_price' => 590,
-                'description' => 'Potencia total. Marca blanca y dominios propios.',
-                'items' => ['250GB Almacenamiento', '10,000 escaneos IA / mes', 'Hasta 5 usuarios Staff', 'Dominio Propio (CNAME)'],
-            ],
-        ];
+        return collect(SaasPlanCatalog::defaults())
+            ->map(function (array $plan) {
+                $features = $plan['features'] ?? [];
+                $items = [];
+
+                if (($features['storage_gb'] ?? null) !== null) {
+                    $items[] = ($features['storage_gb']).' GB de almacenamiento original';
+                }
+
+                if (($features['photos_per_month'] ?? null) !== null) {
+                    $items[] = $features['photos_per_month'] > 0
+                        ? number_format((int) $features['photos_per_month']).' fotos por mes'
+                        : 'Sin procesamiento IA mensual';
+                }
+
+                $items[] = ($features['ai_face_recognition'] ?? false)
+                    ? (($features['ai_sponsor_detection'] ?? false)
+                        ? 'IA de rostros y patrocinadores'
+                        : 'IA de reconocimiento facial')
+                    : 'IA desactivada';
+
+                if (($features['custom_domain'] ?? false) === true) {
+                    $items[] = 'Soporte para dominio propio';
+                }
+
+                if (array_key_exists('sponsor_selection_limit', $features)) {
+                    $limit = $features['sponsor_selection_limit'];
+                    if ($limit === null) {
+                        $items[] = 'Patrocinadores ilimitados por evento';
+                    } elseif ((int) $limit > 0) {
+                        $items[] = 'Hasta '.(int) $limit.' patrocinadores por evento';
+                    }
+                }
+
+                return [
+                    'code' => $plan['code'],
+                    'name' => $plan['name'],
+                    'segment' => $plan['segment'] ?? null,
+                    'monthly_price' => $plan['price_monthly'] ?? 0,
+                    'annual_price' => $plan['price_yearly'] ?? 0,
+                    'description' => $this->planDescription($plan['code']),
+                    'items' => $items,
+                    'features' => $features,
+                    'featured' => $plan['code'] === 'starter',
+                ];
+            })
+            ->values()
+            ->all();
+    }
+
+    private function planDescription(string $code): string
+    {
+        return match ($code) {
+            'basic' => 'Boveda basica para fotografos sociales que no necesitan IA.',
+            'starter' => 'Entrada B2C con reconocimiento facial y flujo simple para bodas y sociales.',
+            'pro' => 'Operacion B2B para eventos corporativos y deportivos con patrocinadores.',
+            'business' => 'Mayor volumen mensual y mas patrocinadores por evento para equipos exigentes.',
+            'enterprise' => 'Capacidad alta, patrocinadores ilimitados y lista para cuentas de gran escala.',
+            default => 'Plan SaaS PhotOS.',
+        };
     }
 
     private function paymentGateways(): array
@@ -199,9 +239,10 @@ class SaasOnboardingController extends Controller
     private function marketingCentralDomain(): string
     {
         $domains = array_values(array_filter(Arr::wrap(config('saas.central_domains', [])), function ($domain) {
-            return !in_array($domain, ['localhost', '127.0.0.1'], true);
+            return ! in_array($domain, ['localhost', '127.0.0.1'], true);
         }));
 
         return $domains[0] ?? 'photos.pixelprocr.com';
     }
 }
+

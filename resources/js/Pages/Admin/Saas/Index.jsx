@@ -25,21 +25,28 @@ function TenantCard({ tenant }) {
                         <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">{domain.cf_status || domain.type}</span>
                     </div>
                 ))}
+                {tenant.custom_domain && (
+                    <div className="rounded-2xl border border-dashed border-[#e6e0d5] bg-white px-3 py-2 text-xs text-slate-500">
+                        Dominio preferido: {tenant.custom_domain}
+                    </div>
+                )}
             </div>
         </Link>
     );
 }
 
 export default function Index({ tenants, registrations = [], users = [], plans = [], cloudflare, presets = [] }) {
+    const defaultPlanCode = plans[0]?.code || 'starter';
     const form = useForm({
         name: '',
         slug: '',
         primary_hostname: '',
         billing_email: '',
-        plan_code: 'studio',
+        plan_code: defaultPlanCode,
         owner_name: '',
         owner_email: '',
         owner_password: '',
+        custom_domain: '',
         preset_key: presets[0]?.key || 'editorial-warm',
     });
 
@@ -59,14 +66,14 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                             <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">SaaS multidominio</p>
                             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Tenants, subdominios y dominios propios desde un solo panel.</h2>
                             <p className="mt-3 text-sm leading-7 text-slate-500">
-                                Aqui puedes crear estudios, asignar su dominio principal y preparar el onboarding para Cloudflare for SaaS sin tocar la base de datos manualmente.
+                                Aqui puedes crear tenants con el catalogo SaaS v2, asignar su dominio principal y dejar preparados los planes B2C o B2B sin tocar la base de datos manualmente.
                             </p>
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
                             <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white"><ServerCog className="h-5 w-5 text-slate-700" /></div>
                                 <p className="mt-3 text-sm font-semibold text-slate-900">{tenants.length} tenants registrados</p>
-                                <p className="mt-1 text-xs leading-5 text-slate-500">Cada estudio queda aislado por tenant y dominio.</p>
+                                <p className="mt-1 text-xs leading-5 text-slate-500">Cada tenant queda aislado por dominio, plan y almacenamiento.</p>
                             </div>
                             <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white"><ShieldCheck className="h-5 w-5 text-slate-700" /></div>
@@ -89,7 +96,7 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                             </div>
                             <div>
                                 <p className="text-lg font-semibold text-slate-900">Crear tenant</p>
-                                <p className="text-sm text-slate-500">Un estudio nuevo queda listo con dominio principal y plan base.</p>
+                                <p className="text-sm text-slate-500">Un tenant nuevo queda listo con owner, dominio principal y plan SaaS v2.</p>
                             </div>
                         </div>
 
@@ -102,6 +109,9 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                             </Field>
                             <Field label="Dominio principal o subdominio" error={form.errors.primary_hostname}>
                                 <input value={form.data.primary_hostname} onChange={(e) => form.setData('primary_hostname', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="mono.photos.pixelprocr.com" />
+                            </Field>
+                            <Field label="Dominio custom preferido" error={form.errors.custom_domain}>
+                                <input value={form.data.custom_domain} onChange={(e) => form.setData('custom_domain', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="galeria.monostudio.com" />
                             </Field>
                             <Field label="Correo de facturacion" error={form.errors.billing_email}>
                                 <input type="email" value={form.data.billing_email} onChange={(e) => form.setData('billing_email', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="hola@monostudio.com" />
@@ -117,9 +127,9 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                             </Field>
                             <Field label="Plan" error={form.errors.plan_code}>
                                 <select value={form.data.plan_code} onChange={(e) => form.setData('plan_code', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
-                                    <option value="starter">Starter</option>
-                                    <option value="pro">Pro</option>
-                                    <option value="studio">Studio</option>
+                                    {plans.map((plan) => (
+                                        <option key={plan.code} value={plan.code}>{plan.name}</option>
+                                    ))}
                                 </select>
                             </Field>
                             <Field label="Preset white-label" error={form.errors.preset_key}>
@@ -201,62 +211,6 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                         )}
                     </div>
                 </section>
-
-                <div className="grid gap-6 xl:grid-cols-2">
-                    <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <ShieldCheck className="h-5 w-5 text-slate-500" />
-                            <div>
-                                <p className="text-lg font-semibold text-slate-900">Usuarios globales y de tenants</p>
-                                <p className="text-sm text-slate-500">Visibilidad completa de accesos del sistema.</p>
-                            </div>
-                        </div>
-                        <div className="mt-6 space-y-3">
-                            {users.map((user) => (
-                                <div key={user.id} className="flex items-center justify-between gap-4 rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-4">
-                                    <div className="min-w-0">
-                                        <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
-                                        <p className="truncate text-xs text-slate-500">{user.email}</p>
-                                    </div>
-                                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{user.role}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
-                        <div className="flex items-center gap-3">
-                            <ServerCog className="h-5 w-5 text-slate-500" />
-                            <div>
-                                <p className="text-lg font-semibold text-slate-900">Planes configurados</p>
-                                <p className="text-sm text-slate-500">Base actual de limites dinamicos y presets del SaaS.</p>
-                            </div>
-                        </div>
-                        <div className="mt-6 grid gap-4">
-                            {plans.map((plan) => (
-                                <div key={plan.id} className="rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-slate-900">{plan.name}</p>
-                                            <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">{plan.code}</p>
-                                        </div>
-                                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">
-                                            {plan.is_active ? 'Activo' : 'Inactivo'}
-                                        </span>
-                                    </div>
-                                    <div className="mt-4 grid gap-2 text-xs text-slate-500">
-                                        {Object.entries(plan.features || {}).map(([key, value]) => (
-                                            <div key={key} className="flex items-center justify-between rounded-2xl border border-[#ece5d8] bg-white px-3 py-2">
-                                                <span>{key}</span>
-                                                <span className="font-semibold text-slate-700">{value === null ? 'Ilimitado' : String(value)}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                </div>
             </div>
         </AdminLayout>
     );

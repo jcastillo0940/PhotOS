@@ -22,7 +22,7 @@ class FaceRecognitionService
 
     public function healthCheck(): array
     {
-        if (!$this->enabled()) {
+        if (! $this->enabled()) {
             throw new \RuntimeException('Las colas del motor IA no estan configuradas.');
         }
 
@@ -55,13 +55,21 @@ class FaceRecognitionService
 
     public function dispatchProjectRecognition(Project $project): int
     {
-        $photos = $project->photos()->get(['id']);
+        $photoIds = $project->photos()->pluck('id')->all();
 
-        foreach ($photos as $photo) {
-            DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photo->id, null);
+        if ($project->supportsSponsorDetection() && $project->hasSelectedSponsors()) {
+            foreach (array_chunk($photoIds, 4) as $chunk) {
+                DispatchFaceRecognitionTaskJob::dispatch('recognize_batch', $project->id, null, null, $chunk);
+            }
+
+            return count($photoIds);
         }
 
-        return $photos->count();
+        foreach ($photoIds as $photoId) {
+            DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photoId, null);
+        }
+
+        return count($photoIds);
     }
 
     public function enqueueIdentityExtraction(?Project $project, FaceIdentity $identity): void
@@ -69,7 +77,7 @@ class FaceRecognitionService
         $tenant = $this->resolveTenantForIdentity($project, $identity);
         $imageUrl = $this->temporaryUrlForReferencePath($identity->path_reference);
 
-        if (!$imageUrl) {
+        if (! $imageUrl) {
             $identity->update([
                 'processing_status' => 'error',
                 'processing_note' => 'No se encontro la imagen de referencia para procesar.',
@@ -91,7 +99,6 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'face_identity_id' => $identity->id,
             'image_url' => $imageUrl,
-
             'filename' => basename((string) $identity->path_reference),
         ], $this->identityTaskQueueName());
     }
@@ -111,10 +118,10 @@ class FaceRecognitionService
             return;
         }
 
-        if ($tenant && !$tenant->canConsumeScan()) {
+        if ($tenant && ! $tenant->canConsumeScan()) {
             $photo->update([
                 'recognition_status' => 'error',
-                'recognition_note' => 'Has alcanzado el limite mensual de escaneos IA de tu plan.',
+                'recognition_note' => 'Has alcanzado el limite mensual de fotos procesadas por tu plan.',
                 'recognition_processed_at' => now(),
             ]);
             return;
@@ -122,9 +129,6 @@ class FaceRecognitionService
 
         $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
         $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
-
-        $aiPath = $this->ensureAiPhotoPath($project, $photo);
-        $aiImageUrl = $this->temporaryUrlForR2Path($aiPath);
 
         $photo->update([
             'recognition_status' => 'pending',
@@ -142,19 +146,86 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'photo_id' => $photo->id,
             'image_url' => $imageUrl,
-            'ai_image_url' => $aiImageUrl,
-
+            'ai_image_url' => $imageUrl,
+            'filename' => basename($optimizedPath),
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
             'database' => $identities->map(fn (FaceIdentity $identity) => [
                 'id' => $identity->id,
                 'name' => $identity->name,
                 'vector' => $identity->embedding,
             ])->values()->all(),
+            'sponsor_keywords' => $this->selectedSponsors($project),
+            'supports_sponsors' => $project->supportsSponsorDetection(),
+        ], $this->recognizeTaskQueueName());
+    }
 
-            'brand_keywords'   => $this->catalogKeywords('ai_brand_catalog', $tenant?->id),
-            'sponsor_keywords' => $this->catalogKeywords('ai_sponsor_catalog', $tenant?->id),
-            'jersey_keywords'  => $this->catalogKeywords('ai_jersey_catalog', $tenant?->id),
-            'context_keywords' => $this->catalogKeywords('ai_context_catalog', $tenant?->id),
+    public function enqueueBatchRecognition(Project $project, array $photoIds): void
+    {
+        $tenant = $this->resolveTenant($project);
+        $identities = $this->recognitionIdentities($project);
+        $photos = Photo::withoutGlobalScope('tenant')
+            ->whereIn('id', $photoIds)
+            ->where('project_id', $project->id)
+            ->orderBy('id')
+            ->get();
+
+        if ($photos->isEmpty()) {
+            return;
+        }
+
+        if ($identities->isEmpty()) {
+            $photos->each(fn (Photo $photo) => $photo->update([
+                'recognition_status' => 'error',
+                'recognition_note' => 'No hay personas de referencia listas para comparar.',
+                'recognition_processed_at' => now(),
+            ]));
+            return;
+        }
+
+        if ($tenant && ! $tenant->canConsumeScan($photos->count())) {
+            $photos->each(fn (Photo $photo) => $photo->update([
+                'recognition_status' => 'error',
+                'recognition_note' => 'Has alcanzado el limite mensual de fotos procesadas por tu plan.',
+                'recognition_processed_at' => now(),
+            ]));
+            return;
+        }
+
+        $payloadPhotos = $photos->map(function (Photo $photo) use ($project) {
+            $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
+            $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
+
+            $photo->update([
+                'recognition_status' => 'pending',
+                'recognition_note' => 'Foto enviada a cola para procesamiento IA por mosaico.',
+                'recognition_processed_at' => null,
+            ]);
+
+            return [
+                'photo_id' => $photo->id,
+                'image_url' => $imageUrl,
+                'ai_image_url' => $imageUrl,
+                'filename' => basename($optimizedPath),
+            ];
+        })->values()->all();
+
+        if ($tenant) {
+            $tenant->incrementScanCount(count($payloadPhotos));
+        }
+
+        $this->pushTask([
+            'task_type' => 'recognize_batch',
+            'tenant_id' => $tenant?->id,
+            'project_id' => $project->id,
+            'photos' => $payloadPhotos,
+            'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
+            'database' => $identities->map(fn (FaceIdentity $identity) => [
+                'id' => $identity->id,
+                'name' => $identity->name,
+                'vector' => $identity->embedding,
+            ])->values()->all(),
+            'sponsor_keywords' => $this->selectedSponsors($project),
+            'supports_sponsors' => $project->supportsSponsorDetection(),
         ], $this->recognizeTaskQueueName());
     }
 
@@ -162,7 +233,7 @@ class FaceRecognitionService
     {
         $payload = Redis::connection($this->redisConnection())->blpop($this->resultQueueName(), max(1, $timeout));
 
-        if (!$payload) {
+        if (! $payload) {
             return null;
         }
 
@@ -183,6 +254,15 @@ class FaceRecognitionService
 
         if ($taskType === 'recognize_photo') {
             $this->processPhotoResult($message);
+            return;
+        }
+
+        if ($taskType === 'recognize_batch') {
+            foreach ($message['results'] ?? [] as $result) {
+                if (is_array($result)) {
+                    $this->processPhotoResult($result + ['task_type' => 'recognize_photo']);
+                }
+            }
         }
     }
 
@@ -196,9 +276,10 @@ class FaceRecognitionService
         array $actionTags = [],
         ?int $facesDetected = null,
         ?string $error = null,
-        ?int $geminiTokens = null
-    ): void
-    {
+        ?int $geminiTokens = null,
+        ?string $geminiRequestId = null,
+        ?int $geminiBatchSize = null
+    ): void {
         $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
         $brands = collect($brands)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
         $jerseyNumbers = collect($jerseyNumbers)->map(fn ($value) => trim((string) $value))->filter()->unique()->values()->all();
@@ -212,7 +293,7 @@ class FaceRecognitionService
         if ($error) {
             $status = str_contains(mb_strtolower($error), 'ningun rostro') ? 'no_face' : 'error';
             $note = $error;
-        } elseif (!empty($people)) {
+        } elseif (! empty($people)) {
             $status = 'matched';
             $note = 'Coincidencias detectadas: '.implode(', ', $people).'.';
         } else {
@@ -235,8 +316,16 @@ class FaceRecognitionService
             'recognition_processed_at' => now(),
         ];
 
-        if ($geminiTokens !== null && $geminiTokens > 0) {
+        if ($geminiTokens !== null && $geminiTokens >= 0) {
             $update['gemini_tokens'] = $geminiTokens;
+        }
+
+        if ($geminiRequestId) {
+            $update['gemini_request_id'] = $geminiRequestId;
+        }
+
+        if ($geminiBatchSize !== null) {
+            $update['gemini_batch_size'] = $geminiBatchSize;
         }
 
         $photo->update($update);
@@ -247,14 +336,14 @@ class FaceRecognitionService
         $identityId = (int) ($message['face_identity_id'] ?? 0);
         $identity = FaceIdentity::withoutGlobalScope('tenant')->find($identityId);
 
-        if (!$identity) {
+        if (! $identity) {
             return;
         }
 
         $vector = $message['vector'] ?? null;
         $error = trim((string) ($message['error'] ?? ''));
 
-        if (is_array($vector) && !empty($vector)) {
+        if (is_array($vector) && ! empty($vector)) {
             $identity->update([
                 'embedding' => $vector,
                 'processing_status' => 'ready',
@@ -277,7 +366,7 @@ class FaceRecognitionService
         $photoId = (int) ($message['photo_id'] ?? 0);
         $photo = Photo::withoutGlobalScope('tenant')->find($photoId);
 
-        if (!$photo) {
+        if (! $photo) {
             return;
         }
 
@@ -288,68 +377,29 @@ class FaceRecognitionService
             ->values()
             ->all();
 
-        $brands = collect($message['brands'] ?? [])
-            ->map(fn ($name) => trim((string) $name))
-            ->filter()
-            ->values()
-            ->all();
-        $jerseyNumbers = collect($message['jersey_numbers'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-        $sponsors = collect($message['sponsors'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-        $contextTags = collect($message['context_tags'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-
-        $actionTags = collect($message['action_tags'] ?? [])
-            ->map(fn ($value) => trim((string) $value))
-            ->filter()
-            ->values()
-            ->all();
-
         $this->applyRecognitionResult(
             $photo,
             $people,
-            $brands,
-            $jerseyNumbers,
-            $sponsors,
-            $contextTags,
-            $actionTags,
+            collect($message['brands'] ?? [])->map(fn ($value) => trim((string) $value))->filter()->values()->all(),
+            collect($message['jersey_numbers'] ?? [])->map(fn ($value) => trim((string) $value))->filter()->values()->all(),
+            collect($message['sponsors'] ?? [])->map(fn ($value) => trim((string) $value))->filter()->values()->all(),
+            collect($message['context_tags'] ?? [])->map(fn ($value) => trim((string) $value))->filter()->values()->all(),
+            collect($message['action_tags'] ?? [])->map(fn ($value) => trim((string) $value))->filter()->values()->all(),
             isset($message['faces_detected']) ? (int) $message['faces_detected'] : null,
             $message['error'] ?? null,
-            isset($message['gemini_tokens']) ? (int) $message['gemini_tokens'] : null
+            isset($message['gemini_tokens']) ? (int) $message['gemini_tokens'] : null,
+            $message['gemini_request_id'] ?? null,
+            isset($message['gemini_batch_size']) ? (int) $message['gemini_batch_size'] : null,
         );
     }
 
-    private function catalogKeywords(string $settingKey, ?int $tenantId = null): array
+    private function selectedSponsors(Project $project): array
     {
-        try {
-            $raw = Setting::getForTenant($tenantId, $settingKey, '[]');
-
-            $items = json_decode((string) ($raw ?? '[]'), true);
-
-            if (! is_array($items)) {
-                return [];
-            }
-
-            return collect($items)
-                ->pluck('name')
-                ->filter()
-                ->map(fn ($name) => strtolower(trim((string) $name)))
-                ->unique()
-                ->values()
-                ->all();
-        } catch (\Throwable) {
+        if (! $project->supportsSponsorDetection()) {
             return [];
         }
+
+        return $project->selectedSponsors();
     }
 
     private function pushTask(array $payload, string $queue): void
@@ -418,12 +468,12 @@ class FaceRecognitionService
 
         $sourcePath = $photo->original_path ?: $photo->optimized_path;
 
-        if (!$sourcePath || !Storage::disk('r2')->exists($sourcePath)) {
+        if (! $sourcePath || ! Storage::disk('r2')->exists($sourcePath)) {
             throw new \RuntimeException('No existe archivo base para generar la version optimizada.');
         }
 
         $tempDir = storage_path('app/tmp/face-ai');
-        if (!is_dir($tempDir)) {
+        if (! is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
 
@@ -476,7 +526,7 @@ class FaceRecognitionService
             }
         }
 
-        if (!$image) {
+        if (! $image) {
             copy($originalPath, $optimizedPath);
             return;
         }
@@ -509,97 +559,6 @@ class FaceRecognitionService
         imagedestroy($image);
     }
 
-    private function ensureAiPhotoPath(Project $project, Photo $photo): string
-    {
-        $baseName = pathinfo($photo->original_path ?: $photo->optimized_path ?: ('photo-'.$photo->id), PATHINFO_FILENAME);
-        $aiPath = $project->aiBucketPrefix().'/'.$baseName.'.webp';
-
-        if (Storage::disk('r2')->exists($aiPath)) {
-            return $aiPath;
-        }
-
-        $sourcePath = $photo->optimized_path ?: $photo->original_path;
-
-        if (!$sourcePath || !Storage::disk('r2')->exists($sourcePath)) {
-            throw new \RuntimeException('No existe archivo base para generar la version AI.');
-        }
-
-        $tempDir = storage_path('app/tmp/face-ai');
-        if (!is_dir($tempDir)) {
-            mkdir($tempDir, 0755, true);
-        }
-
-        $sourceExtension = pathinfo($sourcePath, PATHINFO_EXTENSION) ?: 'webp';
-        $localSource = $tempDir.'/'.uniqid('ai_src_', true).'.'.$sourceExtension;
-        $localAi = $tempDir.'/'.uniqid('ai_', true).'.webp';
-
-        try {
-            file_put_contents($localSource, Storage::disk('r2')->get($sourcePath));
-            $this->createAiWebp($localSource, $localAi);
-
-            Storage::disk('r2')->put($aiPath, fopen($localAi, 'r'), [
-                'ContentType' => 'image/webp',
-            ]);
-
-            return $aiPath;
-        } finally {
-            if (file_exists($localSource)) {
-                @unlink($localSource);
-            }
-            if (file_exists($localAi)) {
-                @unlink($localAi);
-            }
-        }
-    }
-
-    private function createAiWebp(string $originalPath, string $outputPath): void
-    {
-        $imageInfo = @getimagesize($originalPath);
-        $image = null;
-
-        if ($imageInfo) {
-            if ($imageInfo['mime'] === 'image/jpeg') {
-                $image = @imagecreatefromjpeg($originalPath);
-            } elseif ($imageInfo['mime'] === 'image/png') {
-                $image = @imagecreatefrompng($originalPath);
-            } elseif ($imageInfo['mime'] === 'image/webp') {
-                $image = @imagecreatefromwebp($originalPath);
-            }
-        }
-
-        if (!$image) {
-            copy($originalPath, $outputPath);
-            return;
-        }
-
-        $width = imagesx($image);
-        $height = imagesy($image);
-        $maxDimension = 800;
-
-        if ($width > $maxDimension || $height > $maxDimension) {
-            $ratio = min($maxDimension / $width, $maxDimension / $height);
-            $newWidth = max(1, (int) round($width * $ratio));
-            $newHeight = max(1, (int) round($height * $ratio));
-
-            $resized = imagecreatetruecolor($newWidth, $newHeight);
-            imagealphablending($resized, false);
-            imagesavealpha($resized, true);
-            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
-            imagedestroy($image);
-            $image = $resized;
-        }
-
-        $quality = 65;
-        imagewebp($image, $outputPath, $quality);
-
-        while (@filesize($outputPath) > 100 * 1024 && $quality > 40) {
-            $quality -= 5;
-            imagewebp($image, $outputPath, $quality);
-        }
-
-        imagedestroy($image);
-    }
-
     private function temporaryUrlForR2Path(string $path): string
     {
         return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes(20));
@@ -614,18 +573,18 @@ class FaceRecognitionService
         if (Str::startsWith($path, ['http://', 'https://'])) {
             return $path;
         }
-        // Favor R2 as primary storage and avoid a mandatory exists() check when signing URLs
+
         try {
             return $this->temporaryUrlForR2Path($path);
         } catch (\Throwable $e) {
-            // Fall through to other disks if R2 fails (e.g. credentials not set)
         }
 
         try {
             if (Storage::disk('public')->exists($path)) {
                 return url(Storage::disk('public')->url($path));
             }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+        }
 
         return null;
     }

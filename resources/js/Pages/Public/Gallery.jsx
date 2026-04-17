@@ -347,6 +347,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
     const isDarkChrome = ['cinematic-dark', 'editorial-frame', 'mono-story'].includes(templateCode);
     const isClientView = access?.mode === 'client';
     const sportsModeEnabled = !!project?.sports_mode_enabled;
+    const sponsorDiscoveryEnabled = !!project?.supports_sponsor_detection && sportsModeEnabled;
     const unlockForm = useForm({
         visitor_name: access?.registered_name || '',
         visitor_email: access?.registered_email || '',
@@ -441,12 +442,12 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
 
         return generalMatch
             && peopleMatch
-            && (!sportsModeEnabled || brandMatch)
+            && (!sponsorDiscoveryEnabled || brandMatch)
             && peopleCountMatch
-            && (!sportsModeEnabled || jerseyMatch)
-            && (!sportsModeEnabled || sponsorMatch)
-            && (!sportsModeEnabled || contextMatch)
-            && (!sportsModeEnabled || actionMatch);
+            && (!sponsorDiscoveryEnabled || jerseyMatch)
+            && (!sponsorDiscoveryEnabled || sponsorMatch)
+            && (!sponsorDiscoveryEnabled || contextMatch)
+            && (!sponsorDiscoveryEnabled || actionMatch);
     });
     const nextPhoto = () => {
         const index = photos.findIndex(p => p.id === selectedPhoto.id);
@@ -587,7 +588,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && brandCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && brandCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -612,7 +613,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && peopleCountCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && peopleCountCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <UserRound className="h-3.5 w-3.5" />
@@ -637,7 +638,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && jerseyCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && jerseyCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <UserRound className="h-3.5 w-3.5" />
@@ -662,7 +663,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && sponsorCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && sponsorCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -687,7 +688,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && contextCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && contextCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -712,7 +713,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                         )}
 
-                        {sportsModeEnabled && actionCategories.length > 1 && (
+                        {sponsorDiscoveryEnabled && actionCategories.length > 1 && (
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
@@ -775,7 +776,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             <div className="w-24 h-24 bg-white/5 border border-white/5 rounded-full flex items-center justify-center mx-auto mb-10">
                                 <LayoutGrid className="w-10 h-10 text-white/10" />
                             </div>
-                            <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografías disponibles</p>
+                            <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografÃ­as disponibles</p>
                         </motion.div>
                     )}
 
@@ -1013,3 +1014,5 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
         </div>
     );
 }
+
+

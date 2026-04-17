@@ -66,16 +66,12 @@ class ProjectController extends Controller
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
 
-        $payload = $this->projectAdminPayload($project);
-
-        return Inertia::render('Admin/Projects/Details', $payload);
+        return Inertia::render('Admin/Projects/Details', $this->projectAdminPayload($project));
     }
 
     public function gallery(Project $project)
     {
-        $payload = $this->projectAdminPayload($project);
-
-        return Inertia::render('Admin/Projects/Gallery', $payload);
+        return Inertia::render('Admin/Projects/Gallery', $this->projectAdminPayload($project));
     }
 
     public function design(Project $project)
@@ -143,6 +139,7 @@ class ProjectController extends Controller
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
             'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
             'face_recognition_enabled' => $this->shouldEnableFaceRecognitionByDefault(),
+            'selected_sponsors' => [],
         ]);
 
         $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
@@ -190,6 +187,7 @@ class ProjectController extends Controller
             'originals_expires_at' => isset($plan['retention_days']) ? now()->addDays($plan['retention_days']) : null,
             'gallery_template_code' => $this->initialGalleryTemplateCode($plan),
             'face_recognition_enabled' => $this->shouldEnableFaceRecognitionByDefault(),
+            'selected_sponsors' => [],
         ]);
 
         $lead->update(['status' => 'project']);
@@ -270,6 +268,8 @@ class ProjectController extends Controller
             'website_category' => 'nullable|string|max:255',
             'website_description' => 'nullable|string|max:1500',
             'face_recognition_enabled' => 'nullable|boolean',
+            'selected_sponsors' => 'nullable|array',
+            'selected_sponsors.*' => 'string|max:80',
         ]);
 
         $payload = [];
@@ -326,6 +326,31 @@ class ProjectController extends Controller
 
         if (array_key_exists('face_recognition_enabled', $validated)) {
             $payload['face_recognition_enabled'] = (bool) $validated['face_recognition_enabled'];
+        }
+
+        if (array_key_exists('selected_sponsors', $validated)) {
+            $selectedSponsors = collect($validated['selected_sponsors'] ?? [])
+                ->map(fn ($value) => trim((string) $value))
+                ->filter()
+                ->unique()
+                ->values();
+
+            if (! $project->supportsSponsorDetection()) {
+                $selectedSponsors = collect();
+            }
+
+            $limit = $project->sponsorSelectionLimit();
+            if ($limit !== null && $selectedSponsors->count() > $limit) {
+                return back(status: 303)->with('error', "Tu plan solo permite seleccionar hasta {$limit} patrocinadores por evento.");
+            }
+
+            if ($project->requiresExplicitSponsors() && $payload['face_recognition_enabled'] ?? $project->face_recognition_enabled) {
+                if ($project->supportsSponsorDetection() && $selectedSponsors->isEmpty()) {
+                    return back(status: 303)->with('error', 'Selecciona al menos un patrocinador antes de activar o ejecutar la IA en este evento.');
+                }
+            }
+
+            $payload['selected_sponsors'] = $selectedSponsors->all();
         }
 
         if (! empty($payload)) {
@@ -398,6 +423,9 @@ class ProjectController extends Controller
 
         $project->load('lead', 'contract', 'invoices', 'photos', 'heroPhoto');
         $serializedPhotos = $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values();
+        $supportsSponsorDetection = $project->supportsSponsorDetection();
+        $sponsorCatalog = $supportsSponsorDetection ? $this->sponsorCatalogForProject() : [];
+        $selectedSponsors = $supportsSponsorDetection ? $project->selectedSponsors() : [];
 
         return [
             'project' => [
@@ -408,6 +436,17 @@ class ProjectController extends Controller
                 'high_res_available' => $project->highResAvailable(),
                 'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
                 'public_gallery_url' => URL::route('public.gallery.show', $project->gallery_token),
+                'selected_sponsors' => $selectedSponsors,
+                'sponsor_catalog' => $sponsorCatalog,
+                'plan_capabilities' => [
+                    'plan_name' => $project->planName(),
+                    'supports_face_recognition' => (bool) $project->tenant?->supportsFaceRecognition(),
+                    'supports_sponsor_detection' => $supportsSponsorDetection,
+                    'sponsor_selection_limit' => $project->sponsorSelectionLimit(),
+                    'requires_explicit_sponsors' => $project->requiresExplicitSponsors(),
+                    'photos_per_month_limit' => $project->tenant?->photosPerMonthLimit(),
+                    'remaining_photo_quota' => $project->tenant?->remainingPhotoProcessingQuota(),
+                ],
                 'permissions' => [
                     'can_upload' => $project->userCan(request()->user(), 'upload'),
                     'can_manage_gallery' => $project->userCan(request()->user(), 'manage_gallery'),
@@ -450,6 +489,8 @@ class ProjectController extends Controller
                     ->where('tenant_id', $project->tenant_id)
                     ->whereNull('project_id')
                     ->count(),
+                'sponsor_catalog' => $sponsorCatalog,
+                'selected_sponsors' => $selectedSponsors,
                 'summary' => [
                     'photos_with_people' => $project->photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
                     'photos_with_brands' => $project->photos->filter(fn ($photo) => ! empty($photo->brand_tags))->count(),
@@ -495,6 +536,23 @@ class ProjectController extends Controller
                 'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
             ],
         ];
+    }
+
+    private function sponsorCatalogForProject(): array
+    {
+        $decoded = json_decode((string) Setting::get('ai_sponsor_catalog', '[]'), true);
+
+        if (! is_array($decoded)) {
+            return [];
+        }
+
+        return collect($decoded)
+            ->filter(fn ($item) => is_array($item) && filled($item['name'] ?? null))
+            ->map(fn (array $item) => trim((string) $item['name']))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 
     private function initialGalleryTemplateCode(array $plan): string
@@ -628,3 +686,4 @@ class ProjectController extends Controller
         ];
     }
 }
+

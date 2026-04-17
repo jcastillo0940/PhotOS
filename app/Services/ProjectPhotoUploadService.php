@@ -57,7 +57,7 @@ class ProjectPhotoUploadService
         $currentOriginalBytes = $project->originalsUsageBytes();
         $maxOriginalsBytes = (int) ($project->planDefinition()['max_originals_bytes'] ?? $project->storage_limit_bytes ?? 0);
 
-        Log::channel('single')->info("[UPLOAD:{$uploadId}] Validación de espacio", [
+        Log::channel('single')->info("[UPLOAD:{$uploadId}] ValidaciÃ³n de espacio", [
             'incoming_bytes' => $incomingOriginalBytes,
             'current_bytes' => $currentOriginalBytes,
             'max_bytes' => $maxOriginalsBytes,
@@ -75,7 +75,7 @@ class ProjectPhotoUploadService
             $fileLabel = "[UPLOAD:{$uploadId}][foto ".($index+1)."/{$incomingFiles} {$file->getClientOriginalName()}]";
             $fileSizeMb = round($file->getSize() / 1048576, 2);
 
-            Log::channel('single')->info("{$fileLabel} Iniciando — {$fileSizeMb}MB mime={$file->getMimeType()}");
+            Log::channel('single')->info("{$fileLabel} Iniciando â€” {$fileSizeMb}MB mime={$file->getMimeType()}");
 
             $safeBaseName = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
             $extension = strtolower($file->getClientOriginalExtension() ?: 'jpg');
@@ -106,7 +106,7 @@ class ProjectPhotoUploadService
             }
 
             // Optimizar a webp
-            Log::channel('single')->info("{$fileLabel} Iniciando optimización WebP", [
+            Log::channel('single')->info("{$fileLabel} Iniciando optimizaciÃ³n WebP", [
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
 
@@ -115,15 +115,15 @@ class ProjectPhotoUploadService
             $optimizedExists = file_exists($absoluteOptimizedPath);
             $optimizedSize = $optimizedExists ? filesize($absoluteOptimizedPath) : 0;
 
-            Log::channel('single')->info("{$fileLabel} Optimización completada", [
+            Log::channel('single')->info("{$fileLabel} OptimizaciÃ³n completada", [
                 'exists' => $optimizedExists,
                 'optimized_size_bytes' => $optimizedSize,
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
 
             if (! $optimizedExists || $optimizedSize === 0) {
-                Log::channel('single')->error("{$fileLabel} Archivo optimizado vacío o inexistente");
-                throw new \RuntimeException("La optimización falló para: {$originalFileName}");
+                Log::channel('single')->error("{$fileLabel} Archivo optimizado vacÃ­o o inexistente");
+                throw new \RuntimeException("La optimizaciÃ³n fallÃ³ para: {$originalFileName}");
             }
 
             $originalR2Path = $project->originalsBucketPrefix()."/{$originalFileName}";
@@ -198,7 +198,7 @@ class ProjectPhotoUploadService
         $imageInfo = @getimagesize($originalPath);
 
         if (! $imageInfo) {
-            Log::channel('single')->warning("{$label} getimagesize falló — copiando original sin optimizar", ['path' => $originalPath]);
+            Log::channel('single')->warning("{$label} getimagesize fallÃ³ â€” copiando original sin optimizar", ['path' => $originalPath]);
             copy($originalPath, $optimizedPath);
             return;
         }
@@ -222,12 +222,12 @@ class ProjectPhotoUploadService
                 $image = @imagecreatefromwebp($originalPath);
             }
         } catch (\Throwable $e) {
-            Log::channel('single')->error("{$label} Excepción al cargar imagen con GD", ['error' => $e->getMessage()]);
+            Log::channel('single')->error("{$label} ExcepciÃ³n al cargar imagen con GD", ['error' => $e->getMessage()]);
             $image = null;
         }
 
         if (! $image) {
-            Log::channel('single')->warning("{$label} GD no pudo cargar la imagen — copiando original sin optimizar (probablemente falta memoria)", [
+            Log::channel('single')->warning("{$label} GD no pudo cargar la imagen â€” copiando original sin optimizar (probablemente falta memoria)", [
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
                 'last_error' => error_get_last(),
             ]);
@@ -267,7 +267,7 @@ class ProjectPhotoUploadService
         $webpResult = @imagewebp($image, $optimizedPath, $quality);
 
         if (! $webpResult) {
-            Log::channel('single')->error("{$label} imagewebp falló al escribir el archivo", [
+            Log::channel('single')->error("{$label} imagewebp fallÃ³ al escribir el archivo", [
                 'optimized_path' => $optimizedPath,
                 'last_error' => error_get_last(),
             ]);
@@ -389,3 +389,4 @@ class ProjectPhotoUploadService
             && filled(config('filesystems.disks.r2.bucket'));
     }
 }
+

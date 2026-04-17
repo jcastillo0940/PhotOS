@@ -3,9 +3,9 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class Photo extends Model
 {
@@ -16,7 +16,7 @@ class Photo extends Model
         'mime_type', 'is_selected', 'show_on_website', 'download_count', 'order_index', 'category', 'tags', 'people_tags',
         'brand_tags', 'jersey_numbers', 'sponsor_tags', 'context_tags', 'action_tags', 'people_count', 'people_count_label', 'shot_type',
         'recognition_status', 'recognition_note', 'recognition_processed_at',
-        'gemini_tokens',
+        'gemini_tokens', 'gemini_request_id', 'gemini_batch_size',
     ];
 
     protected $casts = [
@@ -35,6 +35,7 @@ class Photo extends Model
         'action_tags' => 'array',
         'people_count' => 'integer',
         'gemini_tokens' => 'integer',
+        'gemini_batch_size' => 'integer',
         'recognition_processed_at' => 'datetime',
     ];
 

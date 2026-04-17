@@ -58,6 +58,7 @@ class GalleryController extends Controller
                 'originals_expired' => $project->originalsExpired(),
                 'high_res_available' => $hasClientAccess && $project->highResAvailable(),
                 'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+                'supports_sponsor_detection' => $project->supportsSponsorDetection(),
             ],
             'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess, $selectedPhotoIds))->values(),
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
@@ -265,12 +266,14 @@ class GalleryController extends Controller
             ->unique()
             ->values()
             ->all();
-        $sponsorTags = collect($validated['sponsor_tags'] ?? ($photo->sponsor_tags ?? []))
-            ->map(fn ($tag) => trim((string) $tag))
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
+        $sponsorTags = $project->supportsSponsorDetection()
+            ? collect($validated['sponsor_tags'] ?? ($photo->sponsor_tags ?? []))
+                ->map(fn ($tag) => trim((string) $tag))
+                ->filter()
+                ->unique()
+                ->values()
+                ->all()
+            : [];
         $contextTags = collect($validated['context_tags'] ?? ($photo->context_tags ?? []))
             ->map(fn ($tag) => trim((string) $tag))
             ->filter()
@@ -332,6 +335,10 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Activa primero el reconocimiento facial para esta galeria.');
         }
 
+
+        if (! $project->tenant?->supportsFaceRecognition()) {
+            return back(status: 303)->with('error', 'Tu plan actual no permite registrar rostros para esta galeria.');
+        }
         if (! $this->faceRecognitionService->enabled()) {
             return back(status: 303)->with('error', 'Configura la cola Redis del motor IA antes de registrar personas a reconocer.');
         }
@@ -411,6 +418,10 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
+
+        if ($message = $this->sponsorSelectionError($project)) {
+            return back(status: 303)->with('error', $message);
+        }
         $tenant = $this->tenantContext->tenant();
         $photoCount = $project->photos->count();
 
@@ -451,6 +462,10 @@ class GalleryController extends Controller
             return back(status: 303)->with('error', 'Debes registrar al menos una persona de referencia.');
         }
 
+
+        if ($message = $this->sponsorSelectionError($project)) {
+            return back(status: 303)->with('error', $message);
+        }
         $tenant = $this->tenantContext->tenant();
 
         if ($tenant && ! $tenant->canUseFeature('ai_scans')) {
@@ -709,6 +724,21 @@ class GalleryController extends Controller
             || Setting::get('face_detection_scope', 'project_only') === 'all_galleries';
     }
 
+    private function sponsorSelectionError(Project $project): ?string
+    {
+        if (! $project->supportsSponsorDetection()) {
+            return null;
+        }
+
+        if (! $project->requiresExplicitSponsors()) {
+            return null;
+        }
+
+        return $project->hasSelectedSponsors()
+            ? null
+            : 'Selecciona al menos un patrocinador para este evento antes de ejecutar la IA.';
+    }
+
     private function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void
     {
         $people = collect($people)->map(fn ($name) => trim((string) $name))->filter()->unique()->values()->all();
@@ -732,3 +762,17 @@ class GalleryController extends Controller
         ]);
     }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+

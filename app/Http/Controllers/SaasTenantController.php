@@ -2,17 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Photo;
 use App\Models\SaasRegistration;
 use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use App\Services\Billing\TenantBillingService;
 use App\Services\Saas\CloudflareCustomHostnameService;
 use App\Support\TenantBrandPreset;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
@@ -65,6 +64,7 @@ class SaasTenantController extends Controller
                     'status' => $tenant->status,
                     'plan_code' => $tenant->plan_code,
                     'billing_email' => $tenant->billing_email,
+                    'custom_domain' => $tenant->custom_domain,
                     'storage_limit_bytes' => $tenant->storage_limit_bytes,
                     'billing' => $this->billing->billingStateFor($tenant),
                     'domains' => $tenant->domains->map(fn (TenantDomain $domain) => [
@@ -96,7 +96,7 @@ class SaasTenantController extends Controller
                     'code' => $plan->code,
                     'name' => $plan->name,
                     'is_active' => $plan->is_active,
-                    'features' => $plan->features,
+                    'features' => $plan->resolvedFeatures(),
                 ])
                 ->values(),
             'cloudflare' => $this->cloudflarePayload(),
@@ -116,7 +116,11 @@ class SaasTenantController extends Controller
             'owner_email' => 'required|email|max:255|unique:users,email',
             'owner_password' => 'required|string|min:8|max:255',
             'preset_key' => 'nullable|string|max:100',
+            'custom_domain' => 'nullable|string|max:255',
         ]);
+
+        $plan = SaasPlan::query()->where('code', $validated['plan_code'])->first();
+        $features = $plan?->resolvedFeatures() ?? [];
 
         $tenant = Tenant::create([
             'name' => $validated['name'],
@@ -125,8 +129,9 @@ class SaasTenantController extends Controller
             'plan_code' => $validated['plan_code'],
             'billing_email' => $validated['billing_email'] ?? null,
             'storage_limit_bytes' => 0,
-            'ai_enabled' => true,
-            'custom_domain_enabled' => true,
+            'ai_enabled' => (bool) (($features['ai_face_recognition'] ?? false) || ($features['ai_sponsor_detection'] ?? false)),
+            'custom_domain_enabled' => (bool) ($features['custom_domain'] ?? false),
+            'custom_domain' => (bool) ($features['custom_domain'] ?? false) ? ($validated['custom_domain'] ?? null) : null,
             'metadata' => ['created_via' => 'saas-panel'],
         ]);
 
@@ -144,7 +149,7 @@ class SaasTenantController extends Controller
             'name' => $validated['owner_name'],
             'email' => Str::lower(trim((string) $validated['owner_email'])),
             'password' => Hash::make($validated['owner_password']),
-            'role' => 'photographer',
+            'role' => 'owner',
             'email_verified_at' => now(),
         ]);
 
@@ -174,6 +179,7 @@ class SaasTenantController extends Controller
                 'status' => $tenant->status,
                 'plan_code' => $tenant->plan_code,
                 'billing_email' => $tenant->billing_email,
+                'custom_domain' => $tenant->custom_domain,
                 'storage_limit_bytes' => $tenant->storage_limit_bytes,
                 'website_edit_url' => route('admin.saas.tenants.website.edit', $tenant),
                 'login_url' => 'https://'.($tenant->domains->firstWhere('is_primary', true)?->hostname ?? $tenant->domains->first()?->hostname).'/login',
@@ -190,6 +196,7 @@ class SaasTenantController extends Controller
                     'paypal_subscription_id' => $subscription->paypal_subscription_id,
                     'paypal_plan_id' => $subscription->paypal_plan_id,
                     'current_period_ends_at' => optional($subscription->current_period_ends_at)?->toIso8601String(),
+                    'expires_at' => optional($subscription->expires_at)?->toIso8601String(),
                     'grace_ends_at' => optional($subscription->grace_ends_at)?->toIso8601String(),
                     'manual_override_status' => $subscription->manual_override_status,
                     'manual_override_reason' => $subscription->manual_override_reason,
@@ -242,12 +249,23 @@ class SaasTenantController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'status' => 'required|string|in:active,past_due,suspended,blocked',
+            'status' => 'required|string|in:active,past_due,suspended,blocked,grace_period',
             'plan_code' => 'required|string|exists:saas_plans,code',
             'billing_email' => 'nullable|email|max:255',
+            'custom_domain' => 'nullable|string|max:255',
         ]);
 
-        $tenant->update($validated);
+        $plan = SaasPlan::query()->where('code', $validated['plan_code'])->first();
+        $features = $plan?->resolvedFeatures() ?? [];
+
+        $tenant->update([
+            'name' => $validated['name'],
+            'status' => $validated['status'],
+            'plan_code' => $validated['plan_code'],
+            'billing_email' => $validated['billing_email'] ?? null,
+            'custom_domain_enabled' => (bool) ($features['custom_domain'] ?? false),
+            'custom_domain' => (bool) ($features['custom_domain'] ?? false) ? ($validated['custom_domain'] ?? null) : null,
+        ]);
 
         return redirect()->back()->with('success', 'Tenant actualizado.');
     }
@@ -294,43 +312,53 @@ class SaasTenantController extends Controller
 
     public function geminiUsage()
     {
-        $rows = DB::table('photos')
-            ->whereNotNull('gemini_tokens')
-            ->where('gemini_tokens', '>', 0)
+        $rows = Tenant::withoutGlobalScopes()
+            ->leftJoin('photos', 'photos.tenant_id', '=', 'tenants.id')
             ->select(
-                'tenant_id',
-                DB::raw('COUNT(*) as photos_count'),
-                DB::raw('SUM(gemini_tokens) as total_tokens'),
-                DB::raw('AVG(gemini_tokens) as avg_tokens'),
-                DB::raw('MAX(gemini_tokens) as max_tokens'),
-                DB::raw('MIN(gemini_tokens) as min_tokens'),
+                'tenants.id as tenant_id',
+                'tenants.name as tenant_name',
+                DB::raw("COUNT(CASE WHEN COALESCE(photos.gemini_tokens, 0) > 0 THEN 1 END) as photos_count"),
+                DB::raw('COALESCE(SUM(photos.gemini_tokens), 0) as total_tokens'),
+                DB::raw('COALESCE(AVG(NULLIF(photos.gemini_tokens, 0)), 0) as avg_tokens'),
+                DB::raw('COALESCE(MAX(photos.gemini_tokens), 0) as max_tokens'),
+                DB::raw('COALESCE(MIN(NULLIF(photos.gemini_tokens, 0)), 0) as min_tokens'),
+                DB::raw("COUNT(DISTINCT CASE WHEN photos.gemini_request_id IS NOT NULL AND photos.gemini_request_id <> '' THEN photos.gemini_request_id END) + SUM(CASE WHEN COALESCE(photos.gemini_tokens, 0) > 0 AND (photos.gemini_request_id IS NULL OR photos.gemini_request_id = '') THEN 1 ELSE 0 END) as gemini_requests_count"),
+                DB::raw('COALESCE(SUM(photos.original_bytes), 0) as original_storage_bytes')
             )
-            ->groupBy('tenant_id')
+            ->groupBy('tenants.id', 'tenants.name')
             ->orderByDesc('total_tokens')
             ->get();
-
-        $tenantIds = $rows->pluck('tenant_id')->filter()->unique();
-        $tenants = Tenant::withoutGlobalScopes()
-            ->whereIn('id', $tenantIds)
-            ->pluck('name', 'id');
 
         $totals = [
             'photos_count' => (int) $rows->sum('photos_count'),
             'total_tokens' => (int) $rows->sum('total_tokens'),
+            'gemini_requests_count' => (int) $rows->sum('gemini_requests_count'),
+            'original_storage_bytes' => (int) $rows->sum('original_storage_bytes'),
         ];
 
-        $data = $rows->map(fn ($row) => [
-            'tenant_id'   => $row->tenant_id,
-            'tenant_name' => $tenants[$row->tenant_id] ?? "Tenant #{$row->tenant_id}",
-            'photos_count' => (int) $row->photos_count,
-            'total_tokens' => (int) $row->total_tokens,
-            'avg_tokens'   => (int) round($row->avg_tokens),
-            'max_tokens'   => (int) $row->max_tokens,
-            'min_tokens'   => (int) $row->min_tokens,
-        ])->values();
+        $data = $rows
+            ->filter(fn ($row) => (int) $row->photos_count > 0 || (int) $row->original_storage_bytes > 0)
+            ->map(function ($row) {
+                $photosCount = (int) $row->photos_count;
+                $requestsCount = max(0, (int) $row->gemini_requests_count);
+
+                return [
+                    'tenant_id' => $row->tenant_id,
+                    'tenant_name' => $row->tenant_name ?? "Tenant #{$row->tenant_id}",
+                    'photos_count' => $photosCount,
+                    'total_tokens' => (int) $row->total_tokens,
+                    'avg_tokens' => (int) round((float) $row->avg_tokens),
+                    'max_tokens' => (int) $row->max_tokens,
+                    'min_tokens' => (int) $row->min_tokens,
+                    'gemini_requests_count' => $requestsCount,
+                    'photos_per_request' => $requestsCount > 0 ? round($photosCount / $requestsCount, 2) : 0,
+                    'original_storage_bytes' => (int) $row->original_storage_bytes,
+                ];
+            })
+            ->values();
 
         return Inertia::render('Admin/Saas/GeminiUsage', [
-            'rows'   => $data,
+            'rows' => $data,
             'totals' => $totals,
         ]);
     }
@@ -343,3 +371,4 @@ class SaasTenantController extends Controller
         ];
     }
 }
+

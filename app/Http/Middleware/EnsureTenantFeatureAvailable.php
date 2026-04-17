@@ -13,14 +13,23 @@ class EnsureTenantFeatureAvailable
     {
         $tenant = app(TenantContext::class)->tenant();
 
-        if (!$tenant) {
+        if (! $tenant) {
             return $next($request);
         }
 
-        if (!$tenant->canUseFeature($feature)) {
-            return redirect()->back()->with('error', 'Tu plan actual alcanzo el limite disponible para esta funcion.');
+        if (! $tenant->canUseFeature($feature)) {
+            return redirect()->back()->with('error', $this->messageFor($tenant, $feature));
         }
 
         return $next($request);
+    }
+
+    private function messageFor($tenant, string $feature): string
+    {
+        return match ($feature) {
+            'ai_scans' => 'Tu plan actual no permite procesar mas fotos con IA en este momento.',
+            'sponsor_detection' => 'Tu plan actual no incluye deteccion ni seleccion de patrocinadores.',
+            default => 'Tu plan actual alcanzo el limite disponible para esta funcion.',
+        };
     }
 }

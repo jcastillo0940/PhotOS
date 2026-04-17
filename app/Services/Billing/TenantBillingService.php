@@ -13,6 +13,8 @@ use RuntimeException;
 
 class TenantBillingService
 {
+    private const GRACE_PERIOD_DAYS = 15;
+
     public function __construct(
         private readonly PayPalApiService $paypal,
     ) {
@@ -27,7 +29,7 @@ class TenantBillingService
     {
         $tenant = $registration->tenant;
 
-        if (!$tenant) {
+        if (! $tenant) {
             throw new RuntimeException('La alta SaaS no tiene tenant asociado.');
         }
 
@@ -56,7 +58,7 @@ class TenantBillingService
 
     public function billingStateFor(?Tenant $tenant): array
     {
-        if (!$tenant) {
+        if (! $tenant) {
             return [
                 'status' => 'unknown',
                 'allow_front' => true,
@@ -65,12 +67,13 @@ class TenantBillingService
                 'is_read_only' => false,
                 'banner' => null,
                 'grace_ends_at' => null,
+                'expires_at' => null,
             ];
         }
 
         $subscription = $this->currentSubscription($tenant);
 
-        if (!$subscription) {
+        if (! $subscription) {
             return [
                 'status' => 'unconfigured',
                 'allow_front' => true,
@@ -79,27 +82,25 @@ class TenantBillingService
                 'is_read_only' => false,
                 'banner' => null,
                 'grace_ends_at' => null,
+                'expires_at' => null,
             ];
         }
 
         $now = now();
+        $expiresAt = $subscription->expires_at ?: $subscription->current_period_ends_at;
+        $graceEndsAt = $expiresAt?->copy()->addDays(self::GRACE_PERIOD_DAYS);
         $status = $subscription->manual_override_status ?: $subscription->status;
-        $graceEndsAt = $subscription->grace_ends_at;
         $frontAllowed = true;
         $writeAllowed = true;
         $banner = null;
 
-        if (in_array($status, ['past_due', 'suspended', 'canceled'], true)) {
+        if ($expiresAt && $now->greaterThan($expiresAt)) {
+            $status = 'grace_period';
             $writeAllowed = false;
-            $banner = 'Tu cuenta esta en modo restringido. Puedes revisar el panel, pero no subir ni modificar contenido hasta normalizar el pago.';
-
-            if ($graceEndsAt instanceof Carbon && $now->greaterThan($graceEndsAt)) {
-                $frontAllowed = false;
-            }
+            $banner = 'La suscripcion esta vencida. Las galerias web siguen online, pero el tenant quedo en modo solo lectura hasta renovar.';
         }
 
-        if (in_array($status, ['force_suspended', 'blocked'], true)) {
-            $frontAllowed = false;
+        if (in_array($status, ['force_suspended', 'blocked', 'suspended'], true)) {
             $writeAllowed = false;
             $banner = 'La cuenta esta bloqueada temporalmente. Contacta al administrador del SaaS para reactivarla.';
         }
@@ -109,9 +110,10 @@ class TenantBillingService
             'allow_front' => $frontAllowed,
             'allow_backoffice' => true,
             'allow_write' => $writeAllowed,
-            'is_read_only' => !$writeAllowed,
+            'is_read_only' => ! $writeAllowed,
             'banner' => $banner,
             'grace_ends_at' => optional($graceEndsAt)?->toIso8601String(),
+            'expires_at' => optional($expiresAt)?->toIso8601String(),
             'subscription' => [
                 'id' => $subscription->id,
                 'provider' => $subscription->provider,
@@ -121,7 +123,8 @@ class TenantBillingService
                 'amount' => $subscription->amount,
                 'currency' => $subscription->currency,
                 'current_period_ends_at' => optional($subscription->current_period_ends_at)?->toIso8601String(),
-                'grace_ends_at' => optional($subscription->grace_ends_at)?->toIso8601String(),
+                'expires_at' => optional($expiresAt)?->toIso8601String(),
+                'grace_ends_at' => optional($graceEndsAt)?->toIso8601String(),
                 'paypal_subscription_id' => $subscription->paypal_subscription_id,
                 'manual_override_status' => $subscription->manual_override_status,
                 'manual_override_reason' => $subscription->manual_override_reason,
@@ -133,19 +136,19 @@ class TenantBillingService
     {
         $subscription = $this->ensureFromRegistration($registration);
 
-        if (!$this->paypal->enabled()) {
+        if (! $this->paypal->enabled()) {
             throw new RuntimeException('PayPal no esta configurado en esta instalacion.');
         }
 
         $plan = $this->planDefinition($registration->plan_code, $registration->billing_cycle);
         $productId = $subscription->paypal_product_id;
-        if (!$productId) {
+        if (! $productId) {
             $product = $this->createProductForPlan($plan);
             $productId = $product['id'] ?? null;
         }
 
         $paypalPlanId = $subscription->paypal_plan_id;
-        if (!$paypalPlanId) {
+        if (! $paypalPlanId) {
             $createdPlan = $this->createPlanForDefinition($plan, $productId);
             $paypalPlanId = $createdPlan['id'] ?? null;
         }
@@ -206,7 +209,7 @@ class TenantBillingService
             ?: data_get($event, 'resource.billing_agreement_id')
             ?: data_get($event, 'resource.supplementary_data.related_ids.subscription_id');
 
-        if (!$subscriptionId) {
+        if (! $subscriptionId) {
             return;
         }
 
@@ -215,7 +218,7 @@ class TenantBillingService
             ->latest('id')
             ->first();
 
-        if (!$subscription) {
+        if (! $subscription) {
             return;
         }
 
@@ -225,11 +228,14 @@ class TenantBillingService
 
         DB::transaction(function () use ($subscription, $eventType, $resource, $occurredAt, $event) {
             if (in_array($eventType, ['BILLING.SUBSCRIPTION.ACTIVATED', 'PAYMENT.SALE.COMPLETED', 'PAYMENT.CAPTURE.COMPLETED'], true)) {
+                $periodEnd = $this->nextPeriodEnd($subscription, $occurredAt);
+
                 $subscription->update([
                     'status' => 'active',
                     'starts_at' => $subscription->starts_at ?: $occurredAt,
                     'current_period_starts_at' => $subscription->current_period_starts_at ?: $occurredAt,
-                    'current_period_ends_at' => $this->nextPeriodEnd($subscription, $occurredAt),
+                    'current_period_ends_at' => $periodEnd,
+                    'expires_at' => $periodEnd,
                     'grace_ends_at' => null,
                     'suspended_at' => null,
                     'failed_payments_count' => 0,
@@ -237,25 +243,23 @@ class TenantBillingService
                     'manual_override_reason' => null,
                 ]);
 
-                // Sync tenant status
                 $subscription->tenant?->update(['status' => 'active', 'grace_period_ends_at' => null]);
             }
 
             if (in_array($eventType, ['BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.CANCELLED', 'PAYMENT.SALE.DENIED', 'BILLING.SUBSCRIPTION.PAYMENT.FAILED'], true)) {
-                $graceDays = 3; // Business rule: 3 days grace
                 $status = $eventType === 'BILLING.SUBSCRIPTION.CANCELLED' ? 'canceled' : 'past_due';
-                
+                $graceEndsAt = ($subscription->expires_at ?: now())->copy()->addDays(self::GRACE_PERIOD_DAYS);
+
                 $subscription->update([
                     'status' => $status,
                     'failed_payments_count' => $subscription->failed_payments_count + 1,
-                    'grace_ends_at' => $subscription->grace_ends_at ?: now()->addDays($graceDays),
+                    'grace_ends_at' => $graceEndsAt,
                     'suspended_at' => in_array($eventType, ['BILLING.SUBSCRIPTION.SUSPENDED', 'BILLING.SUBSCRIPTION.CANCELLED'], true) ? now() : $subscription->suspended_at,
                 ]);
 
-                // Sync tenant
                 $subscription->tenant?->update([
-                    'status' => $status,
-                    'grace_period_ends_at' => $subscription->grace_ends_at ?: now()->addDays($graceDays)
+                    'status' => 'grace_period',
+                    'grace_period_ends_at' => $graceEndsAt,
                 ]);
             }
 
@@ -281,7 +285,7 @@ class TenantBillingService
                 'tenant_id' => $tenant->id,
                 'provider' => 'manual',
                 'payment_mode' => 'offline',
-                'plan_code' => $tenant->plan_code ?: 'studio',
+                'plan_code' => $tenant->plan_code ?: 'starter',
                 'billing_cycle' => 'monthly',
                 'status' => 'pending_manual',
                 'currency' => 'USD',
@@ -289,29 +293,36 @@ class TenantBillingService
 
         $action = $payload['action'];
         $note = $payload['note'] ?? null;
-        $paidUntil = !empty($payload['paid_until']) ? Carbon::parse($payload['paid_until']) : null;
+        $paidUntil = ! empty($payload['paid_until']) ? Carbon::parse($payload['paid_until']) : null;
 
         if ($action === 'activate_manual') {
+            $expiresAt = $paidUntil ?: now()->addMonth();
             $subscription->update([
                 'provider' => 'manual',
                 'payment_mode' => 'offline',
                 'status' => 'active',
                 'current_period_starts_at' => now(),
-                'current_period_ends_at' => $paidUntil ?: now()->addMonth(),
+                'current_period_ends_at' => $expiresAt,
+                'expires_at' => $expiresAt,
                 'grace_ends_at' => null,
                 'suspended_at' => null,
                 'manual_override_status' => 'active',
                 'manual_override_reason' => $note,
             ]);
+
+            $tenant->update(['status' => 'active', 'grace_period_ends_at' => null]);
         }
 
         if ($action === 'mark_past_due') {
+            $graceEndsAt = ($subscription->expires_at ?: now())->copy()->addDays(self::GRACE_PERIOD_DAYS);
             $subscription->update([
                 'status' => 'past_due',
-                'grace_ends_at' => now()->addDays(60),
+                'grace_ends_at' => $graceEndsAt,
                 'manual_override_status' => 'past_due',
                 'manual_override_reason' => $note,
             ]);
+
+            $tenant->update(['status' => 'grace_period', 'grace_period_ends_at' => $graceEndsAt]);
         }
 
         if ($action === 'suspend_manual') {
@@ -320,8 +331,10 @@ class TenantBillingService
                 'suspended_at' => now(),
                 'manual_override_status' => 'force_suspended',
                 'manual_override_reason' => $note,
-                'grace_ends_at' => $subscription->grace_ends_at ?: now()->addDays(60),
+                'grace_ends_at' => $subscription->grace_ends_at ?: now()->addDays(self::GRACE_PERIOD_DAYS),
             ]);
+
+            $tenant->update(['status' => 'suspended']);
         }
 
         if ($action === 'resume_auto') {
@@ -331,6 +344,8 @@ class TenantBillingService
                 'status' => $subscription->paypal_subscription_id ? 'active' : 'pending',
                 'suspended_at' => null,
             ]);
+
+            $tenant->update(['status' => 'active']);
         }
 
         TenantSubscriptionTransaction::create([
@@ -351,7 +366,7 @@ class TenantBillingService
 
     public function createVaultSetupToken(Tenant $tenant): array
     {
-        if (!$this->paypal->enabled()) {
+        if (! $this->paypal->enabled()) {
             throw new RuntimeException('PayPal no esta configurado.');
         }
 
@@ -374,11 +389,11 @@ class TenantBillingService
     public function planDefinition(string $planCode, string $billingCycle): array
     {
         $plan = \App\Models\SaasPlan::where('code', $planCode)->first();
-        if (!$plan) {
-            throw new \RuntimeException("El plan {$planCode} no existe en la base de datos.");
+        if (! $plan) {
+            throw new RuntimeException("El plan {$planCode} no existe en la base de datos.");
         }
 
-        $features = $plan->features ?? [];
+        $features = $plan->resolvedFeatures();
         $promoKey = $billingCycle === 'annual' ? 'price_yearly_promo' : 'price_monthly_promo';
         $regularKey = $billingCycle === 'annual' ? 'price_yearly' : 'price_monthly';
 
@@ -407,8 +422,7 @@ class TenantBillingService
         $cycles = [];
         $currency = $plan['currency'] ?? 'USD';
 
-        // Add Promo/Trial Cycle if exists
-        if (!empty($plan['promo_amount'])) {
+        if (! empty($plan['promo_amount'])) {
             $cycles[] = [
                 'frequency' => [
                     'interval_unit' => $plan['billing_cycle'] === 'annual' ? 'YEAR' : 'MONTH',
@@ -416,7 +430,7 @@ class TenantBillingService
                 ],
                 'tenure_type' => 'TRIAL',
                 'sequence' => 1,
-                'total_cycles' => 1, // Only the first cycle is promo
+                'total_cycles' => 1,
                 'pricing_scheme' => [
                     'fixed_price' => [
                         'value' => number_format((float) $plan['promo_amount'], 2, '.', ''),
@@ -426,7 +440,6 @@ class TenantBillingService
             ];
         }
 
-        // Regular Cycle
         $cycles[] = [
             'frequency' => [
                 'interval_unit' => $plan['billing_cycle'] === 'annual' ? 'YEAR' : 'MONTH',
@@ -434,7 +447,7 @@ class TenantBillingService
             ],
             'tenure_type' => 'REGULAR',
             'sequence' => empty($cycles) ? 1 : 2,
-            'total_cycles' => 0, // Infinite until cancel
+            'total_cycles' => 0,
             'pricing_scheme' => [
                 'fixed_price' => [
                     'value' => number_format((float) $plan['amount'], 2, '.', ''),

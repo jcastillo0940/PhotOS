@@ -19,7 +19,7 @@ class Project extends Model
         'downloads_window_started_at', 'extra_download_quota', 'retention_days', 'storage_limit_bytes',
         'is_full_gallery_purchased', 'full_gallery_price', 'originals_expires_at',
         'hero_photo_id', 'hero_focus_x', 'hero_focus_y', 'gallery_template_code',
-        'website_category', 'website_description', 'face_recognition_enabled',
+        'website_category', 'website_description', 'face_recognition_enabled', 'selected_sponsors',
     ];
 
     protected $casts = [
@@ -35,6 +35,7 @@ class Project extends Model
         'retention_days' => 'integer',
         'is_full_gallery_purchased' => 'boolean',
         'face_recognition_enabled' => 'boolean',
+        'selected_sponsors' => 'array',
     ];
 
     public function lead() { return $this->belongsTo(Lead::class); }
@@ -56,13 +57,16 @@ class Project extends Model
 
     public function planDefinition(): array
     {
-        $features = $this->tenant?->plan?->features ?? [];
+        $features = $this->tenant?->planDefinition()['features'] ?? [];
+
         return array_merge(InstallationPlan::current(), $features);
     }
 
     public function planName(): string
     {
-        return $this->planDefinition()['name'] ?? 'Plan';
+        return $this->tenant?->planDefinition()['name']
+            ?? $this->planDefinition()['name']
+            ?? 'Plan';
     }
 
     public function originalsBucketPrefix(): string
@@ -73,11 +77,6 @@ class Project extends Model
     public function webBucketPrefix(): string
     {
         return 'projects/'.$this->id.'/web';
-    }
-
-    public function aiBucketPrefix(): string
-    {
-        return 'projects/'.$this->id.'/ai';
     }
 
     public function effectiveWeeklyDownloadLimit(): ?int
@@ -146,6 +145,36 @@ class Project extends Model
         }
 
         return GalleryTemplate::resolve($selectedCode);
+    }
+
+    public function selectedSponsors(): array
+    {
+        return collect($this->selected_sponsors ?? [])
+            ->map(fn ($value) => trim((string) $value))
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function supportsSponsorDetection(): bool
+    {
+        return (bool) $this->tenant?->supportsSponsorDetection();
+    }
+
+    public function sponsorSelectionLimit(): ?int
+    {
+        return $this->tenant?->maxSelectableSponsors();
+    }
+
+    public function requiresExplicitSponsors(): bool
+    {
+        return (bool) $this->tenant?->requiresExplicitSponsors();
+    }
+
+    public function hasSelectedSponsors(): bool
+    {
+        return count($this->selectedSponsors()) > 0;
     }
 
     public function userAccess(User $user): ?ProjectCollaborator

@@ -9,7 +9,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('project_collaborators', function (Blueprint $table) {
-            $table->string('access_token', 500)->change();
+            $table->string('access_token', 191)->change();
         });
     }
 

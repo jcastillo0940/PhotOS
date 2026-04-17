@@ -26,6 +26,7 @@ export default function Gallery({ project, faceRecognition }) {
     const totalPhotos = (project.photos || []).length;
     const processedPercentage = Math.max(0, Math.min(100, totalPhotos > 0 ? (analyzedPhotos / totalPhotos) * 100 : 0));
     const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
+    const supportsSponsorDetection = !!project?.plan_capabilities?.supports_sponsor_detection;
 
     const buildPhotoState = React.useCallback((photos) => (
         Object.fromEntries((photos || []).map((photo) => [
@@ -57,7 +58,7 @@ export default function Gallery({ project, faceRecognition }) {
         const peopleTags = (next.people_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const brandTags = (next.brand_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const jerseyNumbers = (next.jersey_numbers || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const sponsorTags = (next.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        const sponsorTags = supportsSponsorDetection ? (next.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean) : [];
         const contextTags = (next.context_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
         const actionTags = (next.action_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
 
@@ -197,7 +198,7 @@ export default function Gallery({ project, faceRecognition }) {
                                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Sin procesar</p>
                                     <p className={`mt-1 text-2xl font-semibold ${(recognitionSummary.photos_queued_or_stuck || 0) > 0 ? 'text-amber-700' : 'text-slate-900'}`}>{recognitionSummary.photos_pending || 0}</p>
                                     {(recognitionSummary.photos_queued_or_stuck || 0) > 0 && (
-                                        <p className="mt-1 text-[11px] text-amber-600">{recognitionSummary.photos_queued_or_stuck} en cola — vuelve a procesar si no avanza</p>
+                                        <p className="mt-1 text-[11px] text-amber-600">{recognitionSummary.photos_queued_or_stuck} en cola â€” vuelve a procesar si no avanza</p>
                                     )}
                                 </div>
                             </div>
@@ -285,15 +286,17 @@ export default function Gallery({ project, faceRecognition }) {
                                                         className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
                                                     />
                                                 </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sponsor</label>
-                                                    <input
-                                                        value={photoState[photo.id]?.sponsor_tags || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { sponsor_tags: event.target.value })}
-                                                        placeholder="Patrocinador principal..."
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
+                                                {supportsSponsorDetection && (
+                                                    <div className="flex flex-col gap-2">
+                                                        <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sponsor</label>
+                                                        <input
+                                                            value={photoState[photo.id]?.sponsor_tags || ''}
+                                                            onChange={(event) => savePhoto(photo.id, { sponsor_tags: event.target.value })}
+                                                            placeholder="Patrocinador principal..."
+                                                            className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
+                                                        />
+                                                    </div>
+                                                )}
                                                 <div className="flex flex-col gap-2">
                                                     <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Contexto</label>
                                                     <input
@@ -402,3 +405,5 @@ export default function Gallery({ project, faceRecognition }) {
         </AdminLayout>
     );
 }
+
+

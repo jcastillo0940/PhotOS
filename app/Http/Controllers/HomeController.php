@@ -174,9 +174,10 @@ class HomeController extends Controller
                 ['name' => 'Automatizacion', 'copy' => 'Dispara tareas, correos y acciones por evento sin depender de herramientas externas.'],
             ],
             'plans' => [
-                ['name' => 'Starter', 'price' => '$19', 'description' => 'Para fotografos que quieren un sitio y galerias con branding propio.', 'items' => ['Home y portafolio del estudio', 'Galerias publicas y privadas', 'Panel basico de proyectos']],
-                ['name' => 'Studio', 'price' => '$49', 'description' => 'Para estudios que ya necesitan operacion, ventas y portal cliente.', 'items' => ['CRM, agenda y formularios', 'Contratos y facturacion', 'Portal cliente y descargas premium'], 'featured' => true],
-                ['name' => 'Scale', 'price' => '$99', 'description' => 'Para estudios que quieren white-label fuerte y automatizacion avanzada.', 'items' => ['Multiusuario y automatizaciones', 'Cloudflare for SaaS', 'Reconocimiento facial y extras premium']],
+                ['name' => 'Basic Vault', 'price' => '$0', 'description' => 'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.', 'items' => ['300 GB de originales', 'IA desactivada', 'Galerias publicas y privadas']],
+                ['name' => 'AI Starter', 'price' => '$29', 'description' => 'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.', 'items' => ['2,000 fotos por mes', 'Reconocimiento facial', 'Sin patrocinadores'], 'featured' => true],
+                ['name' => 'AI Pro', 'price' => '$79', 'description' => 'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.', 'items' => ['6,000 fotos por mes', 'Rostros y patrocinadores', 'Dominio propio']],
+                ['name' => 'AI Business', 'price' => '$149', 'description' => 'Mas volumen, mas staff y hasta 50 patrocinadores por evento.', 'items' => ['20,000 fotos por mes', 'Rostros y patrocinadores', 'Cloudflare for SaaS']],
             ],
             'faq' => [
                 ['question' => 'Puedo usar mi propio dominio?', 'answer' => 'Si. El sistema ya esta preparado para dominios custom con Cloudflare for SaaS y onboarding guiado.'],

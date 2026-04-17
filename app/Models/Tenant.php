@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Support\SaasPlanCatalog;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class Tenant extends Model
 {
@@ -24,6 +26,7 @@ class Tenant extends Model
         'ai_scans_reset_at',
         'ai_enabled',
         'custom_domain_enabled',
+        'custom_domain',
         'grace_period_ends_at',
         'metadata',
     ];
@@ -78,12 +81,23 @@ class Tenant extends Model
         return $this->belongsTo(SaasPlan::class, 'plan_code', 'code');
     }
 
-    /**
-     * Resets the AI scan counter if 30 days have passed.
-     */
+    public function planDefinition(): array
+    {
+        return $this->plan
+            ? $this->plan->resolvedDefinition()
+            : SaasPlanCatalog::for($this->plan_code, []);
+    }
+
+    public function featureLimit(string $feature): mixed
+    {
+        $features = $this->planDefinition()['features'] ?? [];
+
+        return data_get($features, $feature);
+    }
+
     public function syncUsageLimits(): void
     {
-        if (!$this->ai_scans_reset_at || $this->ai_scans_reset_at->isPast()) {
+        if (! $this->ai_scans_reset_at || $this->ai_scans_reset_at->isPast()) {
             $this->update([
                 'ai_scans_monthly_count' => 0,
                 'ai_scans_reset_at' => now()->addDays(30),
@@ -91,66 +105,152 @@ class Tenant extends Model
         }
     }
 
-    public function featureLimit(string $feature): mixed
+    public function canUseFeature(string $feature, int $amount = 1): bool
     {
-        return $this->plan?->featureValue($feature);
+        $amount = max(1, $amount);
+
+        return match ($feature) {
+            'ai_scans', 'face_recognition' => $this->supportsFaceRecognition() && $this->remainingPhotoProcessingQuota() >= $amount,
+            'sponsor_detection' => $this->supportsSponsorDetection(),
+            'photo_uploads' => ! $this->isSystemBlocked(),
+            default => $this->resolveGenericFeatureAccess($feature, $amount),
+        };
     }
 
-    /**
-     * Check if a feature is available under the current plan.
-     * - null limit means unlimited (returns true)
-     * - numeric limit > 0 means the feature is enabled (returns true)
-     * - 0 or false means the feature is disabled (returns false)
-     */
-    public function canUseFeature(string $feature): bool
+    public function supportsAi(): bool
     {
-        $limit = $this->featureLimit($feature);
-
-        if ($limit === null) {
-            return true; // Unlimited / no restriction
-        }
-
-        return (int) $limit > 0;
+        return $this->supportsFaceRecognition() || $this->supportsSponsorDetection();
     }
 
-    public function canConsumeScan(): bool
+    public function supportsFaceRecognition(): bool
+    {
+        return $this->ai_enabled && (bool) $this->featureLimit('ai_face_recognition');
+    }
+
+    public function supportsSponsorDetection(): bool
+    {
+        return $this->ai_enabled && (bool) $this->featureLimit('ai_sponsor_detection');
+    }
+
+    public function maxSelectableSponsors(): ?int
+    {
+        $limit = $this->featureLimit('sponsor_selection_limit');
+
+        return $limit === null ? null : (int) $limit;
+    }
+
+    public function requiresExplicitSponsors(): bool
+    {
+        return (bool) $this->featureLimit('requires_explicit_sponsors');
+    }
+
+    public function photosPerMonthLimit(): ?int
+    {
+        $limit = $this->featureLimit('photos_per_month') ?? $this->featureLimit('ai_scans_monthly');
+
+        return $limit === null ? null : (int) $limit;
+    }
+
+    public function remainingPhotoProcessingQuota(): int
     {
         $this->syncUsageLimits();
-        $limit = $this->featureLimit('ai_scans_monthly');
+        $limit = $this->photosPerMonthLimit();
 
-        if ($limit === null) return true; // Unlimited
-        return $this->ai_scans_monthly_count < (int) $limit;
+        if ($limit === null) {
+            return PHP_INT_MAX;
+        }
+
+        return max(0, $limit - (int) $this->ai_scans_monthly_count);
+    }
+
+    public function canConsumeScan(int $count = 1): bool
+    {
+        return $this->remainingPhotoProcessingQuota() >= max(1, $count);
     }
 
     public function incrementScanCount(int $count = 1): void
     {
-        $this->increment('ai_scans_monthly_count', $count);
+        $this->increment('ai_scans_monthly_count', max(1, $count));
     }
 
     public function isInGracePeriod(): bool
     {
-        return $this->status === 'past_due' && $this->grace_period_ends_at && $this->grace_period_ends_at->isFuture();
+        return $this->status === 'grace_period' && $this->grace_period_ends_at && $this->grace_period_ends_at->isFuture();
     }
 
     public function isSystemBlocked(): bool
     {
-        if ($this->status === 'blocked' || $this->status === 'suspended') return true;
-        if ($this->status === 'past_due' && (!$this->grace_period_ends_at || $this->grace_period_ends_at->isPast())) return true;
+        if (in_array($this->status, ['blocked', 'suspended'], true)) {
+            return true;
+        }
+
+        if ($this->status === 'grace_period') {
+            return true;
+        }
+
         return false;
     }
 
     public function calculateCurrentStorageUsage(): int
     {
-        return Photo::withoutGlobalScope('tenant')
+        return (int) Photo::withoutGlobalScope('tenant')
             ->where('tenant_id', $this->id)
             ->sum(DB::raw('COALESCE(optimized_bytes, 0) + COALESCE(original_bytes, 0)'));
     }
 
+    public function calculateOriginalStorageUsage(): int
+    {
+        return (int) Photo::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->id)
+            ->sum(DB::raw('COALESCE(original_bytes, 0)'));
+    }
+
+    public function storageLimitBytes(): ?int
+    {
+        $limitGb = $this->featureLimit('storage_gb');
+        if ($limitGb === null) {
+            return null;
+        }
+
+        return (int) $limitGb * 1024 * 1024 * 1024;
+    }
+
+    public function hasStorageCapacityFor(int $incomingBytes): bool
+    {
+        $limit = $this->storageLimitBytes();
+        if ($limit === null) {
+            return true;
+        }
+
+        return ($this->calculateCurrentStorageUsage() + max(0, $incomingBytes)) <= $limit;
+    }
+
     public function isStorageNearLimit(float $threshold = 0.9): bool
     {
-        $limit = (int) $this->featureLimit('storage_gb') * 1024 * 1024 * 1024;
-        if ($limit <= 0) return false;
-        
+        $limit = $this->storageLimitBytes();
+        if (! $limit || $limit <= 0) {
+            return false;
+        }
+
         return $this->calculateCurrentStorageUsage() >= ($limit * $threshold);
+    }
+
+    private function resolveGenericFeatureAccess(string $feature, int $amount): bool
+    {
+        $limit = $this->featureLimit($feature);
+
+        if ($limit === null) {
+            return true;
+        }
+
+        if (is_bool($limit)) {
+            return $limit;
+        }
+
+        if (is_numeric($limit)) {
+            return (int) $limit >= $amount;
+        }
+
+        return filled($limit);
     }
 }

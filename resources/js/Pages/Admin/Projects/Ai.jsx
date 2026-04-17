@@ -11,17 +11,51 @@ export default function Ai({ project, faceRecognition }) {
         name: '',
         reference_image: null,
     });
-    
+
+    const capabilities = project?.plan_capabilities || {};
+    const supportsFaceRecognition = !!capabilities.supports_face_recognition;
+    const supportsSponsorDetection = !!capabilities.supports_sponsor_detection;
+    const sponsorSelectionLimit = capabilities.sponsor_selection_limit;
+    const requiresExplicitSponsors = !!capabilities.requires_explicit_sponsors;
+    const sponsorCatalog = project?.sponsor_catalog || faceRecognition?.sponsor_catalog || [];
+
     const [faceRecognitionEnabled, setFaceRecognitionEnabled] = React.useState(!!project.face_recognition_enabled);
-    const canUseRecognition = !!faceRecognitionEnabled && !!faceRecognition?.service_configured && !!faceRecognition?.database_ready;
+    const [selectedSponsors, setSelectedSponsors] = React.useState(project.selected_sponsors || faceRecognition?.selected_sponsors || []);
+
+    React.useEffect(() => {
+        setFaceRecognitionEnabled(!!project.face_recognition_enabled);
+        setSelectedSponsors(project.selected_sponsors || faceRecognition?.selected_sponsors || []);
+    }, [project.face_recognition_enabled, project.selected_sponsors, faceRecognition?.selected_sponsors]);
+
+    const canUseRecognition = supportsFaceRecognition
+        && !!faceRecognitionEnabled
+        && !!faceRecognition?.service_configured
+        && !!faceRecognition?.database_ready
+        && (!supportsSponsorDetection || !requiresExplicitSponsors || selectedSponsors.length > 0);
+
     const recognitionSummary = faceRecognition?.summary || {};
     const processedPhotos = recognitionSummary.photos_processed || 0;
     const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
 
     const saveMeta = () => {
         router.put(`/admin/projects/${project.id}`, {
-            face_recognition_enabled: faceRecognitionEnabled,
+            face_recognition_enabled: supportsFaceRecognition ? faceRecognitionEnabled : false,
+            selected_sponsors: supportsSponsorDetection ? selectedSponsors : [],
         }, { preserveScroll: true, preserveState: true });
+    };
+
+    const toggleSponsor = (sponsor) => {
+        setSelectedSponsors((current) => {
+            if (current.includes(sponsor)) {
+                return current.filter((item) => item !== sponsor);
+            }
+
+            if (sponsorSelectionLimit !== null && sponsorSelectionLimit !== undefined && current.length >= sponsorSelectionLimit) {
+                return current;
+            }
+
+            return [...current, sponsor];
+        });
     };
 
     const createIdentity = (event) => {
@@ -51,61 +85,115 @@ export default function Ai({ project, faceRecognition }) {
                     </div>
                 )}
 
+                {!supportsFaceRecognition && (
+                    <div className="rounded-[1.6rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+                        Este plan no incluye IA. La galeria puede seguir operando, pero el reconocimiento y el procesamiento inteligente quedan bloqueados.
+                    </div>
+                )}
+
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <div className="flex items-start justify-between gap-4">
                         <div>
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{sportsModeEnabled ? 'IA deportiva' : 'IA visual'}</p>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">IA visual</p>
                             <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
-                                {sportsModeEnabled ? 'Procesa la galeria y detecta jugadores, marcas y contexto' : 'Procesa la galeria y detecta personas'}
+                                {sportsModeEnabled ? 'Procesa la galeria y detecta rostros y patrocinadores' : 'Procesa la galeria y detecta personas'}
                             </h3>
                             <p className="mt-2 text-sm leading-7 text-slate-500">
-                                {sportsModeEnabled
-                                    ? 'Desde aqui entrenas rostros base y luego ejecutas un solo procesamiento para que el sistema complete la galeria automaticamente. No hace falta llenar sponsor, marca o jugador en cada foto.'
-                                    : 'Desde aqui entrenas personas base y luego ejecutas un solo procesamiento para que el sistema complete la galeria automaticamente.'}
+                                {supportsSponsorDetection
+                                    ? 'Este evento puede usar reconocimiento facial y deteccion de patrocinadores segun el catalogo que elijas para la corrida.'
+                                    : 'Este evento usa reconocimiento facial unicamente. La deteccion de patrocinadores queda oculta y bloqueada en este plan.'}
                             </p>
                         </div>
                         <Bot className="h-8 w-8 text-slate-300" />
                     </div>
 
-                    {sportsModeEnabled ? (
-                        <div className="mt-6 grid gap-4 xl:grid-cols-4">
-                            <CapabilityCard icon={ScanFace} eyebrow="Identidad" title="Rostros y nombres" description="Entrena jugadores clave o protagonistas frecuentes para detectar personas conocidas." />
-                            <CapabilityCard icon={UserRound} eyebrow="OCR" title="Dorsales" description="Prepara la galeria para buscar rapido por numero de camiseta y entregar lotes por jugador." />
-                            <CapabilityCard icon={Camera} eyebrow="Comercial" title="Marcas y sponsors" description="Cuenta apariciones de logos y patrocinadores visibles en uniformes, vallas y activaciones." />
-                            <CapabilityCard icon={WandSparkles} eyebrow="Juego" title="Contexto" description="Clasifica escenas con balon, porteria, tarjeta, arbitro y agrupa la accion en solitario, duelo o equipo." />
-                        </div>
-                    ) : (
-                        <div className="mt-6 rounded-[1.5rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 text-sm leading-7 text-slate-500">
-                            Este tenant esta en modo general. La experiencia prioriza reconocimiento de personas y escaneo visual base. Si luego quieres usar filtros deportivos, activa <span className="font-semibold text-slate-900">Personalizar para deportes</span> en <span className="font-semibold text-slate-900">Settings &gt; Branding</span>.
-                        </div>
-                    )}
+                    <div className="mt-6 grid gap-4 xl:grid-cols-4">
+                        <CapabilityCard icon={ScanFace} eyebrow="Identidad" title="Rostros" description="Entrena referencias base para reconocer personas conocidas en la galeria." />
+                        <CapabilityCard icon={Camera} eyebrow="Plan" title={supportsSponsorDetection ? 'Patrocinadores activos' : 'Patrocinadores bloqueados'} description={supportsSponsorDetection ? 'La corrida IA solo analizara los patrocinadores seleccionados para este evento.' : 'Starter y Basic ocultan por completo la seleccion y busqueda de patrocinadores.'} />
+                        <CapabilityCard icon={WandSparkles} eyebrow="Cuota" title="Procesamiento mensual" description={capabilities.photos_per_month_limit ? `${capabilities.remaining_photo_quota ?? 0} de ${capabilities.photos_per_month_limit} fotos disponibles este mes.` : 'Sin cuota de fotos configurada en este tenant.'} />
+                        <CapabilityCard icon={UserRound} eyebrow="Evento" title="Seleccion actual" description={supportsSponsorDetection ? `${selectedSponsors.length} patrocinadores elegidos para este evento.` : 'No aplica para este plan.'} />
+                    </div>
 
                     <div className="mt-6 grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                         <div className="space-y-4">
                             <label className="flex items-center justify-between rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] px-5 py-5 text-sm text-slate-700">
                                 <div>
-                                    <span className="font-semibold block">Activar IA para la galeria</span>
-                                    <span className="text-xs text-slate-500 block mt-1">
-                                        {sportsModeEnabled
-                                            ? 'Activa la canalizacion completa de rostros, dorsales, sponsors y contexto visual.'
-                                            : 'Activa el reconocimiento visual y el etiquetado inteligente de esta galeria.'}
+                                    <span className="block font-semibold">Activar IA para la galeria</span>
+                                    <span className="mt-1 block text-xs text-slate-500">
+                                        {supportsFaceRecognition
+                                            ? 'Habilita el procesamiento automatico antes de enviar fotos a la cola IA.'
+                                            : 'El plan actual no permite activar la IA en esta galeria.'}
                                     </span>
                                 </div>
                                 <input
                                     type="checkbox"
                                     checked={faceRecognitionEnabled}
                                     onChange={(event) => setFaceRecognitionEnabled(event.target.checked)}
+                                    disabled={!supportsFaceRecognition}
                                     className="h-5 w-5 rounded border-slate-300 text-primary-600"
                                 />
                             </label>
 
+                            {supportsSponsorDetection && (
+                                <div className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
+                                    <div className="flex items-start justify-between gap-4">
+                                        <div>
+                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Patrocinadores del evento</p>
+                                            <p className="mt-2 text-lg font-semibold text-slate-900">Selecciona solo los que aplican a esta corrida</p>
+                                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                                                {sponsorSelectionLimit ? `Maximo ${sponsorSelectionLimit} patrocinadores por evento.` : 'Este plan permite patrocinadores ilimitados, pero debes elegirlos explicitamente.'}
+                                            </p>
+                                        </div>
+                                        <span className="rounded-full border border-[#e6e0d5] bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                                            {selectedSponsors.length}{sponsorSelectionLimit ? ` / ${sponsorSelectionLimit}` : ''}
+                                        </span>
+                                    </div>
+
+                                    {requiresExplicitSponsors && selectedSponsors.length === 0 && (
+                                        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                                            Este plan requiere elegir al menos un patrocinador antes de ejecutar la IA del evento.
+                                        </div>
+                                    )}
+
+                                    <div className="mt-4 flex flex-wrap gap-3">
+                                        {sponsorCatalog.length > 0 ? sponsorCatalog.map((sponsor) => {
+                                            const selected = selectedSponsors.includes(sponsor);
+                                            const disabled = !selected && sponsorSelectionLimit !== null && sponsorSelectionLimit !== undefined && selectedSponsors.length >= sponsorSelectionLimit;
+
+                                            return (
+                                                <button
+                                                    key={sponsor}
+                                                    type="button"
+                                                    onClick={() => toggleSponsor(sponsor)}
+                                                    disabled={disabled}
+                                                    className={clsx(
+                                                        'rounded-full border px-4 py-2 text-xs font-semibold transition',
+                                                        selected
+                                                            ? 'border-[#171411] bg-[#171411] text-white'
+                                                            : disabled
+                                                                ? 'cursor-not-allowed border-[#ddd5c9] bg-slate-100 text-slate-400'
+                                                                : 'border-[#ddd5c9] bg-white text-slate-700 hover:bg-slate-50'
+                                                    )}
+                                                >
+                                                    {sponsor}
+                                                </button>
+                                            );
+                                        }) : (
+                                            <div className="rounded-2xl border border-dashed border-[#ddd5c9] px-4 py-6 text-sm text-slate-400">
+                                                Aun no hay patrocinadores cargados en la biblioteca IA del tenant.
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
                             <form onSubmit={createIdentity} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 space-y-3">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400 mb-2">{sportsModeEnabled ? 'Roster Base' : 'Base de Personas'}</p>
+                                <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Base de personas</p>
                                 <input
                                     type="text"
                                     value={identityForm.data.name}
                                     onChange={(event) => identityForm.setData('name', event.target.value)}
-                                    placeholder={sportsModeEnabled ? 'Nombre del jugador o protagonista (Ej. Jeremy)' : 'Nombre de la persona (Ej. Maria, Carlos, Sofia)'}
+                                    placeholder="Nombre de la persona (Ej. Maria, Carlos, Sofia)"
                                     className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none"
                                 />
                                 <input
@@ -116,15 +204,15 @@ export default function Ai({ project, faceRecognition }) {
                                 />
                                 <button
                                     type="submit"
-                                    disabled={identityForm.processing || !faceRecognitionEnabled || !faceRecognition?.service_configured}
+                                    disabled={identityForm.processing || !faceRecognitionEnabled || !faceRecognition?.service_configured || !supportsFaceRecognition}
                                     className={clsx(
                                         'w-full rounded-2xl px-4 py-3 text-sm font-semibold',
-                                        identityForm.processing || !faceRecognitionEnabled || !faceRecognition?.service_configured
+                                        identityForm.processing || !faceRecognitionEnabled || !faceRecognition?.service_configured || !supportsFaceRecognition
                                             ? 'cursor-not-allowed border border-[#ddd5c9] bg-slate-100 text-slate-400'
                                             : 'border border-[#171411] bg-[#171411] text-white'
                                     )}
                                 >
-                                    {identityForm.processing ? 'Registrando...' : sportsModeEnabled ? 'Agregar rostro base' : 'Agregar persona'}
+                                    {identityForm.processing ? 'Registrando...' : 'Agregar persona'}
                                 </button>
                             </form>
 
@@ -137,7 +225,7 @@ export default function Ai({ project, faceRecognition }) {
                                                     <img src={'/storage/' + identity.path_reference} className="h-full w-full object-cover" alt="" onError={(e) => { e.target.style.display = 'none'; }} />
                                                 </div>
                                             ) : (
-                                                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100">
                                                     <UserRound className="h-4 w-4 text-slate-400" />
                                                 </div>
                                             )}
@@ -155,31 +243,29 @@ export default function Ai({ project, faceRecognition }) {
                                                     router.post(`/admin/projects/${project.id}/face-identities/${identity.id}`, { _method: 'delete' }, { preserveScroll: true });
                                                 }
                                             }}
-                                            className="rounded-full border border-[#e6e0d5] p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100 transition"
+                                            className="rounded-full border border-[#e6e0d5] p-2 text-slate-500 transition hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                         </button>
                                     </div>
                                 )) : (
                                     <div className="rounded-2xl border border-dashed border-[#ddd5c9] px-4 py-8 text-center text-sm text-slate-400">
-                                        {sportsModeEnabled
-                                            ? 'Todavia no hay rostros base registrados para enriquecer el reconocimiento deportivo.'
-                                            : 'Todavia no hay personas registradas para reconocer en esta galeria.'}
+                                        Todavia no hay personas registradas para reconocer en esta galeria.
                                     </div>
                                 )}
                             </div>
                         </div>
 
                         <div className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-6 lg:p-8">
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">{sportsModeEnabled ? 'Estado del Escaneo Deportivo' : 'Estado del Escaneo'}</p>
-                            
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Estado del escaneo</p>
+
                             {!faceRecognition?.service_configured && (
                                 <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4 text-sm text-rose-700">
-                                    Motor IA no configurado. Faltan variables de Redis/colas.
+                                    Motor IA no configurado. Faltan variables de Redis o de colas.
                                 </div>
                             )}
 
-                            <div className="grid gap-4 sm:grid-cols-2 mt-6">
+                            <div className="mt-6 grid gap-4 sm:grid-cols-2">
                                 <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fotos analizadas</p>
                                     <p className="mt-2 text-3xl font-semibold text-slate-900">{processedPhotos}</p>
@@ -188,29 +274,11 @@ export default function Ai({ project, faceRecognition }) {
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Personas halladas</p>
                                     <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.people_detected_total || 0}</p>
                                 </div>
-                                {sportsModeEnabled && (
-                                    <>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
-                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Marcas detectadas</p>
-                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.brands_detected_total || 0}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Dorsales detectados</p>
-                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.jerseys_detected_total || 0}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sponsors detectados</p>
-                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Contexto detectado</p>
-                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.context_detected_total || 0}</p>
-                                        </div>
-                                        <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-                                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Acciones detectadas</p>
-                                            <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.actions_detected_total || 0}</p>
-                                        </div>
-                                    </>
+                                {supportsSponsorDetection && (
+                                    <div className="rounded-2xl border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm sm:col-span-2">
+                                        <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Patrocinadores detectados</p>
+                                        <p className="mt-2 text-3xl font-semibold text-slate-900">{recognitionSummary.sponsors_detected_total || 0}</p>
+                                    </div>
                                 )}
                             </div>
 
@@ -229,43 +297,25 @@ export default function Ai({ project, faceRecognition }) {
                                 </div>
                             </div>
 
-                            {sportsModeEnabled && (
-                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                                    <SignalLine label="Escenas con jerseys" value={recognitionSummary.photos_with_jerseys || 0} />
-                                    <SignalLine label="Escenas con sponsors" value={recognitionSummary.photos_with_sponsors || 0} />
-                                    <SignalLine label="Escenas con contexto" value={recognitionSummary.photos_with_context || 0} />
-                                    <SignalLine label="Escenas con acciones" value={recognitionSummary.photos_with_actions || 0} />
-                                    <SignalLine label="Escenas con marcas" value={recognitionSummary.photos_with_brands || 0} />
-                                </div>
-                            )}
-
                             <div className="mt-8 h-3 overflow-hidden rounded-full bg-slate-200">
                                 <div
                                     className="h-full rounded-full bg-gradient-to-r from-[#171411] via-[#7c5d45] to-[#d1a673] transition-all duration-1000"
                                     style={{
-                                        width: `${Math.max(
-                                            0,
-                                            Math.min(
-                                                100,
-                                                (processedPhotos / Math.max(1, (project.photos || []).length)) * 100
-                                            )
-                                        )}%`,
+                                        width: `${Math.max(0, Math.min(100, (processedPhotos / Math.max(1, (project.photos || []).length)) * 100))}%`,
                                     }}
                                 />
                             </div>
-                            <p className="mt-3 text-sm text-slate-500 font-medium">
-                                {sportsModeEnabled
-                                    ? `Progreso deportivo: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`
-                                    : `Progreso visual: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
+                            <p className="mt-3 text-sm font-medium text-slate-500">
+                                {`Progreso visual: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
                             </p>
 
-                            <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                                 <button
                                     type="button"
                                     onClick={() => router.post(`/admin/projects/${project.id}/recognition/run`, {}, { preserveScroll: true })}
                                     disabled={!canUseRecognition}
                                     className={clsx(
-                                        'flex-1 inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-semibold',
+                                        'inline-flex flex-1 items-center justify-center gap-2 rounded-2xl px-5 py-4 text-sm font-semibold',
                                         !canUseRecognition
                                             ? 'cursor-not-allowed border border-[#ddd5c9] bg-slate-100 text-slate-400'
                                             : 'bg-[#171411] text-white shadow-md transition hover:-translate-y-0.5'
@@ -274,40 +324,13 @@ export default function Ai({ project, faceRecognition }) {
                                     <WandSparkles className="h-4 w-4" />
                                     Procesar galeria
                                 </button>
-                                
+
                                 <button
                                     type="button"
                                     onClick={saveMeta}
                                     className="flex-1 rounded-2xl border border-[#ddd5c9] bg-white px-5 py-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
                                 >
-                                    Guardar Preferencias
-                                </button>
-                            </div>
-
-                            <div className="mt-4 flex flex-wrap gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => router.post(`/admin/projects/${project.id}/recognition/test`, {}, { preserveScroll: true })}
-                                    className="rounded-2xl border border-[#ddd5c9] bg-white px-4 py-2.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                                >
-                                    Probar conexion IA
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (window.confirm('Limpiar todas las personas detectadas de la galeria?')) {
-                                            router.post(`/admin/projects/${project.id}/recognition`, { _method: 'delete' }, { preserveScroll: true });
-                                        }
-                                    }}
-                                    disabled={!project.photos?.some(p => p.recognition_status !== null)}
-                                    className={clsx(
-                                        'rounded-2xl px-4 py-2.5 text-xs font-semibold transition',
-                                        !project.photos?.some(p => p.recognition_status !== null)
-                                            ? 'cursor-not-allowed border border-[#ddd5c9] bg-slate-100 text-slate-400'
-                                            : 'border border-[#f0d7d0] bg-white text-rose-600 hover:bg-rose-50'
-                                    )}
-                                >
-                                    Restablecer fotos
+                                    Guardar preferencias
                                 </button>
                             </div>
                         </div>
@@ -331,11 +354,3 @@ function CapabilityCard({ icon: Icon, eyebrow, title, description }) {
     );
 }
 
-function SignalLine({ label, value }) {
-    return (
-        <div className="flex items-center justify-between rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3">
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="text-sm font-semibold text-slate-900">{value}</p>
-        </div>
-    );
-}

@@ -15,8 +15,9 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const tenantForm = useForm({
         name: tenant.name || '',
         status: tenant.status || 'active',
-        plan_code: tenant.plan_code || 'studio',
+        plan_code: tenant.plan_code || planOptions[0]?.code || 'starter',
         billing_email: tenant.billing_email || '',
+        custom_domain: tenant.custom_domain || '',
     });
 
     const submitDomain = (event) => {
@@ -45,7 +46,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                             <Link href="/admin/saas/tenants" className="text-sm font-medium text-slate-500 transition hover:text-slate-900">Volver a tenants</Link>
                             <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">{tenant.name}</h2>
                             <p className="mt-2 text-sm text-slate-500">{tenant.slug} · {tenant.plan_code} · {tenant.status}</p>
-                            <p className="mt-4 text-sm leading-7 text-slate-500">Este tenant comparte el mismo Laravel y React del SaaS, pero ya puede tener su propio contenido, estilo visual, dominio principal y galerias completamente separadas.</p>
+                            <p className="mt-4 text-sm leading-7 text-slate-500">Este tenant ya usa el catalogo SaaS v2 y puede mezclar dominio principal, dominio custom, facturacion desacoplada y retencion de originales en R2.</p>
                         </div>
                         <div className="flex flex-wrap gap-3">
                             <InfoBox title="Cloudflare for SaaS" value={cloudflare.enabled ? 'Activo' : 'Pendiente'} helper={cloudflare.enabled ? `Managed CNAME target: ${cloudflare.managed_cname_target}` : 'Configura Cloudflare para automatizar dominios custom.'} />
@@ -65,7 +66,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white"><Palette className="h-5 w-5" /></div>
                                 <div>
                                     <p className="text-lg font-semibold text-slate-900">Editar tenant</p>
-                                    <p className="text-sm text-slate-500">Nombre comercial, estado, plan y correo de facturacion.</p>
+                                    <p className="text-sm text-slate-500">Nombre comercial, estado, plan, correo de facturacion y dominio custom preferido.</p>
                                 </div>
                             </div>
                             <form onSubmit={submitTenant} className="mt-6 space-y-4">
@@ -76,6 +77,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                     <select value={tenantForm.data.status} onChange={(event) => tenantForm.setData('status', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
                                         <option value="active">Activo</option>
                                         <option value="past_due">En mora</option>
+                                        <option value="grace_period">Gracia</option>
                                         <option value="suspended">Suspendido</option>
                                         <option value="blocked">Bloqueado</option>
                                     </select>
@@ -90,6 +92,9 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                 <Field label="Correo de facturacion" error={tenantForm.errors.billing_email}>
                                     <input type="email" value={tenantForm.data.billing_email} onChange={(event) => tenantForm.setData('billing_email', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
                                 </Field>
+                                <Field label="Dominio custom preferido" error={tenantForm.errors.custom_domain}>
+                                    <input value={tenantForm.data.custom_domain} onChange={(event) => tenantForm.setData('custom_domain', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="galeria.cliente.com" />
+                                </Field>
                                 <button type="submit" disabled={tenantForm.processing} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60">
                                     Guardar tenant
                                 </button>
@@ -101,7 +106,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white"><Wallet className="h-5 w-5" /></div>
                                 <div>
                                     <p className="text-lg font-semibold text-slate-900">Control de cobro</p>
-                                    <p className="text-sm text-slate-500">Activa, restringe o suspende el tenant manualmente. Sirve para PayPal automatico y cobros offline.</p>
+                                    <p className="text-sm text-slate-500">Activa, restringe o suspende el tenant manualmente. El motor operativo usa `expires_at` como fuente de verdad.</p>
                                 </div>
                             </div>
                             <form onSubmit={submitBilling} className="mt-6 space-y-4">
@@ -161,6 +166,8 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                             <div className="grid gap-4 lg:grid-cols-2">
                                 <InfoPanel title="Login URL" value={tenant.login_url} helper="Los accesos de este tenant solo deben usarse desde sus propios dominios." />
                                 <InfoPanel title="Suscripcion actual" value={tenant.subscription ? `${tenant.subscription.provider} · ${tenant.subscription.plan_code} · ${tenant.subscription.billing_cycle}` : 'Sin suscripcion'} helper={tenant.subscription?.paypal_subscription_id || tenant.billing?.banner || 'Aun no hay referencia de suscripcion externa.'} />
+                                <InfoPanel title="Vence en" value={tenant.subscription?.expires_at || 'Sin fecha'} helper="Cuando vence, el tenant entra en gracia y se bloquean nuevas subidas o procesamientos." />
+                                <InfoPanel title="Dominio custom" value={tenant.custom_domain || 'No configurado'} helper="Se usa como pista operativa adicional al resolver por host." />
                             </div>
                             {tenant.subscription?.transactions?.length > 0 && (
                                 <div className="mt-5 grid gap-3">
