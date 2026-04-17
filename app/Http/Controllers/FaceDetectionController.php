@@ -164,7 +164,7 @@ class FaceDetectionController extends Controller
         $storedPath = $file->storeAs(
             $directory,
             uniqid('identity_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
-            'r2'
+            $this->libraryStorageDisk()
         );
 
         $identity = FaceIdentity::create([
@@ -172,7 +172,7 @@ class FaceDetectionController extends Controller
             'project_id' => $project?->id,
             'name' => trim((string) $validated['name']),
             'embedding' => null,
-            'path_reference' => $storedPath,
+            'path_reference' => $this->storeReference($this->libraryStorageDisk(), $storedPath),
             'processing_status' => 'pending',
             'processing_note' => $project
                 ? 'Rostro enviado para procesar en esta galeria.'
@@ -208,8 +208,9 @@ class FaceDetectionController extends Controller
             $referencePath = $file->storeAs(
                 $config['storage_dir'],
                 uniqid($type.'_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
-                'r2'
+                $this->libraryStorageDisk()
             );
+            $referencePath = $this->storeReference($this->libraryStorageDisk(), $referencePath);
         }
 
         $items->prepend([
@@ -229,7 +230,8 @@ class FaceDetectionController extends Controller
         abort_unless((int) $faceIdentity->tenant_id === (int) $this->tenantContext->id(), 404);
 
         if ($faceIdentity->path_reference) {
-            Storage::disk('r2')->delete($faceIdentity->path_reference);
+            [$disk, $path] = $this->resolveStoredReference($faceIdentity->path_reference);
+            Storage::disk($disk)->delete($path);
         }
 
         $name = $faceIdentity->name;
@@ -260,7 +262,8 @@ class FaceDetectionController extends Controller
         }
 
         if (! empty($item['reference_path'])) {
-            Storage::disk('r2')->delete((string) $item['reference_path']);
+            [$disk, $path] = $this->resolveStoredReference((string) $item['reference_path']);
+            Storage::disk($disk)->delete($path);
         }
 
         $remaining = $items
@@ -305,11 +308,39 @@ class FaceDetectionController extends Controller
             return null;
         }
 
+        [$disk, $storedPath] = $this->resolveStoredReference($path);
+
         try {
-            return Storage::disk('r2')->temporaryUrl($path, now()->addMinutes(30));
+            if ($disk === 'public') {
+                return Storage::disk('public')->url($storedPath);
+            }
+
+            return Storage::disk($disk)->temporaryUrl($storedPath, now()->addMinutes(30));
         } catch (\Throwable $e) {
-            return filter_var($path, FILTER_VALIDATE_URL) ? $path : null;
+            return filter_var($storedPath, FILTER_VALIDATE_URL) ? $storedPath : null;
         }
+    }
+
+    private function libraryStorageDisk(): string
+    {
+        return filled(config('filesystems.disks.r2.bucket')) ? 'r2' : 'public';
+    }
+
+    private function storeReference(string $disk, string $path): string
+    {
+        return $disk === 'r2' ? $path : $disk.':'.$path;
+    }
+
+    private function resolveStoredReference(string $reference): array
+    {
+        foreach (['public', 'local', 'r2'] as $disk) {
+            $prefix = $disk.':';
+            if (str_starts_with($reference, $prefix)) {
+                return [$disk, substr($reference, strlen($prefix))];
+            }
+        }
+
+        return ['r2', $reference];
     }
 
     private function catalogItems(string $type): Collection

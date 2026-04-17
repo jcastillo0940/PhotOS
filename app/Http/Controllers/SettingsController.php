@@ -33,7 +33,8 @@ class SettingsController extends Controller
         $this->seedDefaults();
 
         return Inertia::render('Admin/Settings/Integrations', [
-            'settings' => Setting::query()
+            'settings' => Setting::withoutGlobalScope('tenant')
+                ->whereNull('tenant_id')
                 ->whereIn('group', ['storage', 'payment', 'einvoice', 'smtp', 'saas'])
                 ->get()
                 ->groupBy('group'),
@@ -89,9 +90,11 @@ class SettingsController extends Controller
 
         foreach ($settings['settings'] as $item) {
             if (in_array($item['key'], $allowedKeys, true)) {
-                Setting::where('key', $item['key'])->update(['value' => $item['value']]);
+                Setting::setForTenant(null, $item['key'], $item['value'], $this->groupForIntegrationKey($item['key']), $this->isSecretIntegrationKey($item['key']));
             }
         }
+
+        Storage::forgetDisk('r2');
 
         return redirect()->back()->with('success', 'Integraciones actualizadas.');
     }
@@ -231,6 +234,14 @@ class SettingsController extends Controller
         ]);
 
         try {
+            if (! filled(config('filesystems.disks.r2.bucket')) || ! filled(config('filesystems.disks.r2.key')) || ! filled(config('filesystems.disks.r2.secret')) || ! filled(config('filesystems.disks.r2.endpoint'))) {
+                return back()->with('integration_test', [
+                    'service' => 'cloudflare',
+                    'ok' => false,
+                    'message' => 'Faltan credenciales globales de R2. Guarda bucket, endpoint, key y secret en Integraciones.',
+                ]);
+            }
+
             $disk = Storage::disk('r2');
             $filename = 'test-'.time().'.txt';
             $content = 'Test connection at '.now()->toDateTimeString();
@@ -410,9 +421,9 @@ class SettingsController extends Controller
         ];
 
         foreach ($defaults as $d) {
-            Setting::firstOrCreate(
-                ['key' => $d['key']],
-                $d
+            Setting::withoutGlobalScope('tenant')->firstOrCreate(
+                ['tenant_id' => null, 'key' => $d['key']],
+                $d + ['tenant_id' => null]
             );
         }
 
@@ -442,5 +453,32 @@ class SettingsController extends Controller
         data_set($homepage, 'brand.name', $name);
         data_set($homepage, 'brand.tagline', $tagline !== '' ? $tagline : Setting::get('app_tagline', 'Admin platform'));
         HomepageSettings::save($homepage);
+    }
+
+    private function groupForIntegrationKey(string $key): string
+    {
+        return match ($key) {
+            'r2_key', 'r2_secret', 'r2_bucket', 'r2_endpoint' => 'storage',
+            'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target' => 'saas',
+            'paypal_client_id', 'paypal_secret', 'paypal_environment', 'paypal_webhook_id', 'tilopay_api_key', 'tilopay_secret_key' => 'payment',
+            'alanube_email', 'alanube_api_url', 'alanube_api_key' => 'einvoice',
+            'smtp_enabled', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_scheme', 'smtp_from_address', 'smtp_from_name' => 'smtp',
+            default => 'general',
+        };
+    }
+
+    private function isSecretIntegrationKey(string $key): bool
+    {
+        return in_array($key, [
+            'r2_key',
+            'r2_secret',
+            'cloudflare_saas_api_token',
+            'paypal_client_id',
+            'paypal_secret',
+            'tilopay_api_key',
+            'tilopay_secret_key',
+            'alanube_api_key',
+            'smtp_password',
+        ], true);
     }
 }
