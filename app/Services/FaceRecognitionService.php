@@ -17,13 +17,13 @@ class FaceRecognitionService
 {
     public function enabled(): bool
     {
-        return filled($this->taskQueueName()) && filled($this->resultQueueName());
+        return filled($this->identityTaskQueueName()) && filled($this->recognizeTaskQueueName()) && filled($this->resultQueueName());
     }
 
     public function healthCheck(): array
     {
         if (!$this->enabled()) {
-            throw new \RuntimeException('La cola del motor IA no esta configurada.');
+            throw new \RuntimeException('Las colas del motor IA no estan configuradas.');
         }
 
         Redis::connection($this->redisConnection())->client()->ping();
@@ -31,7 +31,8 @@ class FaceRecognitionService
         return [
             'status' => 'ok',
             'driver' => 'redis',
-            'task_queue' => $this->taskQueueName(),
+            'identity_task_queue' => $this->identityTaskQueueName(),
+            'recognize_task_queue' => $this->recognizeTaskQueueName(),
             'result_queue' => $this->resultQueueName(),
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
         ];
@@ -92,7 +93,7 @@ class FaceRecognitionService
             'image_url' => $imageUrl,
 
             'filename' => basename((string) $identity->path_reference),
-        ]);
+        ], $this->identityTaskQueueName());
     }
 
     public function enqueuePhotoRecognition(Project $project, Photo $photo): void
@@ -150,7 +151,7 @@ class FaceRecognitionService
             'sponsor_keywords' => $this->catalogKeywords('ai_sponsor_catalog', $tenant?->id),
             'jersey_keywords'  => $this->catalogKeywords('ai_jersey_catalog', $tenant?->id),
             'context_keywords' => $this->catalogKeywords('ai_context_catalog', $tenant?->id),
-        ]);
+        ], $this->recognizeTaskQueueName());
     }
 
     public function popNextResult(int $timeout = 5): ?array
@@ -339,9 +340,9 @@ class FaceRecognitionService
         }
     }
 
-    private function pushTask(array $payload): void
+    private function pushTask(array $payload, string $queue): void
     {
-        Redis::connection($this->redisConnection())->rpush($this->taskQueueName(), json_encode($payload, JSON_UNESCAPED_SLASHES));
+        Redis::connection($this->redisConnection())->rpush($queue, json_encode($payload, JSON_UNESCAPED_SLASHES));
     }
 
     private function redisConnection(): string
@@ -349,9 +350,14 @@ class FaceRecognitionService
         return (string) config('services.face_ai.redis_connection', 'default');
     }
 
-    private function taskQueueName(): string
+    private function identityTaskQueueName(): string
     {
-        return (string) config('services.face_ai.task_queue', 'face-ai:tasks');
+        return (string) config('services.face_ai.identity_task_queue', 'face-ai:tasks:identity');
+    }
+
+    private function recognizeTaskQueueName(): string
+    {
+        return (string) config('services.face_ai.recognize_task_queue', 'face-ai:tasks:recognize');
     }
 
     private function resultQueueName(): string

@@ -38,7 +38,8 @@ return [
     'face_ai' => [
         'redis_url' => env('FACE_AI_REDIS_URL', env('REDIS_URL')),
         'redis_connection' => env('FACE_AI_REDIS_CONNECTION', 'default'),
-        'task_queue' => env('FACE_AI_TASK_QUEUE', 'face-ai:tasks'),
+        'identity_task_queue' => env('FACE_AI_IDENTITY_TASK_QUEUE', 'face-ai:tasks:identity'),
+        'recognize_task_queue' => env('FACE_AI_RECOGNIZE_TASK_QUEUE', 'face-ai:tasks:recognize'),
         'result_queue' => env('FACE_AI_RESULT_QUEUE', 'face-ai:results'),
         'tolerance' => (float) env('FACE_AI_TOLERANCE', '0.6'),
     ],

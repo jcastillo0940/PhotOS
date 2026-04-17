@@ -18,7 +18,8 @@ APP_NAME = 'PhotOS Face AI Worker'
 APP_VERSION = '2.0.0'
 DEFAULT_TOLERANCE = float(os.getenv('FACE_AI_TOLERANCE', '0.6'))
 REDIS_URL = os.getenv('FACE_AI_REDIS_URL', 'redis://127.0.0.1:6379/0')
-TASK_QUEUE = os.getenv('FACE_AI_TASK_QUEUE', 'face-ai:tasks')
+IDENTITY_TASK_QUEUE = os.getenv('FACE_AI_IDENTITY_TASK_QUEUE', 'face-ai:tasks:identity')
+RECOGNIZE_TASK_QUEUE = os.getenv('FACE_AI_RECOGNIZE_TASK_QUEUE', 'face-ai:tasks:recognize')
 RESULT_QUEUE = os.getenv('FACE_AI_RESULT_QUEUE', 'face-ai:results')
 POLL_TIMEOUT = max(1, int(os.getenv('FACE_AI_POLL_TIMEOUT', '5')))
 HTTP_TIMEOUT = int(os.getenv('FACE_AI_HTTP_TIMEOUT', '60'))
@@ -418,11 +419,12 @@ def process_task(task: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     client = redis_client()
-    print(f'[{APP_NAME}] escuchando {TASK_QUEUE} y publicando en {RESULT_QUEUE}')
+    task_queues = [IDENTITY_TASK_QUEUE, RECOGNIZE_TASK_QUEUE]
+    print(f'[{APP_NAME}] escuchando {task_queues} y publicando en {RESULT_QUEUE}')
 
     while True:
         try:
-            payload = client.blpop(TASK_QUEUE, timeout=POLL_TIMEOUT)
+            payload = client.blpop(task_queues, timeout=POLL_TIMEOUT)
             if not payload:
                 continue
 

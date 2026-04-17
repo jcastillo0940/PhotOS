@@ -13,7 +13,7 @@ class RetryFaceAiIdentities extends Command
 {
     protected $signature = 'face-ai:retry-identities
         {--tenant= : ID del tenant (deja vacío para todos)}
-        {--purge-queue : Vacía la cola face-ai:tasks antes de re-encolar}
+        {--purge-queue : Vacía la cola face-ai:tasks:identity antes de re-encolar}
         {--dry-run : Solo muestra lo que haría sin modificar datos}';
 
     protected $description = 'Limpia tareas huérfanas de Redis y re-encola identidades pendientes con URLs frescas';
@@ -23,7 +23,7 @@ class RetryFaceAiIdentities extends Command
         $tenantId  = $this->option('tenant') ? (int) $this->option('tenant') : null;
         $purge     = (bool) $this->option('purge-queue');
         $dryRun    = (bool) $this->option('dry-run');
-        $taskQueue = (string) config('services.face_ai.task_queue', 'face-ai:tasks');
+        $taskQueue = (string) config('services.face_ai.identity_task_queue', 'face-ai:tasks:identity');
         $redis     = Redis::connection((string) config('services.face_ai.redis_connection', 'default'));
 
         if ($dryRun) {

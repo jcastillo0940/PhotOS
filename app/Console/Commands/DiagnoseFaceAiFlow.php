@@ -82,7 +82,8 @@ class DiagnoseFaceAiFlow extends Command
         }
 
         $redis = Redis::connection((string) config('services.face_ai.redis_connection', 'default'));
-        $taskQueue = (string) config('services.face_ai.task_queue', 'face-ai:tasks');
+        $identityTaskQueue = (string) config('services.face_ai.identity_task_queue', 'face-ai:tasks:identity');
+        $recognizeTaskQueue = (string) config('services.face_ai.recognize_task_queue', 'face-ai:tasks:recognize');
         $resultQueue = (string) config('services.face_ai.result_queue', 'face-ai:results');
 
         $identitiesQuery = FaceIdentity::withoutGlobalScope('tenant')
@@ -204,11 +205,14 @@ class DiagnoseFaceAiFlow extends Command
                 'sponsors' => array_slice(array_map(fn ($item) => $item['name'] ?? null, $sponsorCatalog), 0, 10),
             ],
             'queues' => [
-                'task_queue' => $taskQueue,
+                'identity_task_queue' => $identityTaskQueue,
+                'recognize_task_queue' => $recognizeTaskQueue,
                 'result_queue' => $resultQueue,
-                'tasks_waiting' => $redis->llen($taskQueue),
+                'identity_tasks_waiting' => $redis->llen($identityTaskQueue),
+                'recognize_tasks_waiting' => $redis->llen($recognizeTaskQueue),
                 'results_waiting' => $redis->llen($resultQueue),
-                'task_sample' => $this->queueSample($redis, $taskQueue, $queueSample),
+                'identity_task_sample' => $this->queueSample($redis, $identityTaskQueue, $queueSample),
+                'recognize_task_sample' => $this->queueSample($redis, $recognizeTaskQueue, $queueSample),
                 'result_sample' => $this->queueSample($redis, $resultQueue, $queueSample),
             ],
             'identities' => $identities,
