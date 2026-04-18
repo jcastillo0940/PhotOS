@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Jobs\DispatchFaceRecognitionTaskJob;
 use App\Models\FaceIdentity;
+use App\Models\FaceIdentityVector;
+use App\Models\FaceUnknownDetection;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
@@ -149,11 +151,7 @@ class FaceRecognitionService
             'ai_image_url' => $imageUrl,
             'filename' => basename($optimizedPath),
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
-            'database' => $identities->map(fn (FaceIdentity $identity) => [
-                'id' => $identity->id,
-                'name' => $identity->name,
-                'vector' => $identity->embedding,
-            ])->values()->all(),
+            'database' => $identities->map(fn (FaceIdentity $identity) => $this->buildIdentityPayload($identity))->values()->all(),
             'sponsor_keywords' => $this->selectedSponsors($project),
             'supports_sponsors' => $project->supportsSponsorDetection(),
         ], $this->recognizeTaskQueueName());
@@ -219,11 +217,7 @@ class FaceRecognitionService
             'project_id' => $project->id,
             'photos' => $payloadPhotos,
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
-            'database' => $identities->map(fn (FaceIdentity $identity) => [
-                'id' => $identity->id,
-                'name' => $identity->name,
-                'vector' => $identity->embedding,
-            ])->values()->all(),
+            'database' => $identities->map(fn (FaceIdentity $identity) => $this->buildIdentityPayload($identity))->values()->all(),
             'sponsor_keywords' => $this->selectedSponsors($project),
             'supports_sponsors' => $project->supportsSponsorDetection(),
         ], $this->recognizeTaskQueueName());
@@ -351,6 +345,19 @@ class FaceRecognitionService
                 'processed_at' => now(),
             ]);
 
+            // Save as primary vector in the multi-vector table
+            FaceIdentityVector::where('face_identity_id', $identity->id)
+                ->where('is_primary', true)
+                ->delete();
+
+            FaceIdentityVector::create([
+                'face_identity_id' => $identity->id,
+                'tenant_id' => $identity->tenant_id,
+                'embedding' => $vector,
+                'source_type' => 'manual_upload',
+                'is_primary' => true,
+            ]);
+
             return;
         }
 
@@ -391,6 +398,79 @@ class FaceRecognitionService
             $message['gemini_request_id'] ?? null,
             isset($message['gemini_batch_size']) ? (int) $message['gemini_batch_size'] : null,
         );
+
+        $this->saveUnknownDetections($photo, $message['unknown_faces'] ?? []);
+    }
+
+    private function saveUnknownDetections(Photo $photo, array $unknownFaces): void
+    {
+        if (empty($unknownFaces)) {
+            return;
+        }
+
+        // Replace previous unknown detections for this photo
+        FaceUnknownDetection::withoutGlobalScope('tenant')
+            ->where('photo_id', $photo->id)
+            ->where('status', 'unknown')
+            ->delete();
+
+        foreach ($unknownFaces as $face) {
+            $embedding = $face['embedding'] ?? null;
+            if (! is_array($embedding) || empty($embedding)) {
+                continue;
+            }
+
+            FaceUnknownDetection::create([
+                'tenant_id' => $photo->tenant_id,
+                'photo_id' => $photo->id,
+                'face_index' => (int) ($face['face_index'] ?? 0),
+                'embedding' => $embedding,
+                'bbox' => $face['bbox'] ?? null,
+                'best_confidence' => isset($face['best_confidence']) ? (float) $face['best_confidence'] : null,
+                'best_match_identity_id' => $face['best_match_identity_id'] ?? null,
+                'status' => 'unknown',
+            ]);
+        }
+    }
+
+    public function confirmUnknownDetection(FaceUnknownDetection $detection, FaceIdentity $identity): void
+    {
+        FaceIdentityVector::create([
+            'face_identity_id' => $identity->id,
+            'tenant_id' => $identity->tenant_id,
+            'embedding' => $detection->embedding,
+            'source_type' => 'confirmed_match',
+            'is_primary' => false,
+            'confidence' => $detection->best_confidence,
+        ]);
+
+        $detection->update([
+            'status' => 'confirmed',
+            'best_match_identity_id' => $identity->id,
+        ]);
+    }
+
+    private function buildIdentityPayload(FaceIdentity $identity): array
+    {
+        $vectors = $identity->vectors->map(fn (FaceIdentityVector $v) => [
+            'vector_id' => $v->id,
+            'embedding' => $v->embedding,
+        ])->values()->all();
+
+        // Fall back to legacy single embedding if no vectors in new table
+        if (empty($vectors) && $identity->embedding) {
+            return [
+                'id' => $identity->id,
+                'name' => $identity->name,
+                'vector' => $identity->embedding,
+            ];
+        }
+
+        return [
+            'id' => $identity->id,
+            'name' => $identity->name,
+            'vectors' => $vectors,
+        ];
     }
 
     private function selectedSponsors(Project $project): array
@@ -446,13 +526,18 @@ class FaceRecognitionService
     public function recognitionIdentities(Project $project)
     {
         return FaceIdentity::withoutGlobalScope('tenant')
+            ->with(['vectors' => fn ($q) => $q->select(['id', 'face_identity_id', 'embedding'])])
             ->where('tenant_id', $project->tenant_id)
-            ->whereNotNull('embedding')
             ->where(function ($query) use ($project) {
                 $query->whereNull('project_id')
                     ->orWhere('project_id', $project->id);
             })
-            ->get(['id', 'name', 'embedding', 'project_id']);
+            ->where(function ($query) {
+                // Include identities with vectors in the new table OR legacy embedding
+                $query->whereHas('vectors')
+                    ->orWhereNotNull('embedding');
+            })
+            ->get(['id', 'name', 'embedding', 'project_id', 'tenant_id']);
     }
 
     public function hasRecognitionDatabase(Project $project): bool

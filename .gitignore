@@ -26,6 +26,7 @@ Thumbs.db
 .aider*
 # Python virtual environments
 ai_service/.venv/
+ai_service/.insightface/
 .venv/
 venv/
 ENV/

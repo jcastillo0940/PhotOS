@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FaceIdentity;
+use App\Models\FaceUnknownDetection;
 use App\Models\Project;
 use App\Models\Setting;
 use App\Services\FaceRecognitionService;
@@ -101,12 +102,33 @@ class FaceDetectionController extends Controller
             ],
         ]);
 
+        $unknownDetections = FaceUnknownDetection::withoutGlobalScope('tenant')
+            ->with(['photo:id,optimized_path,url', 'bestMatchIdentity:id,name'])
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'unknown')
+            ->latest()
+            ->limit(50)
+            ->get()
+            ->map(fn (FaceUnknownDetection $d) => [
+                'id' => $d->id,
+                'photo_id' => $d->photo_id,
+                'face_index' => $d->face_index,
+                'bbox' => $d->bbox,
+                'best_confidence' => $d->best_confidence,
+                'best_match_identity_id' => $d->best_match_identity_id,
+                'best_match_name' => $d->bestMatchIdentity?->name,
+                'photo_url' => $d->photo?->url ? Storage::disk('r2')->temporaryUrl($d->photo->url, now()->addMinutes(30)) : null,
+                'created_at' => $d->created_at->toIso8601String(),
+            ])
+            ->values();
+
         return Inertia::render('Admin/FaceDetection/Index', [
             'mode' => Setting::get('face_detection_scope', 'project_only'),
             'sportsModeEnabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
             'serviceConfigured' => $this->faceRecognitionService->enabled(),
             'projects' => $projectSummaries,
             'identities' => $identities,
+            'unknownDetections' => $unknownDetections,
             'catalogs' => $catalogs,
             'stats' => [
                 'projects_count' => $projects->count(),
@@ -231,7 +253,11 @@ class FaceDetectionController extends Controller
 
         if ($faceIdentity->path_reference) {
             [$disk, $path] = $this->resolveStoredReference($faceIdentity->path_reference);
-            Storage::disk($disk)->delete($path);
+            try {
+                Storage::disk($disk)->delete($path);
+            } catch (\Throwable) {
+                // disk not configured for this tenant, skip file deletion
+            }
         }
 
         $name = $faceIdentity->name;
@@ -263,7 +289,11 @@ class FaceDetectionController extends Controller
 
         if (! empty($item['reference_path'])) {
             [$disk, $path] = $this->resolveStoredReference((string) $item['reference_path']);
-            Storage::disk($disk)->delete($path);
+            try {
+                Storage::disk($disk)->delete($path);
+            } catch (\Throwable) {
+                // disk not configured for this tenant, skip file deletion
+            }
         }
 
         $remaining = $items
@@ -273,6 +303,32 @@ class FaceDetectionController extends Controller
         Setting::set($config['setting_key'], $remaining->toJson(JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 'ai');
 
         return back(status: 303)->with('success', $config['success_delete']);
+    }
+
+    public function confirmUnknownDetection(Request $request, FaceUnknownDetection $detection)
+    {
+        abort_unless((int) $detection->tenant_id === (int) $this->tenantContext->id(), 404);
+
+        $validated = $request->validate([
+            'face_identity_id' => 'required|integer|exists:face_identities,id',
+        ]);
+
+        $identity = FaceIdentity::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->tenantContext->id())
+            ->findOrFail($validated['face_identity_id']);
+
+        $this->faceRecognitionService->confirmUnknownDetection($detection, $identity);
+
+        return back(status: 303)->with('success', "Rostro confirmado como \"{$identity->name}\" y aprendizaje guardado.");
+    }
+
+    public function rejectUnknownDetection(FaceUnknownDetection $detection)
+    {
+        abort_unless((int) $detection->tenant_id === (int) $this->tenantContext->id(), 404);
+
+        $detection->update(['status' => 'rejected']);
+
+        return back(status: 303)->with('success', 'Rostro descartado.');
     }
 
     public function runAll()

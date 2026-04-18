@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Bot, Camera, FolderKanban, ScanFace, Shield, Tags, Ticket, Trash2, UserRound, WandSparkles } from 'lucide-react';
+import { Bot, Camera, Check, FolderKanban, HelpCircle, ScanFace, Shield, Tags, Ticket, Trash2, UserRound, WandSparkles, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const CATALOG_META = {
@@ -43,7 +43,7 @@ const CATALOG_META = {
     },
 };
 
-export default function Index({ mode, sportsModeEnabled = false, serviceConfigured, projects = [], identities = [], catalogs = {}, stats = {} }) {
+export default function Index({ mode, sportsModeEnabled = false, serviceConfigured, projects = [], identities = [], unknownDetections = [], catalogs = {}, stats = {} }) {
     const { flash } = usePage().props;
     const modeForm = useForm({ mode: mode || 'project_only', enable_existing_projects: mode === 'all_galleries' });
     const identityForm = useForm({ name: '', scope: 'global', project_id: '', reference_image: null });
@@ -351,6 +351,30 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                     </div>
                 </section>
 
+                {unknownDetections.length > 0 && (
+                    <section className="rounded-[2rem] border border-amber-200 bg-white p-7 shadow-sm">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-500">Aprendizaje</p>
+                                <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
+                                    Rostros sin identificar
+                                </h3>
+                                <p className="mt-2 text-sm leading-7 text-slate-500">
+                                    La IA detecto estos rostros pero no los pudo asociar a ninguna identidad conocida. Al confirmarlos, el sistema aprende y mejora futuros reconocimientos.
+                                </p>
+                            </div>
+                            <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
+                                {unknownDetections.length} pendientes
+                            </span>
+                        </div>
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            {unknownDetections.map((detection) => (
+                                <UnknownFaceCard key={detection.id} detection={detection} identities={identities} />
+                            ))}
+                        </div>
+                    </section>
+                )}
+
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Galerias</p>
                     <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">
@@ -548,6 +572,85 @@ function SelectField({ label, value, onChange, options = [], blankLabel = null, 
                     <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
             </select>
+        </div>
+    );
+}
+
+function UnknownFaceCard({ detection, identities = [] }) {
+    const [selectedIdentityId, setSelectedIdentityId] = useState(
+        detection.best_match_identity_id ? String(detection.best_match_identity_id) : ''
+    );
+    const confidence = detection.best_confidence ? Math.round(detection.best_confidence * 100) : 0;
+
+    const confirm = () => {
+        if (!selectedIdentityId) return;
+        router.post(`/admin/face-detection/unknowns/${detection.id}/confirm`, {
+            face_identity_id: selectedIdentityId,
+        }, { preserveScroll: true });
+    };
+
+    const reject = () => {
+        router.delete(`/admin/face-detection/unknowns/${detection.id}/reject`, { preserveScroll: true });
+    };
+
+    return (
+        <div className="rounded-[1.6rem] border border-amber-100 bg-amber-50 p-4 space-y-3">
+            <div className="relative overflow-hidden rounded-2xl bg-slate-100" style={{ aspectRatio: '16/9' }}>
+                {detection.photo_url ? (
+                    <img src={detection.photo_url} alt="Foto con rostro desconocido" className="h-full w-full object-cover" />
+                ) : (
+                    <div className="flex h-full w-full items-center justify-center">
+                        <HelpCircle className="h-8 w-8 text-slate-300" />
+                    </div>
+                )}
+                {detection.bbox && (
+                    <div
+                        className="absolute border-2 border-amber-400 rounded"
+                        style={{
+                            left: `${detection.bbox[0] * 100}%`,
+                            top: `${detection.bbox[1] * 100}%`,
+                            width: `${(detection.bbox[2] - detection.bbox[0]) * 100}%`,
+                            height: `${(detection.bbox[3] - detection.bbox[1]) * 100}%`,
+                        }}
+                    />
+                )}
+            </div>
+
+            {confidence > 0 && (
+                <p className="text-xs text-amber-700">
+                    Parecido mas cercano: <span className="font-semibold">{detection.best_match_name || 'Desconocido'}</span> ({confidence}% similitud)
+                </p>
+            )}
+
+            <select
+                value={selectedIdentityId}
+                onChange={(e) => setSelectedIdentityId(e.target.value)}
+                className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+            >
+                <option value="">Seleccionar identidad...</option>
+                {identities.map((id) => (
+                    <option key={id.id} value={String(id.id)}>{id.name}</option>
+                ))}
+            </select>
+
+            <div className="flex gap-2">
+                <button
+                    type="button"
+                    onClick={confirm}
+                    disabled={!selectedIdentityId}
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#171411] py-2 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                    <Check className="h-3.5 w-3.5" />
+                    Confirmar
+                </button>
+                <button
+                    type="button"
+                    onClick={reject}
+                    className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm text-slate-500"
+                >
+                    <X className="h-3.5 w-3.5" />
+                </button>
+            </div>
         </div>
     );
 }

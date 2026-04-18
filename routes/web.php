@@ -123,6 +123,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/face-detection/catalog', [FaceDetectionController::class, 'storeCatalogItem'])->middleware('tenant.admin')->name('admin.face-detection.catalog.store');
         Route::delete('/face-detection/catalog/{type}/{itemId}', [FaceDetectionController::class, 'destroyCatalogItem'])->middleware('tenant.admin')->name('admin.face-detection.catalog.delete');
         Route::post('/face-detection/run-all', [FaceDetectionController::class, 'runAll'])->middleware(['tenant.admin', 'tenant.feature:ai_scans'])->name('admin.face-detection.run-all');
+        Route::post('/face-detection/unknowns/{detection}/confirm', [FaceDetectionController::class, 'confirmUnknownDetection'])->middleware('tenant.admin')->name('admin.face-detection.unknowns.confirm');
+        Route::delete('/face-detection/unknowns/{detection}/reject', [FaceDetectionController::class, 'rejectUnknownDetection'])->middleware('tenant.admin')->name('admin.face-detection.unknowns.reject');
         Route::get('/contracts/{contract}/edit', [ContractController::class, 'edit'])->middleware('tenant.admin')->name('admin.contracts.edit');
         Route::put('/contracts/{contract}', [ContractController::class, 'update'])->middleware('tenant.admin')->name('admin.contracts.update');
         Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->middleware('tenant.admin')->name('admin.contracts.print');

@@ -420,12 +420,14 @@ class SettingsController extends Controller
             ['key' => 'app_favicon_path', 'group' => 'app_branding', 'is_secret' => false, 'value' => null],
         ];
 
-        foreach ($defaults as $d) {
-            Setting::withoutGlobalScope('tenant')->firstOrCreate(
-                ['tenant_id' => null, 'key' => $d['key']],
-                $d + ['tenant_id' => null]
-            );
-        }
+        Setting::withoutEvents(function () use ($defaults) {
+            foreach ($defaults as $d) {
+                Setting::withoutGlobalScope('tenant')->firstOrCreate(
+                    ['tenant_id' => null, 'key' => $d['key']],
+                    $d + ['tenant_id' => null]
+                );
+            }
+        });
 
         $this->syncStudioIdentity(
             Setting::get('app_name', Setting::get('photographer_business_name', 'PhotOS')),

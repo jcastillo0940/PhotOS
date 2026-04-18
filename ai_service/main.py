@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -8,16 +8,18 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import face_recognition
+import cv2
 import numpy as np
 import redis
 import requests
 import sponsor_detector
+from insightface.app import FaceAnalysis
 from PIL import Image, ImageDraw
 
 APP_NAME = 'PhotOS Face AI Worker'
-APP_VERSION = '3.0.0'
-DEFAULT_TOLERANCE = float(os.getenv('FACE_AI_TOLERANCE', '0.6'))
+APP_VERSION = '4.0.0'
+# Cosine distance threshold (0=identical, 1=opposite). buffalo_l: ~0.45 is a solid default.
+DEFAULT_TOLERANCE = float(os.getenv('FACE_AI_TOLERANCE', '0.45'))
 REDIS_URL = os.getenv('FACE_AI_REDIS_URL', 'redis://127.0.0.1:6379/0')
 IDENTITY_TASK_QUEUE = os.getenv('FACE_AI_IDENTITY_TASK_QUEUE', 'face-ai:tasks:identity')
 RECOGNIZE_TASK_QUEUE = os.getenv('FACE_AI_RECOGNIZE_TASK_QUEUE', 'face-ai:tasks:recognize')
@@ -26,6 +28,23 @@ POLL_TIMEOUT = max(1, int(os.getenv('FACE_AI_POLL_TIMEOUT', '5')))
 HTTP_TIMEOUT = int(os.getenv('FACE_AI_HTTP_TIMEOUT', '60'))
 
 QUADRANT_IDS = ['IMG-A', 'IMG-B', 'IMG-C', 'IMG-D']
+
+INSIGHTFACE_ROOT = os.getenv('INSIGHTFACE_ROOT', os.path.join(os.path.dirname(__file__), '.insightface'))
+
+_face_app: FaceAnalysis | None = None
+
+
+def get_face_app() -> FaceAnalysis:
+    global _face_app
+    if _face_app is None:
+        _face_app = FaceAnalysis(
+            name='buffalo_l',
+            root=INSIGHTFACE_ROOT,
+            providers=['CUDAExecutionProvider', 'CPUExecutionProvider'],
+        )
+        # ctx_id=0 uses first GPU; -1 forces CPU
+        _face_app.prepare(ctx_id=-1, det_size=(640, 640))
+    return _face_app
 
 
 def redis_client() -> redis.Redis:
@@ -47,30 +66,61 @@ def download_image_to_temp(url: str) -> Path:
     return Path(handle.name)
 
 
-def load_image(path: Path) -> np.ndarray[Any, Any]:
-    return face_recognition.load_image_file(str(path))
+def load_image_cv2(path: Path) -> np.ndarray:
+    img = cv2.imread(str(path))
+    if img is None:
+        # Fallback for formats cv2 may struggle with (e.g. WebP on some builds)
+        pil_img = Image.open(str(path)).convert('RGB')
+        img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    return img
 
 
-def extract_encodings(image: np.ndarray[Any, Any]) -> list[np.ndarray[Any, Any]]:
-    return face_recognition.face_encodings(image)
+def cosine_distance(a: np.ndarray, b: np.ndarray) -> float:
+    norm_a = float(np.linalg.norm(a))
+    norm_b = float(np.linalg.norm(b))
+    if norm_a == 0.0 or norm_b == 0.0:
+        return 1.0
+    return float(1.0 - np.dot(a, b) / (norm_a * norm_b))
 
 
 def parse_database(database: list[dict[str, Any]]) -> list[dict[str, Any]]:
     parsed: list[dict[str, Any]] = []
 
     for item in database:
-        person_id = item.get('id')
-        vector = item.get('vector')
-        if person_id is None or not isinstance(vector, list) or len(vector) == 0:
+        identity_id = item.get('id')
+        if identity_id is None:
+            continue
+
+        # New multi-vector format: vectors=[{vector_id, embedding}, ...]
+        vectors_raw = item.get('vectors')
+        # Legacy single-vector format: vector=[...]
+        legacy_vector = item.get('vector')
+
+        if vectors_raw and isinstance(vectors_raw, list):
+            vectors = [
+                np.array(v['embedding'], dtype=np.float32)
+                for v in vectors_raw
+                if isinstance(v, dict) and isinstance(v.get('embedding'), list) and len(v['embedding']) > 0
+            ]
+        elif isinstance(legacy_vector, list) and len(legacy_vector) > 0:
+            vectors = [np.array(legacy_vector, dtype=np.float32)]
+        else:
+            continue
+
+        if not vectors:
             continue
 
         parsed.append({
-            'id': person_id,
+            'id': identity_id,
             'name': item.get('name'),
-            'vector': np.array(vector, dtype=np.float64),
+            'vectors': vectors,
         })
 
     return parsed
+
+
+def best_distance_for_identity(face_embedding: np.ndarray, person: dict[str, Any]) -> float:
+    return min(cosine_distance(face_embedding, v) for v in person['vectors'])
 
 
 def people_count_label(count: int) -> str:
@@ -90,13 +140,14 @@ def process_extract_identity(task: dict[str, Any]) -> dict[str, Any]:
 
     try:
         image_path = download_image_to_temp(task['image_url'])
-        image = load_image(image_path)
-        encodings = extract_encodings(image)
+        img = load_image_cv2(image_path)
+        app = get_face_app()
+        faces = app.get(img)
 
-        if len(encodings) == 0:
+        if len(faces) == 0:
             raise ValueError('No se detecto ningun rostro.')
 
-        if len(encodings) > 1:
+        if len(faces) > 1:
             raise ValueError('La imagen de referencia debe contener un solo rostro.')
 
         return {
@@ -104,8 +155,8 @@ def process_extract_identity(task: dict[str, Any]) -> dict[str, Any]:
             'tenant_id': task.get('tenant_id'),
             'project_id': task.get('project_id'),
             'face_identity_id': task.get('face_identity_id'),
-            'vector': encodings[0].tolist(),
-            'faces_detected': len(encodings),
+            'vector': faces[0].embedding.tolist(),
+            'faces_detected': 1,
             'status': 'success',
         }
     except Exception as exc:
@@ -201,12 +252,18 @@ def process_recognize_batch(task: dict[str, Any]) -> dict[str, Any]:
         cleanup_temp_files(temp_files)
 
 
-def analyze_photo_locally(task: dict[str, Any], image_path: Path, known_people: list[dict[str, Any]]) -> dict[str, Any]:
-    image = load_image(image_path)
-    unknown_encodings = extract_encodings(image)
+def analyze_photo_locally(
+    task: dict[str, Any],
+    image_path: Path,
+    known_people: list[dict[str, Any]],
+) -> dict[str, Any]:
+    img = load_image_cv2(image_path)
+    app = get_face_app()
+    faces = app.get(img)
     tolerance = float(task.get('tolerance', DEFAULT_TOLERANCE))
+    img_h, img_w = img.shape[:2]
 
-    if len(unknown_encodings) == 0:
+    if len(faces) == 0:
         return {
             'task_type': 'recognize_photo',
             'tenant_id': task.get('tenant_id'),
@@ -225,26 +282,51 @@ def analyze_photo_locally(task: dict[str, Any], image_path: Path, known_people: 
             'gemini_tokens': 0,
             'gemini_batch_size': 1,
             'matches': [],
+            'unknown_faces': [],
             'tolerance': tolerance,
         }
 
     found_ids: set[Any] = set()
     matches: list[dict[str, Any]] = []
+    unknown_faces: list[dict[str, Any]] = []
 
-    for unknown_index, unknown_encoding in enumerate(unknown_encodings):
+    for face_index, face in enumerate(faces):
+        face_embedding: np.ndarray = face.embedding
+        bbox = face.bbox.tolist()  # [x1, y1, x2, y2] pixels
+        bbox_pct = [
+            round(max(0.0, bbox[0] / img_w), 4),
+            round(max(0.0, bbox[1] / img_h), 4),
+            round(min(1.0, bbox[2] / img_w), 4),
+            round(min(1.0, bbox[3] / img_h), 4),
+        ]
+
+        best_person: dict[str, Any] | None = None
+        best_distance = 1.0
+
         for person in known_people:
-            is_match = face_recognition.compare_faces([person['vector']], unknown_encoding, tolerance=tolerance)[0]
-            if not is_match:
-                continue
+            dist = best_distance_for_identity(face_embedding, person)
+            if dist < best_distance:
+                best_distance = dist
+                best_person = person
 
-            distance = float(face_recognition.face_distance([person['vector']], unknown_encoding)[0])
-            found_ids.add(person['id'])
+        if best_person is not None and best_distance <= tolerance:
+            found_ids.add(best_person['id'])
             matches.append({
-                'face_index': unknown_index,
-                'id': person['id'],
-                'name': person.get('name'),
-                'distance': round(distance, 6),
+                'face_index': face_index,
+                'id': best_person['id'],
+                'name': best_person.get('name'),
+                'distance': round(best_distance, 6),
             })
+        else:
+            # Unmatched — store embedding + closest candidate for manual review
+            unknown_entry: dict[str, Any] = {
+                'face_index': face_index,
+                'embedding': face_embedding.tolist(),
+                'bbox': bbox_pct,
+                'best_match_identity_id': best_person['id'] if best_person else None,
+                'best_confidence': round(1.0 - best_distance, 4) if best_person else 0.0,
+            }
+            unknown_faces.append(unknown_entry)
 
     return {
         'task_type': 'recognize_photo',
@@ -252,8 +334,8 @@ def analyze_photo_locally(task: dict[str, Any], image_path: Path, known_people: 
         'project_id': task.get('project_id'),
         'photo_id': task.get('photo_id'),
         'status': 'success',
-        'faces_detected': len(unknown_encodings),
-        'people_count_label': people_count_label(len(unknown_encodings)),
+        'faces_detected': len(faces),
+        'people_count_label': people_count_label(len(faces)),
         'found_ids': list(found_ids),
         'brands': [],
         'jersey_numbers': [],
@@ -263,11 +345,16 @@ def analyze_photo_locally(task: dict[str, Any], image_path: Path, known_people: 
         'gemini_tokens': 0,
         'gemini_batch_size': 1,
         'matches': matches,
+        'unknown_faces': unknown_faces,
         'tolerance': tolerance,
     }
 
 
-def apply_gemini_pipeline(local_results: list[dict[str, Any]], ai_variants: dict[int, Path], sponsor_keywords: list[str]) -> None:
+def apply_gemini_pipeline(
+    local_results: list[dict[str, Any]],
+    ai_variants: dict[int, Path],
+    sponsor_keywords: list[str],
+) -> None:
     eligible: list[tuple[str, dict[str, Any], Path, int]] = []
 
     for index, result in enumerate(local_results):
@@ -289,7 +376,11 @@ def apply_gemini_pipeline(local_results: list[dict[str, Any]], ai_variants: dict
 
     mosaic_path = create_mosaic([(quadrant_id, path) for quadrant_id, _, path, _ in eligible])
     try:
-        mosaic = sponsor_detector.analyze_mosaic(mosaic_path, [quadrant_id for quadrant_id, _, _, _ in eligible], sponsor_keywords)
+        mosaic = sponsor_detector.analyze_mosaic(
+            mosaic_path,
+            [quadrant_id for quadrant_id, _, _, _ in eligible],
+            sponsor_keywords,
+        )
     finally:
         cleanup_temp_files([mosaic_path])
 
@@ -301,7 +392,10 @@ def apply_gemini_pipeline(local_results: list[dict[str, Any]], ai_variants: dict
     for offset, (quadrant_id, result, _, triage_tokens) in enumerate(eligible):
         quadrant_payload = quadrant_results.get(quadrant_id, {}) if isinstance(quadrant_results, dict) else {}
         result['sponsors'] = quadrant_payload.get('sponsors', []) if isinstance(quadrant_payload, dict) else []
-        result['faces_detected'] = max(int(quadrant_payload.get('faces', 0)) if isinstance(quadrant_payload, dict) else 0, int(result.get('faces_detected', 0)))
+        result['faces_detected'] = max(
+            int(quadrant_payload.get('faces', 0)) if isinstance(quadrant_payload, dict) else 0,
+            int(result.get('faces_detected', 0)),
+        )
         result['gemini_tokens'] = triage_tokens + per_photo_tokens[offset]
         result['gemini_request_id'] = request_id
         result['gemini_batch_size'] = len(eligible)
@@ -378,8 +472,10 @@ def process_task(task: dict[str, Any]) -> dict[str, Any]:
 
 def main() -> None:
     client = redis_client()
+    # Warm up model on start so first request is not slow
+    get_face_app()
     task_queues = [IDENTITY_TASK_QUEUE, RECOGNIZE_TASK_QUEUE]
-    print(f'[{APP_NAME}] escuchando {task_queues} y publicando en {RESULT_QUEUE}')
+    print(f'[{APP_NAME} v{APP_VERSION}] escuchando {task_queues} y publicando en {RESULT_QUEUE}')
 
     while True:
         try:
