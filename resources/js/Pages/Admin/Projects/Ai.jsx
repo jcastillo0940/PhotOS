@@ -187,6 +187,13 @@ export default function Ai({ project, faceRecognition }) {
                                 </div>
                             )}
 
+                            {faceRecognition?.global_identities_count > 0 && (
+                                <div className="rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-600 flex items-center gap-2">
+                                    <ScanFace className="h-4 w-4 shrink-0 text-slate-400" />
+                                    <span><span className="font-semibold text-slate-900">{faceRecognition.global_identities_count}</span> {faceRecognition.global_identities_count === 1 ? 'rostro global disponible' : 'rostros globales disponibles'} del tenant para esta galeria.</span>
+                                </div>
+                            )}
+
                             <form onSubmit={createIdentity} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 space-y-3">
                                 <p className="mb-2 text-[11px] uppercase tracking-[0.18em] text-slate-400">Base de personas</p>
                                 <input
@@ -230,7 +237,14 @@ export default function Ai({ project, faceRecognition }) {
                                                 </div>
                                             )}
                                             <div>
-                                                <p className="text-sm font-semibold text-slate-900">{identity.name}</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-semibold text-slate-900">{identity.name}</p>
+                                                    {identity.vectors_count > 1 && (
+                                                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                            {identity.vectors_count} muestras
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <p className={`mt-0.5 text-[11px] ${identity.processing_status === 'error' ? 'text-rose-500' : 'text-slate-500'}`}>
                                                     {identity.processing_status === 'ready' ? 'Entrenado' : identity.processing_status === 'queued' ? 'Procesando...' : identity.processing_status === 'error' ? 'Error al entrenar' : 'Pendiente'}
                                                 </p>
@@ -282,7 +296,7 @@ export default function Ai({ project, faceRecognition }) {
                                 )}
                             </div>
 
-                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                            <div className="mt-4 grid gap-3 sm:grid-cols-4">
                                 <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Pendientes</p>
                                     <p className="mt-1 text-lg font-semibold text-slate-900">{recognitionSummary.photos_pending || 0}</p>
@@ -291,23 +305,42 @@ export default function Ai({ project, faceRecognition }) {
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Sin rostro</p>
                                     <p className="mt-1 text-lg font-semibold text-slate-900">{recognitionSummary.photos_without_face || 0}</p>
                                 </div>
+                                <div className={clsx('rounded-2xl border px-4 py-4', (recognitionSummary.photos_without_match || 0) > 0 ? 'border-amber-200 bg-amber-50' : 'border-[#e6e0d5] bg-white')}>
+                                    <p className={clsx('text-[11px] uppercase tracking-[0.18em]', (recognitionSummary.photos_without_match || 0) > 0 ? 'text-amber-500' : 'text-slate-400')}>Sin coincidencia</p>
+                                    <p className={clsx('mt-1 text-lg font-semibold', (recognitionSummary.photos_without_match || 0) > 0 ? 'text-amber-700' : 'text-slate-900')}>{recognitionSummary.photos_without_match || 0}</p>
+                                </div>
                                 <div className="rounded-2xl border border-[#e6e0d5] bg-white px-4 py-4">
                                     <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fallidas</p>
                                     <p className="mt-1 text-lg font-semibold text-slate-900">{recognitionSummary.photos_with_errors || 0}</p>
                                 </div>
                             </div>
 
-                            <div className="mt-8 h-3 overflow-hidden rounded-full bg-slate-200">
-                                <div
-                                    className="h-full rounded-full bg-gradient-to-r from-[#171411] via-[#7c5d45] to-[#d1a673] transition-all duration-1000"
-                                    style={{
-                                        width: `${Math.max(0, Math.min(100, (processedPhotos / Math.max(1, (project.photos || []).length)) * 100))}%`,
-                                    }}
-                                />
-                            </div>
-                            <p className="mt-3 text-sm font-medium text-slate-500">
-                                {`Progreso visual: ${processedPhotos} de ${(project.photos || []).length} fotos ya pasaron por la canalizacion IA.`}
-                            </p>
+                            {(() => {
+                                const total = Math.max(1, (project.photos || []).length);
+                                const matched = recognitionSummary.photos_with_people || 0;
+                                const noMatch = recognitionSummary.photos_without_match || 0;
+                                const noFace = recognitionSummary.photos_without_face || 0;
+                                const errors = recognitionSummary.photos_with_errors || 0;
+                                return (
+                                    <div className="mt-8">
+                                        <div className="h-3 overflow-hidden rounded-full bg-slate-100 flex gap-0.5">
+                                            {matched > 0 && <div className="h-full rounded-l-full bg-emerald-500 transition-all duration-700" style={{ width: `${(matched / total) * 100}%` }} title={`${matched} con personas`} />}
+                                            {noMatch > 0 && <div className="h-full bg-amber-400 transition-all duration-700" style={{ width: `${(noMatch / total) * 100}%` }} title={`${noMatch} sin coincidencia`} />}
+                                            {noFace > 0 && <div className="h-full bg-slate-300 transition-all duration-700" style={{ width: `${(noFace / total) * 100}%` }} title={`${noFace} sin rostro`} />}
+                                            {errors > 0 && <div className="h-full rounded-r-full bg-rose-400 transition-all duration-700" style={{ width: `${(errors / total) * 100}%` }} title={`${errors} con error`} />}
+                                        </div>
+                                        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                                            <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />Con personas: {matched}</span>
+                                            <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-amber-400" />Sin coincidencia: {noMatch}</span>
+                                            <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-slate-300" />Sin rostro: {noFace}</span>
+                                            {errors > 0 && <span className="flex items-center gap-1.5 text-xs text-slate-500"><span className="inline-block h-2 w-2 rounded-full bg-rose-400" />Error: {errors}</span>}
+                                        </div>
+                                        <p className="mt-2 text-sm font-medium text-slate-500">
+                                            {`${processedPhotos} de ${(project.photos || []).length} fotos procesadas por InsightFace.`}
+                                        </p>
+                                    </div>
+                                );
+                            })()}
 
                             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
                                 <button

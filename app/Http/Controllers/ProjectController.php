@@ -375,11 +375,20 @@ class ProjectController extends Controller
             ? $this->temporaryUrlOrFallback($photo->optimized_path)
             : $photo->url;
 
+        $faceDetections = $photo->relationLoaded('unknownDetections')
+            ? $photo->unknownDetections->map(fn ($d) => [
+                'id' => $d->id,
+                'face_index' => $d->face_index,
+                'bbox' => $d->bbox,
+            ])->values()->all()
+            : [];
+
         return [
-            ...$photo->toArray(),
+            ...$photo->makeHidden('unknownDetections')->toArray(),
             'url' => $resolvedUrl,
             'thumbnail_url' => $resolvedUrl,
             'people_count_label' => $photo->people_count_label,
+            'face_detections' => $faceDetections,
             'recognition_status_label' => match ($photo->recognition_status) {
                 'matched' => 'Coincidencia detectada',
                 'no_match' => 'Sin coincidencias',
@@ -421,7 +430,11 @@ class ProjectController extends Controller
             $project->update(['gallery_password' => strtoupper(Str::random(8))]);
         }
 
-        $project->load('lead', 'contract', 'invoices', 'photos', 'heroPhoto');
+        $project->load(['lead', 'contract', 'invoices', 'heroPhoto', 'photos' => function ($q) {
+            $q->with(['unknownDetections' => function ($q) {
+                $q->where('status', 'unknown')->select(['id', 'photo_id', 'face_index', 'bbox', 'best_confidence']);
+            }]);
+        }]);
         $serializedPhotos = $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values();
         $supportsSponsorDetection = $project->supportsSponsorDetection();
         $sponsorCatalog = $supportsSponsorDetection ? $this->sponsorCatalogForProject() : [];
@@ -513,6 +526,7 @@ class ProjectController extends Controller
                     'photos_with_errors' => $project->photos->where('recognition_status', 'error')->count(),
                 ],
                 'identities' => $project->faceIdentities()
+                    ->withCount('vectors')
                     ->latest()
                     ->get()
                     ->map(fn (FaceIdentity $identity) => [
@@ -523,6 +537,7 @@ class ProjectController extends Controller
                         'processing_note' => $identity->processing_note,
                         'processed_at' => optional($identity->processed_at)?->toIso8601String(),
                         'created_at' => optional($identity->created_at)?->toIso8601String(),
+                        'vectors_count' => (int) ($identity->vectors_count ?? 0),
                     ])
                     ->values()
                     ->all(),

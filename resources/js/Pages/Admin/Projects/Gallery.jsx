@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { Bot, ChevronLeft, CheckCircle2, Globe2, Sparkles, Trash2, UploadCloud, XCircle } from 'lucide-react';
+import { Bot, ChevronLeft, CheckCircle2, Globe2, Sparkles, Trash2, UploadCloud, UserRound, X, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePhotoUploader } from '@/hooks/usePhotoUploader';
@@ -74,6 +74,21 @@ export default function Gallery({ project, faceRecognition }) {
             people_count_label: next.people_count_label || null,
             show_on_website: next.show_on_website,
         }, { preserveScroll: true, preserveState: true });
+    };
+
+    const [taggingFace, setTaggingFace] = React.useState(null); // { photoId, detectionId }
+    const [tagName, setTagName] = React.useState('');
+
+    const handleTagFace = (detectionId, photoId) => {
+        const name = tagName.trim();
+        if (!name) return;
+        const current = photoState[photoId]?.people_tags || '';
+        const names = current.split(',').map((t) => t.trim()).filter(Boolean);
+        if (!names.includes(name)) names.push(name);
+        setPhotoState((prev) => ({ ...prev, [photoId]: { ...prev[photoId], people_tags: names.join(', ') } }));
+        setTaggingFace(null);
+        setTagName('');
+        router.post(`/admin/face-detection/unknowns/${detectionId}/name`, { name }, { preserveScroll: true });
     };
 
     const [isDragging, setIsDragging] = React.useState(false);
@@ -230,6 +245,58 @@ export default function Gallery({ project, faceRecognition }) {
                                 <article key={photo.id} className="overflow-hidden rounded-[1.5rem] border border-[#ece5d8] bg-white shadow-sm transition hover:shadow-md">
                                     <div className="relative group">
                                         <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" />
+
+                                        {canManageGallery && (photo.face_detections || []).map((det) => {
+                                            if (!det.bbox) return null;
+                                            const [x1, y1, x2, y2] = det.bbox;
+                                            const isActive = taggingFace?.detectionId === det.id;
+                                            return (
+                                                <button
+                                                    key={det.id}
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setTaggingFace({ photoId: photo.id, detectionId: det.id }); setTagName(''); }}
+                                                    style={{ left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${(x2 - x1) * 100}%`, height: `${(y2 - y1) * 100}%` }}
+                                                    className={clsx('absolute border-2 transition-colors', isActive ? 'border-amber-400' : 'border-amber-300 hover:border-amber-400')}
+                                                    title="Etiquetar persona"
+                                                >
+                                                    <span className="absolute -top-5 left-0 flex items-center gap-0.5 rounded bg-amber-400 px-1 py-0.5 text-[10px] font-semibold text-white shadow">
+                                                        <UserRound className="h-2.5 w-2.5" />?
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+
+                                        {taggingFace?.photoId === photo.id && (
+                                            <div className="absolute inset-x-0 bottom-0 z-10 bg-white/97 backdrop-blur-sm p-3 shadow-lg">
+                                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-600">Etiquetar rostro</p>
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        autoFocus
+                                                        value={tagName}
+                                                        onChange={(e) => setTagName(e.target.value)}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter') handleTagFace(taggingFace.detectionId, photo.id); if (e.key === 'Escape') { setTaggingFace(null); setTagName(''); } }}
+                                                        placeholder={sportsModeEnabled ? 'Jugador...' : 'Nombre...'}
+                                                        className="flex-1 rounded-lg border border-[#e6e0d5] bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-amber-400"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleTagFace(taggingFace.detectionId, photo.id)}
+                                                        disabled={!tagName.trim()}
+                                                        className="rounded-lg bg-[#171411] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+                                                    >
+                                                        OK
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => { setTaggingFace(null); setTagName(''); }}
+                                                        className="flex items-center justify-center rounded-lg border border-[#e6e0d5] px-2 text-slate-400 hover:text-slate-700"
+                                                    >
+                                                        <X className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
                                         {canManageGallery && <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/60 to-transparent p-4 opacity-0 transition-opacity group-hover:opacity-100">
                                             <button type="button" onClick={() => { setHeroPhotoId(photo.id); router.put(`/admin/projects/${project.id}`, { hero_photo_id: photo.id }, { preserveScroll: true, preserveState: true }); }} className={clsx('rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm backdrop-blur-sm', heroPhotoId === photo.id ? 'bg-[#171411] text-white border border-[#171411]' : 'border border-white/40 bg-white/30 text-white')}>
                                                 {heroPhotoId === photo.id ? 'Portada de Galeria' : 'Hacer Portada'}
@@ -247,7 +314,15 @@ export default function Gallery({ project, faceRecognition }) {
                                         {canManageGallery && (
                                             <div className="grid gap-3">
                                                 <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{sportsModeEnabled ? 'Jugador / Persona' : 'Persona'}</label>
+                                                    <div className="flex items-center justify-between">
+                                                        <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{sportsModeEnabled ? 'Jugador / Persona' : 'Persona'}</label>
+                                                        {(photo.face_detections || []).length > 0 && (
+                                                            <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
+                                                                <UserRound className="h-2.5 w-2.5" />
+                                                                {(photo.face_detections || []).length} rostro{(photo.face_detections || []).length > 1 ? 's' : ''}
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     <input
                                                         value={photoState[photo.id]?.people_tags || ''}
                                                         onChange={(event) => savePhoto(photo.id, { people_tags: event.target.value })}

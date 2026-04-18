@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\FaceIdentity;
+use App\Models\FaceIdentityVector;
 use App\Models\FaceUnknownDetection;
 use App\Models\Project;
 use App\Models\Setting;
@@ -64,6 +65,7 @@ class FaceDetectionController extends Controller
 
         $identities = FaceIdentity::withoutGlobalScope('tenant')
             ->with('project:id,name')
+            ->withCount('vectors')
             ->where('tenant_id', $tenantId)
             ->latest()
             ->get()
@@ -77,6 +79,7 @@ class FaceDetectionController extends Controller
                 'processing_note' => $identity->processing_note,
                 'processed_at' => optional($identity->processed_at)?->toIso8601String(),
                 'preview_url' => $this->previewUrl($identity->path_reference),
+                'vectors_count' => (int) ($identity->vectors_count ?? 0),
             ])
             ->values();
 
@@ -136,6 +139,8 @@ class FaceDetectionController extends Controller
                 'global_identities_count' => $identities->where('scope', 'global')->count(),
                 'local_identities_count' => $identities->where('scope', 'project')->count(),
                 'photos_with_people' => $photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
+                'photos_matched' => $photos->filter(fn ($photo) => $photo->recognition_status === 'matched')->count(),
+                'photos_without_match' => $photos->filter(fn ($photo) => $photo->recognition_status === 'no_match')->count(),
                 'catalog_brands_count' => count($catalogs['brand']['items'] ?? []),
                 'catalog_sponsors_count' => count($catalogs['sponsor']['items'] ?? []),
                 'catalog_jerseys_count' => count($catalogs['jersey']['items'] ?? []),
@@ -320,6 +325,57 @@ class FaceDetectionController extends Controller
         $this->faceRecognitionService->confirmUnknownDetection($detection, $identity);
 
         return back(status: 303)->with('success', "Rostro confirmado como \"{$identity->name}\" y aprendizaje guardado.");
+    }
+
+    public function nameUnknownDetection(Request $request, FaceUnknownDetection $detection)
+    {
+        abort_unless((int) $detection->tenant_id === (int) $this->tenantContext->id(), 404);
+
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'project_id' => 'nullable|integer|exists:projects,id',
+        ]);
+
+        $tenantId = $this->tenantContext->id();
+        $name = trim((string) $validated['name']);
+
+        $identity = FaceIdentity::create([
+            'tenant_id' => $tenantId,
+            'project_id' => $validated['project_id'] ?? null,
+            'name' => $name,
+            'embedding' => null,
+            'path_reference' => null,
+            'processing_status' => 'ready',
+            'processing_note' => 'Identidad creada desde rostro desconocido etiquetado manualmente.',
+            'processed_at' => now(),
+        ]);
+
+        FaceIdentityVector::create([
+            'face_identity_id' => $identity->id,
+            'tenant_id' => $tenantId,
+            'embedding' => $detection->embedding,
+            'source_type' => 'confirmed_match',
+            'is_primary' => true,
+            'confidence' => $detection->best_confidence,
+        ]);
+
+        $detection->update([
+            'status' => 'confirmed',
+            'best_match_identity_id' => $identity->id,
+        ]);
+
+        if ($detection->photo) {
+            $photo = $detection->photo;
+            $tags = collect($photo->people_tags ?? []);
+            if (! $tags->contains($name)) {
+                $photo->update([
+                    'people_tags' => $tags->push($name)->values()->all(),
+                    'recognition_status' => 'matched',
+                ]);
+            }
+        }
+
+        return back(status: 303)->with('success', "Rostro etiquetado como \"{$name}\" y guardado como nueva identidad lista para reconocer.");
     }
 
     public function rejectUnknownDetection(FaceUnknownDetection $detection)

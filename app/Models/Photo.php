@@ -41,6 +41,8 @@ class Photo extends Model
 
     public function project() { return $this->belongsTo(Project::class); }
 
+    public function unknownDetections() { return $this->hasMany(FaceUnknownDetection::class); }
+
     public function scopeWithBrand(Builder $query, string $brand): Builder
     {
         return $query->whereJsonContains('brand_tags', trim($brand));

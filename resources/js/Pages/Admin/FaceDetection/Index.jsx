@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Bot, Camera, Check, FolderKanban, HelpCircle, ScanFace, Shield, Tags, Ticket, Trash2, UserRound, WandSparkles, X } from 'lucide-react';
+import { Bot, Camera, Check, FolderKanban, HelpCircle, ScanFace, Shield, Tags, Ticket, Trash2, UserPlus, UserRound, WandSparkles, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const CATALOG_META = {
@@ -125,14 +125,14 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                         <StatCard label="Galerias" value={stats.projects_count || 0} detail="Proyectos del tenant" />
                         <StatCard label="Fotos" value={stats.photos_count || 0} detail="Fotos disponibles para IA" />
                         <StatCard label="Rostros globales" value={stats.global_identities_count || 0} detail="Disponibles para todas las galerias" />
-                        <StatCard label="Pendientes" value={stats.photos_pending || 0} detail="Fotos aun no procesadas" />
+                        <StatCard label="Rostros locales" value={stats.local_identities_count || 0} detail="Especificos por galeria" />
                     </div>
 
                     <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <StatCard label="Marcas" value={stats.catalog_brands_count || 0} detail="Referencias del tenant" />
-                        <StatCard label="Sponsors" value={stats.catalog_sponsors_count || 0} detail="Biblioteca comercial" />
-                        <StatCard label="Dorsales" value={stats.catalog_jerseys_count || 0} detail="Biblioteca opcional" />
-                        <StatCard label="Contextos" value={stats.catalog_context_count || 0} detail="Escenas y objetos clave" />
+                        <StatCard label="Con personas" value={stats.photos_with_people || 0} detail="Fotos con rostros identificados" />
+                        <StatCard label="Sin coincidencia" value={stats.photos_without_match || 0} detail="Rostros detectados sin match" highlight={stats.photos_without_match > 0} />
+                        <StatCard label="Pendientes" value={stats.photos_pending || 0} detail="Fotos aun no procesadas" />
+                        <StatCard label="Catalogo total" value={(stats.catalog_brands_count || 0) + (stats.catalog_sponsors_count || 0) + (stats.catalog_jerseys_count || 0) + (stats.catalog_context_count || 0)} detail="Marcas, sponsors, dorsales y contextos" />
                     </div>
 
                     {sportsModeEnabled ? (
@@ -326,7 +326,14 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                             )}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="truncate text-lg font-semibold text-slate-900">{identity.name}</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="truncate text-lg font-semibold text-slate-900">{identity.name}</p>
+                                                {identity.vectors_count > 1 && (
+                                                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                                        {identity.vectors_count} muestras
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
                                                 {identity.scope === 'global' ? 'Global' : identity.project_name || 'Galeria local'}
                                             </p>
@@ -480,11 +487,11 @@ function setIdentityScope(form, value) {
     }));
 }
 
-function StatCard({ label, value, detail }) {
+function StatCard({ label, value, detail, highlight = false }) {
     return (
-        <div className="rounded-[1.7rem] border border-[#e6e0d5] bg-[#fbf9f6] px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
+        <div className={clsx('rounded-[1.7rem] border px-5 py-5 shadow-sm', highlight && value > 0 ? 'border-amber-200 bg-amber-50' : 'border-[#e6e0d5] bg-[#fbf9f6]')}>
+            <p className={clsx('text-[11px] font-semibold uppercase tracking-[0.2em]', highlight && value > 0 ? 'text-amber-500' : 'text-slate-400')}>{label}</p>
+            <p className={clsx('mt-3 text-2xl font-semibold tracking-tight', highlight && value > 0 ? 'text-amber-700' : 'text-slate-900')}>{value}</p>
             <p className="mt-1 text-sm text-slate-500">{detail}</p>
         </div>
     );
@@ -577,15 +584,25 @@ function SelectField({ label, value, onChange, options = [], blankLabel = null, 
 }
 
 function UnknownFaceCard({ detection, identities = [] }) {
+    const [mode, setMode] = useState('existing'); // 'existing' | 'new'
     const [selectedIdentityId, setSelectedIdentityId] = useState(
         detection.best_match_identity_id ? String(detection.best_match_identity_id) : ''
     );
+    const [newName, setNewName] = useState('');
     const confidence = detection.best_confidence ? Math.round(detection.best_confidence * 100) : 0;
+    const similarityPct = confidence;
 
     const confirm = () => {
         if (!selectedIdentityId) return;
         router.post(`/admin/face-detection/unknowns/${detection.id}/confirm`, {
             face_identity_id: selectedIdentityId,
+        }, { preserveScroll: true });
+    };
+
+    const labelNew = () => {
+        if (!newName.trim()) return;
+        router.post(`/admin/face-detection/unknowns/${detection.id}/name`, {
+            name: newName.trim(),
         }, { preserveScroll: true });
     };
 
@@ -595,6 +612,25 @@ function UnknownFaceCard({ detection, identities = [] }) {
 
     return (
         <div className="rounded-[1.6rem] border border-amber-100 bg-amber-50 p-4 space-y-3">
+            {/* Pipeline steps */}
+            <div className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-amber-600">
+                <span className="flex items-center gap-1">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold text-white">1</span>
+                    Deteccion
+                </span>
+                <span className="flex-1 border-t border-amber-300" />
+                <span className="flex items-center gap-1">
+                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-amber-400 text-[8px] font-bold text-white">2</span>
+                    Vector 512D
+                </span>
+                <span className="flex-1 border-t border-amber-300" />
+                <span className="flex items-center gap-1">
+                    <span className={clsx('flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-bold text-white', similarityPct >= 60 ? 'bg-emerald-400' : 'bg-rose-400')}>3</span>
+                    {similarityPct >= 60 ? `${similarityPct}%` : 'Sin match'}
+                </span>
+            </div>
+
+            {/* Photo with bbox */}
             <div className="relative overflow-hidden rounded-2xl bg-slate-100" style={{ aspectRatio: '16/9' }}>
                 {detection.photo_url ? (
                     <img src={detection.photo_url} alt="Foto con rostro desconocido" className="h-full w-full object-cover" />
@@ -618,39 +654,92 @@ function UnknownFaceCard({ detection, identities = [] }) {
 
             {confidence > 0 && (
                 <p className="text-xs text-amber-700">
-                    Parecido mas cercano: <span className="font-semibold">{detection.best_match_name || 'Desconocido'}</span> ({confidence}% similitud)
+                    Mas cercano: <span className="font-semibold">{detection.best_match_name || 'Desconocido'}</span> — {confidence}% similitud
                 </p>
             )}
 
-            <select
-                value={selectedIdentityId}
-                onChange={(e) => setSelectedIdentityId(e.target.value)}
-                className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
-            >
-                <option value="">Seleccionar identidad...</option>
-                {identities.map((id) => (
-                    <option key={id.id} value={String(id.id)}>{id.name}</option>
-                ))}
-            </select>
-
-            <div className="flex gap-2">
+            {/* Mode toggle */}
+            <div className="flex rounded-2xl border border-amber-200 bg-white overflow-hidden text-xs font-semibold">
                 <button
                     type="button"
-                    onClick={confirm}
-                    disabled={!selectedIdentityId}
-                    className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#171411] py-2 text-sm font-semibold text-white disabled:opacity-40"
+                    onClick={() => setMode('existing')}
+                    className={clsx('flex-1 py-2 transition', mode === 'existing' ? 'bg-[#171411] text-white' : 'text-slate-500')}
                 >
-                    <Check className="h-3.5 w-3.5" />
-                    Confirmar
+                    Es alguien conocido
                 </button>
                 <button
                     type="button"
-                    onClick={reject}
-                    className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm text-slate-500"
+                    onClick={() => setMode('new')}
+                    className={clsx('flex-1 py-2 transition', mode === 'new' ? 'bg-amber-500 text-white' : 'text-slate-500')}
                 >
-                    <X className="h-3.5 w-3.5" />
+                    Nueva persona
                 </button>
             </div>
+
+            {mode === 'existing' ? (
+                <>
+                    <select
+                        value={selectedIdentityId}
+                        onChange={(e) => setSelectedIdentityId(e.target.value)}
+                        className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                    >
+                        <option value="">Seleccionar identidad...</option>
+                        {identities.map((id) => (
+                            <option key={id.id} value={String(id.id)}>{id.name}</option>
+                        ))}
+                    </select>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={confirm}
+                            disabled={!selectedIdentityId}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#171411] py-2 text-sm font-semibold text-white disabled:opacity-40"
+                        >
+                            <Check className="h-3.5 w-3.5" />
+                            Confirmar y aprender
+                        </button>
+                        <button
+                            type="button"
+                            onClick={reject}
+                            className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm text-slate-500"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                </>
+            ) : (
+                <>
+                    <input
+                        type="text"
+                        value={newName}
+                        onChange={(e) => setNewName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && labelNew()}
+                        placeholder="Nombre de la persona..."
+                        className="w-full rounded-2xl border border-amber-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none"
+                    />
+                    <p className="text-[11px] text-amber-700 leading-5">
+                        El vector de 512 dimensiones se guarda como identidad nueva. El sistema la reconocera en futuras fotos automaticamente.
+                    </p>
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={labelNew}
+                            disabled={!newName.trim()}
+                            className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-amber-500 py-2 text-sm font-semibold text-white disabled:opacity-40"
+                        >
+                            <UserPlus className="h-3.5 w-3.5" />
+                            Etiquetar y guardar vector
+                        </button>
+                        <button
+                            type="button"
+                            onClick={reject}
+                            className="flex items-center justify-center gap-1.5 rounded-2xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm text-slate-500"
+                        >
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                </>
+            )}
         </div>
     );
 }
