@@ -19,6 +19,7 @@ use App\Http\Controllers\ProjectCollaboratorController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\Saas\PlanController;
+use App\Http\Controllers\Saas\CostController;
 use App\Http\Controllers\Saas\SubscriptionController;
 use App\Http\Controllers\Saas\TemplateController as SaasTemplateController;
 use App\Http\Controllers\Saas\UserController;
@@ -77,6 +78,10 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
         Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
         Route::get('/saas/gemini-usage', [SaasTenantController::class, 'geminiUsage'])->name('admin.saas.gemini-usage');
+        Route::get('/saas/costs', [CostController::class, 'index'])->name('admin.saas.costs.index');
+        Route::post('/saas/costs', [CostController::class, 'store'])->name('admin.saas.costs.store');
+        Route::put('/saas/costs/{cost}', [CostController::class, 'update'])->name('admin.saas.costs.update');
+        Route::delete('/saas/costs/{cost}', [CostController::class, 'destroy'])->name('admin.saas.costs.destroy');
         Route::get('/saas/tenants', [SaasTenantController::class, 'index'])->name('admin.saas.tenants.index');
         Route::post('/saas/tenants', [SaasTenantController::class, 'store'])->name('admin.saas.tenants.store');
         Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');
@@ -180,7 +185,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/projects/{project}/recognition/test', [GalleryController::class, 'testRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.recognition.test');
         Route::post('/projects/{project}/recognition/run', [GalleryController::class, 'recognizeProject'])->middleware(['project.access:manage_gallery', 'tenant.feature:ai_scans'])->name('admin.projects.recognition.run');
         Route::delete('/projects/{project}/recognition', [GalleryController::class, 'clearProjectRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.recognition.clear');
-        Route::post('/projects/{project}/photos/{photo}/gemini', [GalleryController::class, 'analyzePhotoWithGemini'])->middleware(['project.access:manage_gallery', 'gemini.rate'])->name('admin.projects.photos.gemini');
+        Route::post('/projects/{project}/photos/{photo}/gemini', [GalleryController::class, 'analyzePhotoWithGemini'])->middleware(['project.access:manage_gallery', 'tenant.feature:ai_scans', 'gemini.rate'])->name('admin.projects.photos.gemini');
         Route::post('/projects/{project}/photos/{photo}/manual-face', [GalleryController::class, 'storeManualFaceTag'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.manual-face');
         Route::post('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'recognizePhoto'])->middleware(['project.access:manage_gallery', 'tenant.feature:ai_scans'])->name('admin.projects.photos.recognition');
         Route::delete('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'clearPhotoRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.recognition.clear');
