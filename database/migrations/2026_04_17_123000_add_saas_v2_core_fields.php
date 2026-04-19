@@ -28,11 +28,17 @@ return new class extends Migration
 
         Schema::table('photos', function (Blueprint $table) {
             if (! Schema::hasColumn('photos', 'gemini_request_id')) {
-                $table->string('gemini_request_id')->nullable()->after('gemini_tokens');
+                $col = $table->string('gemini_request_id')->nullable();
+                if (Schema::hasColumn('photos', 'gemini_tokens')) {
+                    $col->after('gemini_tokens');
+                }
             }
 
             if (! Schema::hasColumn('photos', 'gemini_batch_size')) {
-                $table->unsignedInteger('gemini_batch_size')->nullable()->after('gemini_request_id');
+                $col = $table->unsignedInteger('gemini_batch_size')->nullable();
+                if (Schema::hasColumn('photos', 'gemini_request_id')) {
+                    $col->after('gemini_request_id');
+                }
             }
         });
     }

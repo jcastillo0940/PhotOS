@@ -24,7 +24,11 @@ class EnsureTenantSessionMatchesHost
         $centralDomains = Arr::wrap(config('saas.central_domains', []));
         $routeName = (string) $request->route()?->getName();
 
-        if (in_array($host, $centralDomains, true) && $user->isDeveloper()) {
+        if ($user->tenant_id === null && in_array($user->role, ['developer', 'operator'], true)) {
+            return $next($request);
+        }
+
+        if (in_array($host, $centralDomains, true) && $user->tenant_id === null) {
             return $next($request);
         }
 
