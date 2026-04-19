@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Saas;
 
 use App\Http\Controllers\Controller;
 use App\Models\SaasPlan;
+use App\Support\SaasPlanCatalog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -11,8 +12,12 @@ class PlanController extends Controller
 {
     public function index()
     {
+        $plans = SaasPlanCatalog::sortCollection(
+            SaasPlan::query()->get()
+        );
+
         return Inertia::render('Admin/Saas/Plans/Index', [
-            'plans' => SaasPlan::orderBy('id')->get()->map(function (SaasPlan $plan) {
+            'plans' => $plans->map(function (SaasPlan $plan) {
                 $definition = $plan->resolvedDefinition();
 
                 return [

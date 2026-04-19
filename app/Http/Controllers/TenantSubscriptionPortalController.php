@@ -6,6 +6,7 @@ use App\Models\SaasPlan;
 use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionTransaction;
 use App\Services\Billing\TenantBillingService;
+use App\Support\SaasPlanCatalog;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -76,10 +77,11 @@ class TenantSubscriptionPortalController extends Controller
                         : null,
                 ],
             ])->values(),
-            'plans' => SaasPlan::query()
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->get()
+            'plans' => SaasPlanCatalog::sortCollection(
+                SaasPlan::query()
+                    ->where('is_active', true)
+                    ->get()
+            )
                 ->map(function (SaasPlan $plan) {
                     $features = $plan->resolvedFeatures();
 

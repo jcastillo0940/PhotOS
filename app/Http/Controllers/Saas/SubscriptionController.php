@@ -7,6 +7,7 @@ use App\Models\Tenant;
 use App\Models\SaasPlan;
 use App\Models\TenantSubscription;
 use App\Models\TenantSubscriptionTransaction;
+use App\Support\SaasPlanCatalog;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -19,7 +20,9 @@ class SubscriptionController extends Controller
                 ->latest()
                 ->get(),
             'tenants' => Tenant::orderBy('name')->get(['id', 'name']),
-            'plans' => SaasPlan::where('is_active', true)->get(['code', 'name']),
+            'plans' => SaasPlanCatalog::sortCollection(
+                SaasPlan::where('is_active', true)->get(['code', 'name'])
+            ),
         ]);
     }
 

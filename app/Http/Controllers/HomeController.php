@@ -186,10 +186,11 @@ class HomeController extends Controller
 
     private function marketingPlans(): array
     {
-        return SaasPlan::query()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->get()
+        return SaasPlanCatalog::sortCollection(
+            SaasPlan::query()
+                ->where('is_active', true)
+                ->get()
+        )
             ->map(function (SaasPlan $plan) {
                 $definition = $plan->resolvedDefinition();
                 $features = $definition['features'] ?? [];
@@ -221,6 +222,7 @@ class HomeController extends Controller
     {
         return match ($code) {
             'basic' => 'Boveda B2C para fotografos sociales que solo necesitan almacenamiento y galeria.',
+            'launch' => 'Plan puente para arrancar con IA basica sin saltar directo al plan Starter.',
             'starter' => 'Entrada B2C con reconocimiento facial y hasta 2,000 fotos por mes.',
             'pro' => 'Plan B2B para eventos corporativos y deportivos con hasta 20 patrocinadores por evento.',
             'business' => 'Mas volumen, mas staff y hasta 50 patrocinadores por evento.',
@@ -236,6 +238,11 @@ class HomeController extends Controller
                 'Almacenamiento total de '.($features['storage_gb'] ?? 0).' GB',
                 'IA desactivada',
                 'Galerias publicas y privadas',
+            ],
+            'launch' => [
+                number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',
+                'Reconocimiento facial basico',
+                'Sin patrocinadores',
             ],
             'starter' => [
                 number_format((int) ($features['photos_per_month'] ?? 0)).' fotos por mes',

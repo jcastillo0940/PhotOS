@@ -161,10 +161,11 @@ class SaasOnboardingController extends Controller
 
     private function plans(): array
     {
-        return SaasPlan::query()
-            ->where('is_active', true)
-            ->orderBy('id')
-            ->get()
+        return SaasPlanCatalog::sortCollection(
+            SaasPlan::query()
+                ->where('is_active', true)
+                ->get()
+        )
             ->map(function (SaasPlan $plan) {
                 $definition = $plan->resolvedDefinition();
                 $features = $definition['features'] ?? [];
@@ -219,6 +220,7 @@ class SaasOnboardingController extends Controller
     {
         return match ($code) {
             'basic' => 'Boveda basica para fotografos sociales que no necesitan IA.',
+            'launch' => 'Puente de entrada con IA basica y un costo muy bajo para validar demanda real.',
             'starter' => 'Entrada B2C con reconocimiento facial y flujo simple para bodas y sociales.',
             'pro' => 'Operacion B2B para eventos corporativos y deportivos con patrocinadores.',
             'business' => 'Mayor volumen mensual y mas patrocinadores por evento para equipos exigentes.',

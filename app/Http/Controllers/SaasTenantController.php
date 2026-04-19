@@ -10,6 +10,7 @@ use App\Models\GeminiUsageRecord;
 use App\Models\User;
 use App\Services\Billing\TenantBillingService;
 use App\Services\Saas\CloudflareCustomHostnameService;
+use App\Support\SaasPlanCatalog;
 use App\Support\TenantBrandPreset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,9 +90,9 @@ class SaasTenantController extends Controller
                     'role' => $user->role,
                 ])
                 ->values(),
-            'plans' => SaasPlan::query()
-                ->orderBy('id')
-                ->get()
+            'plans' => SaasPlanCatalog::sortCollection(
+                SaasPlan::query()->get()
+            )
                 ->map(fn (SaasPlan $plan) => [
                     'id' => $plan->id,
                     'code' => $plan->code,
@@ -233,10 +234,11 @@ class SaasTenantController extends Controller
                     ];
                 })->values(),
             ],
-            'planOptions' => SaasPlan::query()
-                ->where('is_active', true)
-                ->orderBy('id')
-                ->get(['code', 'name'])
+            'planOptions' => SaasPlanCatalog::sortCollection(
+                SaasPlan::query()
+                    ->where('is_active', true)
+                    ->get(['code', 'name'])
+            )
                 ->map(fn (SaasPlan $plan) => [
                     'code' => $plan->code,
                     'name' => $plan->name,

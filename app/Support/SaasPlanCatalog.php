@@ -2,6 +2,8 @@
 
 namespace App\Support;
 
+use Illuminate\Support\Collection;
+
 class SaasPlanCatalog
 {
     public static function defaults(): array
@@ -50,6 +52,29 @@ class SaasPlanCatalog
                     'gemini_model' => 'gemini-2.5-flash',
                     'gemini_rpm' => 15,
                     'gemini_rpd' => 1500,
+                    'gemini_paid_tier' => false,
+                ],
+            ],
+            'launch' => [
+                'code' => 'launch',
+                'name' => 'AI Launch',
+                'segment' => 'b2c',
+                'price_monthly' => 8,
+                'price_yearly' => 80,
+                'features' => [
+                    'projects_limit' => 10,
+                    'storage_gb' => 100,
+                    'photos_per_month' => 500,
+                    'ai_scans_monthly' => 500,
+                    'staff_limit' => 1,
+                    'custom_domain' => false,
+                    'ai_face_recognition' => true,
+                    'ai_sponsor_detection' => false,
+                    'sponsor_selection_limit' => 0,
+                    'requires_explicit_sponsors' => false,
+                    'gemini_model' => 'gemini-2.5-flash',
+                    'gemini_rpm' => 5,
+                    'gemini_rpd' => 500,
                     'gemini_paid_tier' => false,
                 ],
             ],
@@ -145,5 +170,24 @@ class SaasPlanCatalog
     public static function features(string $code, array $overrides = []): array
     {
         return static::for($code, ['features' => $overrides])['features'];
+    }
+
+    public static function orderedCodes(): array
+    {
+        return ['basic', 'launch', 'starter', 'pro', 'business', 'enterprise'];
+    }
+
+    public static function orderIndex(?string $code): int
+    {
+        $index = array_search((string) $code, static::orderedCodes(), true);
+
+        return $index === false ? PHP_INT_MAX : $index;
+    }
+
+    public static function sortCollection(Collection $plans): Collection
+    {
+        return $plans
+            ->sortBy(fn ($plan) => static::orderIndex(data_get($plan, 'code')))
+            ->values();
     }
 }

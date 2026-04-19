@@ -17,6 +17,7 @@ use App\Models\TenantSubscriptionTransaction;
 use App\Models\User;
 use App\Support\EventTypeSettings;
 use App\Support\InstallationPlan;
+use App\Support\SaasPlanCatalog;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -81,7 +82,9 @@ class DashboardController extends Controller
         $users = User::withoutGlobalScope('tenant')->orderByDesc('id')->get();
         $subscriptions = TenantSubscription::query()->orderByDesc('id')->get();
         $registrations = SaasRegistration::withoutGlobalScopes()->orderByDesc('id')->limit(8)->get();
-        $plans = SaasPlan::query()->orderBy('id')->get();
+        $plans = SaasPlanCatalog::sortCollection(
+            SaasPlan::query()->get()
+        );
         $monthlyRecurringRevenue = (float) $subscriptions
             ->where('status', 'active')
             ->sum(fn (TenantSubscription $subscription) => $subscription->billing_cycle === 'annual'
