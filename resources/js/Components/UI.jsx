@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { clsx } from 'clsx';
 import { X, TrendingUp, TrendingDown } from 'lucide-react';
 
