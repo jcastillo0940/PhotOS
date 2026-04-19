@@ -36,7 +36,7 @@ function TemplateModal({ template, onClose }) {
                 <form onSubmit={submit} className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
                         <label className="block space-y-2">
-                            <span className="text-sm font-medium text-slate-700">Código</span>
+                            <span className="text-sm font-medium text-slate-700">Codigo</span>
                             <input value={data.code} onChange={e => setData('code', e.target.value)} disabled={isEditing} className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm outline-none disabled:opacity-50" placeholder="mi-layout" />
                         </label>
                         <label className="block space-y-2">
@@ -51,7 +51,7 @@ function TemplateModal({ template, onClose }) {
                     </label>
 
                     <label className="block space-y-2">
-                        <span className="text-sm font-medium text-slate-700">Descripción</span>
+                        <span className="text-sm font-medium text-slate-700">Descripcion</span>
                         <textarea value={data.description} onChange={e => setData('description', e.target.value)} className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm outline-none h-20" />
                     </label>
 
@@ -98,16 +98,16 @@ export default function Index({ templates }) {
 
     return (
         <AdminLayout>
-            <Head title="SaaS - Plantillas" />
+            <Head title="SaaS - Fronts de tenants" />
             <div className="space-y-6">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-900">Diseños de Galería</h2>
-                        <p className="text-sm text-slate-500">Administra los temas visuales disponibles para los estudios.</p>
+                        <h2 className="text-2xl font-bold text-slate-900">Fronts de tenants</h2>
+                        <p className="text-sm text-slate-500">Administra los estilos visuales y layouts que los tenants pueden usar en su front publico.</p>
                     </div>
                     <button onClick={() => setIsCreateOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-5 py-3 text-sm font-semibold text-white transition hover:bg-black">
                         <Plus className="h-4 w-4" />
-                        Nueva plantilla
+                        Nuevo front
                     </button>
                 </div>
 
@@ -120,10 +120,10 @@ export default function Index({ templates }) {
                                 </div>
                                 <div className="flex gap-1">
                                     <button onClick={() => setModalTemplate(tpl)} className="p-2 rounded-xl hover:bg-slate-50 transition-colors"><Edit2 className="h-4 w-4 text-slate-400 hover:text-slate-900" /></button>
-                                    <button onClick={() => confirm('¿Borrar?') && destroy(`/admin/saas/templates/${tpl.id}`)} className="p-2 rounded-xl hover:bg-rose-50 transition-colors"><Trash2 className="h-4 w-4 text-slate-400 hover:text-rose-500" /></button>
+                                    <button onClick={() => confirm('Borrar?') && destroy(`/admin/saas/templates/${tpl.id}`)} className="p-2 rounded-xl hover:bg-rose-50 transition-colors"><Trash2 className="h-4 w-4 text-slate-400 hover:text-rose-500" /></button>
                                 </div>
                             </div>
-                            
+
                             <div className="mt-5">
                                 <h3 className="text-lg font-bold text-slate-900">{tpl.name}</h3>
                                 <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{tpl.code}</p>
@@ -131,6 +131,9 @@ export default function Index({ templates }) {
                             </div>
 
                             <div className="mt-6 flex flex-wrap gap-2">
+                                <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
+                                    <Camera className="h-3 w-3" /> Front tenant
+                                </span>
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
                                     <Sparkles className="h-3 w-3" /> {tpl.mood}
                                 </span>
@@ -145,9 +148,9 @@ export default function Index({ templates }) {
             </div>
 
             {(isCreateOpen || modalTemplate) && (
-                <TemplateModal 
-                    template={modalTemplate} 
-                    onClose={() => { setModalTemplate(null); setIsCreateOpen(false); }} 
+                <TemplateModal
+                    template={modalTemplate}
+                    onClose={() => { setModalTemplate(null); setIsCreateOpen(false); }}
                 />
             )}
         </AdminLayout>

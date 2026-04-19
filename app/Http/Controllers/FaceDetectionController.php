@@ -55,99 +55,12 @@ class FaceDetectionController extends Controller
 
     public function index()
     {
-        $tenantId = $this->tenantContext->id();
+        return Inertia::render('Admin/FaceDetection/Index', $this->faceDetectionPayload());
+    }
 
-        $projects = Project::query()
-            ->with('lead')
-            ->withCount('photos')
-            ->latest()
-            ->get();
-        $photos = $projects->flatMap->photos;
-
-        $identities = FaceIdentity::withoutGlobalScope('tenant')
-            ->with('project:id,name')
-            ->withCount('vectors')
-            ->where('tenant_id', $tenantId)
-            ->latest()
-            ->get()
-            ->map(fn (FaceIdentity $identity) => [
-                'id' => $identity->id,
-                'name' => $identity->name,
-                'scope' => $identity->project_id ? 'project' : 'global',
-                'project_id' => $identity->project_id,
-                'project_name' => $identity->project?->name,
-                'processing_status' => $identity->processing_status,
-                'processing_note' => $identity->processing_note,
-                'processed_at' => optional($identity->processed_at)?->toIso8601String(),
-                'preview_url' => $this->previewUrl($identity->path_reference),
-                'vectors_count' => (int) ($identity->vectors_count ?? 0),
-            ])
-            ->values();
-
-        $projectSummaries = $projects->map(fn (Project $project) => [
-            'id' => $project->id,
-            'name' => $project->name,
-            'event_type' => $project->lead?->event_type,
-            'client_name' => $project->lead?->name,
-            'face_recognition_enabled' => (bool) $project->face_recognition_enabled,
-            'photos_count' => (int) $project->photos_count,
-            'detected_people_count' => (int) $project->photos()->whereNotNull('people_tags')->get()->sum(fn ($photo) => count($photo->people_tags ?? [])),
-            'detected_brands_count' => (int) $project->photos()->whereNotNull('brand_tags')->get()->sum(fn ($photo) => count($photo->brand_tags ?? [])),
-            'local_identities_count' => FaceIdentity::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('project_id', $project->id)->count(),
-            'database_ready' => $this->faceRecognitionService->hasRecognitionDatabase($project),
-            'workspace_url' => "/admin/projects/{$project->id}/ai",
-        ])->values();
-
-        $catalogs = collect(self::CATALOG_TYPES)->mapWithKeys(fn (array $config, string $type) => [
-            $type => [
-                'label' => $config['label'],
-                'items' => $this->catalogItems($type)->all(),
-            ],
-        ]);
-
-        $unknownDetections = FaceUnknownDetection::withoutGlobalScope('tenant')
-            ->with(['photo:id,optimized_path,url', 'bestMatchIdentity:id,name'])
-            ->where('tenant_id', $tenantId)
-            ->where('status', 'unknown')
-            ->latest()
-            ->limit(50)
-            ->get()
-            ->map(fn (FaceUnknownDetection $d) => [
-                'id' => $d->id,
-                'photo_id' => $d->photo_id,
-                'face_index' => $d->face_index,
-                'bbox' => $d->bbox,
-                'best_confidence' => $d->best_confidence,
-                'best_match_identity_id' => $d->best_match_identity_id,
-                'best_match_name' => $d->bestMatchIdentity?->name,
-                'photo_url' => $d->photo?->url ? Storage::disk('r2')->temporaryUrl($d->photo->url, now()->addMinutes(30)) : null,
-                'created_at' => $d->created_at->toIso8601String(),
-            ])
-            ->values();
-
-        return Inertia::render('Admin/FaceDetection/Index', [
-            'mode' => Setting::get('face_detection_scope', 'project_only'),
-            'sportsModeEnabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
-            'serviceConfigured' => $this->faceRecognitionService->enabled(),
-            'projects' => $projectSummaries,
-            'identities' => $identities,
-            'unknownDetections' => $unknownDetections,
-            'catalogs' => $catalogs,
-            'stats' => [
-                'projects_count' => $projects->count(),
-                'photos_count' => $photos->count(),
-                'global_identities_count' => $identities->where('scope', 'global')->count(),
-                'local_identities_count' => $identities->where('scope', 'project')->count(),
-                'photos_with_people' => $photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
-                'photos_matched' => $photos->filter(fn ($photo) => $photo->recognition_status === 'matched')->count(),
-                'photos_without_match' => $photos->filter(fn ($photo) => $photo->recognition_status === 'no_match')->count(),
-                'catalog_brands_count' => count($catalogs['brand']['items'] ?? []),
-                'catalog_sponsors_count' => count($catalogs['sponsor']['items'] ?? []),
-                'catalog_jerseys_count' => count($catalogs['jersey']['items'] ?? []),
-                'catalog_context_count' => count($catalogs['context']['items'] ?? []),
-                'photos_pending' => $photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
-            ],
-        ]);
+    public function learning()
+    {
+        return Inertia::render('Admin/FaceDetection/Learning', $this->faceDetectionPayload());
     }
 
     public function updateMode(Request $request)
@@ -505,6 +418,103 @@ class FaceDetectionController extends Controller
                 'created_at' => $item['created_at'] ?? null,
             ])
             ->values();
+    }
+
+    private function faceDetectionPayload(): array
+    {
+        $tenantId = $this->tenantContext->id();
+
+        $projects = Project::query()
+            ->with('lead')
+            ->withCount('photos')
+            ->latest()
+            ->get();
+        $photos = $projects->flatMap->photos;
+
+        $identities = FaceIdentity::withoutGlobalScope('tenant')
+            ->with('project:id,name')
+            ->withCount('vectors')
+            ->where('tenant_id', $tenantId)
+            ->latest()
+            ->get()
+            ->map(fn (FaceIdentity $identity) => [
+                'id' => $identity->id,
+                'name' => $identity->name,
+                'scope' => $identity->project_id ? 'project' : 'global',
+                'project_id' => $identity->project_id,
+                'project_name' => $identity->project?->name,
+                'processing_status' => $identity->processing_status,
+                'processing_note' => $identity->processing_note,
+                'processed_at' => optional($identity->processed_at)?->toIso8601String(),
+                'preview_url' => $this->previewUrl($identity->path_reference),
+                'vectors_count' => (int) ($identity->vectors_count ?? 0),
+            ])
+            ->values();
+
+        $projectSummaries = $projects->map(fn (Project $project) => [
+            'id' => $project->id,
+            'name' => $project->name,
+            'event_type' => $project->lead?->event_type,
+            'client_name' => $project->lead?->name,
+            'face_recognition_enabled' => (bool) $project->face_recognition_enabled,
+            'photos_count' => (int) $project->photos_count,
+            'detected_people_count' => (int) $project->photos()->whereNotNull('people_tags')->get()->sum(fn ($photo) => count($photo->people_tags ?? [])),
+            'detected_brands_count' => (int) $project->photos()->whereNotNull('brand_tags')->get()->sum(fn ($photo) => count($photo->brand_tags ?? [])),
+            'local_identities_count' => FaceIdentity::withoutGlobalScope('tenant')->where('tenant_id', $tenantId)->where('project_id', $project->id)->count(),
+            'database_ready' => $this->faceRecognitionService->hasRecognitionDatabase($project),
+            'workspace_url' => "/admin/projects/{$project->id}/ai",
+        ])->values();
+
+        $catalogs = collect(self::CATALOG_TYPES)->mapWithKeys(fn (array $config, string $type) => [
+            $type => [
+                'label' => $config['label'],
+                'items' => $this->catalogItems($type)->all(),
+            ],
+        ]);
+
+        $unknownDetections = FaceUnknownDetection::withoutGlobalScope('tenant')
+            ->with(['photo:id,optimized_path,url', 'bestMatchIdentity:id,name'])
+            ->where('tenant_id', $tenantId)
+            ->where('status', 'unknown')
+            ->latest()
+            ->limit(50)
+            ->get()
+            ->map(fn (FaceUnknownDetection $d) => [
+                'id' => $d->id,
+                'photo_id' => $d->photo_id,
+                'face_index' => $d->face_index,
+                'bbox' => $d->bbox,
+                'best_confidence' => $d->best_confidence,
+                'best_match_identity_id' => $d->best_match_identity_id,
+                'best_match_name' => $d->bestMatchIdentity?->name,
+                'photo_url' => $d->photo?->url ? Storage::disk('r2')->temporaryUrl($d->photo->url, now()->addMinutes(30)) : null,
+                'created_at' => $d->created_at->toIso8601String(),
+            ])
+            ->values();
+
+        return [
+            'mode' => Setting::get('face_detection_scope', 'project_only'),
+            'sportsModeEnabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+            'serviceConfigured' => $this->faceRecognitionService->enabled(),
+            'projects' => $projectSummaries,
+            'identities' => $identities,
+            'unknownDetections' => $unknownDetections,
+            'catalogs' => $catalogs,
+            'stats' => [
+                'projects_count' => $projects->count(),
+                'photos_count' => $photos->count(),
+                'global_identities_count' => $identities->where('scope', 'global')->count(),
+                'local_identities_count' => $identities->where('scope', 'project')->count(),
+                'photos_with_people' => $photos->filter(fn ($photo) => ! empty($photo->people_tags))->count(),
+                'photos_matched' => $photos->filter(fn ($photo) => $photo->recognition_status === 'matched')->count(),
+                'photos_without_match' => $photos->filter(fn ($photo) => $photo->recognition_status === 'no_match')->count(),
+                'catalog_brands_count' => count($catalogs['brand']['items'] ?? []),
+                'catalog_sponsors_count' => count($catalogs['sponsor']['items'] ?? []),
+                'catalog_jerseys_count' => count($catalogs['jersey']['items'] ?? []),
+                'catalog_context_count' => count($catalogs['context']['items'] ?? []),
+                'photos_pending' => $photos->filter(fn ($photo) => blank($photo->recognition_status) || $photo->recognition_status === 'pending')->count(),
+            ],
+        ];
     }
 
     private function catalogConfig(string $type): array

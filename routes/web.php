@@ -20,6 +20,7 @@ use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectInvitationController;
 use App\Http\Controllers\Saas\PlanController;
 use App\Http\Controllers\Saas\SubscriptionController;
+use App\Http\Controllers\Saas\TemplateController as SaasTemplateController;
 use App\Http\Controllers\Saas\UserController;
 use App\Http\Controllers\SaasBillingController;
 use App\Http\Controllers\SaasOnboardingController;
@@ -96,6 +97,11 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::put('/saas/plans/{plan}', [PlanController::class, 'update'])->name('admin.saas.plans.update');
         Route::delete('/saas/plans/{plan}', [PlanController::class, 'destroy'])->name('admin.saas.plans.destroy');
 
+        Route::get('/saas/templates', [SaasTemplateController::class, 'index'])->name('admin.saas.templates.index');
+        Route::post('/saas/templates', [SaasTemplateController::class, 'store'])->name('admin.saas.templates.store');
+        Route::put('/saas/templates/{template}', [SaasTemplateController::class, 'update'])->name('admin.saas.templates.update');
+        Route::delete('/saas/templates/{template}', [SaasTemplateController::class, 'destroy'])->name('admin.saas.templates.destroy');
+
         Route::get('/saas/subscriptions', [SubscriptionController::class, 'index'])->name('admin.saas.subscriptions.index');
         Route::post('/saas/subscriptions', [SubscriptionController::class, 'store'])->name('admin.saas.subscriptions.store');
         Route::put('/saas/subscriptions/{subscription}', [SubscriptionController::class, 'update'])->name('admin.saas.subscriptions.update');
@@ -118,6 +124,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::put('/website', [WebsiteController::class, 'update'])->middleware('tenant.admin')->name('admin.website.update');
         Route::get('/contracts', [ContractController::class, 'index'])->middleware('tenant.admin')->name('admin.contracts');
         Route::get('/face-detection', [FaceDetectionController::class, 'index'])->middleware('tenant.admin')->name('admin.face-detection');
+        Route::get('/face-detection/learning', [FaceDetectionController::class, 'learning'])->middleware('tenant.admin')->name('admin.face-detection.learning');
         Route::post('/face-detection/mode', [FaceDetectionController::class, 'updateMode'])->middleware('tenant.admin')->name('admin.face-detection.mode');
         Route::post('/face-detection/identities', [FaceDetectionController::class, 'storeIdentity'])->middleware(['tenant.admin', 'tenant.feature:ai_scans'])->name('admin.face-detection.identities.store');
         Route::post('/face-detection/identities/{faceIdentity}/photos', [FaceDetectionController::class, 'storeIdentityPhoto'])->middleware(['tenant.admin', 'tenant.feature:ai_scans'])->name('admin.face-detection.identities.photos.store');

@@ -182,40 +182,34 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
 
                 <div className="grid gap-8 xl:grid-cols-[1fr_400px]">
                     <div className="space-y-8">
-                        {/* Unknown Faces Lab: Immersive Learning Section */}
                         {unknownDetections.length > 0 && (
-                            <Card 
-                                className="bg-slate-900 border-none shadow-2xl shadow-primary/10 overflow-hidden"
-                                decoration={<Zap className="h-24 w-24 text-primary/10 absolute -right-6 -bottom-6" />}
-                            >
-                                <div className="flex items-center justify-between mb-8">
-                                    <div className="flex items-center gap-3">
-                                        <div className="h-10 w-10 rounded-2xl bg-primary/20 flex items-center justify-center animate-pulse">
-                                            <ScanFace className="h-5 w-5 text-primary" />
+                            <Card className="border-none bg-[linear-gradient(135deg,#0f172a,#111827)] shadow-2xl shadow-primary/10">
+                                <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                                    <div className="flex items-start gap-4">
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                                            <ScanFace className="h-5 w-5" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-black text-white tracking-tight uppercase italic leading-none">Laboratorio de Aprendizaje</h3>
-                                            <p className="text-xs font-bold text-white/50 uppercase tracking-widest mt-1">Nuevos vectores detectados sin etiqueta</p>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/35">Centro de aprendizaje</p>
+                                            <h3 className="mt-2 text-2xl font-black uppercase italic tracking-tight text-white">Laboratorio de aprendizaje facial</h3>
+                                            <p className="mt-2 max-w-2xl text-sm leading-7 text-white/65">
+                                                Los rostros sin etiqueta ya no viven mezclados con la biblioteca principal. Ahora se revisan aparte para confirmar identidades y alimentar el modelo con un flujo dedicado.
+                                            </p>
                                         </div>
                                     </div>
-                                    <Badge variant="primary" className="font-black py-1 px-3">
-                                        {unknownDetections.length} PENDIENTES
-                                    </Badge>
-                                </div>
-                                
-                                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                                    {unknownDetections.map((detection) => (
-                                        <UnknownFaceCard key={detection.id} detection={detection} identities={identities} />
-                                    ))}
-                                </div>
-                                
-                                <div className="mt-8 pt-6 border-t border-white/5 flex items-center justify-between">
-                                    <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30 italic">
-                                        Confirma identidades para retroalimentar el sistema neuronal.
-                                    </p>
-                                    <button className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-white transition-colors">
-                                        Ver historial de aprendizaje
-                                    </button>
+
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <Badge variant="primary" className="px-3 py-1 font-black">
+                                            {unknownDetections.length} pendientes
+                                        </Badge>
+                                        <Link
+                                            href="/admin/face-detection/learning"
+                                            className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-900 transition-all hover:scale-[1.02]"
+                                        >
+                                            Abrir laboratorio
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Link>
+                                    </div>
                                 </div>
                             </Card>
                         )}
@@ -544,7 +538,7 @@ function PlayerIdentityCard({ identity, serviceConfigured, sportsModeEnabled }) 
     );
 }
 
-function CatalogSection({ meta, items = [] }) {
+function CatalogSection({ type, meta, items = [] }) {
     const Icon = meta.icon;
     return (
         <div className="space-y-3">
