@@ -1,29 +1,42 @@
 import React, { useMemo, useState } from 'react';
 import { Head, router, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { CalendarDays, ChevronLeft, ChevronRight, Clock3, Lock, Pencil, Plus, Trash2, X } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { clsx } from 'clsx';
+import { 
+    CalendarDays, 
+    ChevronLeft, 
+    ChevronRight, 
+    Clock, 
+    Lock, 
+    Plus, 
+    Trash2, 
+    X, 
+    Calendar as CalendarIcon,
+    Filter,
+    FolderKanban,
+    Sparkles,
+    CheckCircle2,
+    CalendarCheck
+} from 'lucide-react';
+import { Card, Badge, Button, Input, Drawer, StatsCard } from '@/Components/UI';
 
 const MONTHS = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
+    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
 ];
 
 const EVENT_STYLES = {
-    session: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    blocked: 'border-slate-200 bg-slate-100 text-slate-700',
-    tentative: 'border-amber-200 bg-amber-50 text-amber-700',
+    session: 'primary',
+    blocked: 'slate',
+    tentative: 'warning',
 };
 
 export default function Index({ events, eventTypes = [] }) {
     const [currentDate, setCurrentDate] = useState(new Date());
-    const [selectedDay, setSelectedDay] = useState(null);
-    const [showModal, setShowModal] = useState(false);
+    const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingEventId, setEditingEventId] = useState(null);
     const [selectedEventType, setSelectedEventType] = useState('Todos');
 
-    const { data, setData, post, processing, reset } = useForm({
+    const { data, setData, post, processing, reset, errors } = useForm({
         id: null,
         title: '',
         start: '',
@@ -46,37 +59,25 @@ export default function Index({ events, eventTypes = [] }) {
     const eventsByDay = useMemo(() => {
         return filteredEvents.reduce((carry, event) => {
             const date = new Date(event.start);
-            if (date.getMonth() !== month || date.getFullYear() !== year) {
-                return carry;
-            }
-
+            if (date.getMonth() !== month || date.getFullYear() !== year) return carry;
             const day = date.getDate();
             carry[day] = carry[day] || [];
             carry[day].push(event);
-
             return carry;
         }, {});
     }, [filteredEvents, month, year]);
 
-    const openCreateModal = (day) => {
-        const start = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T10:00`;
-        const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}T18:00`;
-
+    const openCreate = (day) => {
+        const d = day || new Date().getDate();
+        const start = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T10:00`;
+        const end = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}T18:00`;
         setEditingEventId(null);
-        setSelectedDay(day);
-        setData({
-            id: null,
-            title: '',
-            start,
-            end,
-            type: 'blocked',
-        });
-        setShowModal(true);
+        setData({ id: null, title: '', start, end, type: 'blocked' });
+        setIsDrawerOpen(true);
     };
 
-    const openEditModal = (event) => {
+    const openEdit = (event) => {
         setEditingEventId(event.id);
-        setSelectedDay(new Date(event.start).getDate());
         setData({
             id: event.id,
             title: event.title || '',
@@ -84,303 +85,243 @@ export default function Index({ events, eventTypes = [] }) {
             end: toDateTimeLocal(event.end),
             type: event.type || 'blocked',
         });
-        setShowModal(true);
+        setIsDrawerOpen(true);
     };
 
-    const closeModal = () => {
-        setShowModal(false);
+    const closeDrawer = () => {
+        setIsDrawerOpen(false);
         setEditingEventId(null);
-        setSelectedDay(null);
         reset();
     };
 
-    const submitEvent = (event) => {
-        event.preventDefault();
+    const submitEvent = (e) => {
+        e.preventDefault();
         post('/admin/events', {
             preserveScroll: true,
-            onSuccess: () => closeModal(),
+            onSuccess: () => closeDrawer(),
         });
     };
 
-    const deleteEvent = (eventId) => {
-        if (!window.confirm('Delete this blocked date or session?')) return;
-
-        router.delete(`/admin/events/${eventId}`, {
+    const handleDelete = () => {
+        if (!confirm('¿Eliminar este registro de la agenda?')) return;
+        router.delete(`/admin/events/${editingEventId}`, {
             preserveScroll: true,
-            onSuccess: () => closeModal(),
+            onSuccess: () => closeDrawer(),
         });
     };
 
     return (
         <AdminLayout>
-            <Head title="Agenda" />
+            <Head title="Agenda del Estudio" />
 
             <div className="space-y-8">
-                <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                    <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-                        <div>
-                            <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">Calendar</p>
-                            <h1 className="mt-3 text-3xl font-semibold text-slate-900">Agenda del estudio</h1>
-                            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-500">
-                                Desde aqui puedes bloquear fechas, editar reservas existentes y mantener una vista clara de disponibilidad
-                                sin crear duplicados por accidente.
-                            </p>
-                        </div>
+                {/* Header Navigation */}
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Agenda Global</h2>
+                        <p className="text-sm font-medium text-slate-500">Gestión de sesiones, bloqueos y disponibilidad.</p>
+                    </div>
+                    <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+                        <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date(year, month - 1, 1))} icon={ChevronLeft} />
+                        <span className="text-xs font-black uppercase tracking-widest text-slate-700 min-w-[140px] text-center">
+                            {MONTHS[month]} {year}
+                        </span>
+                        <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date(year, month + 1, 1))} icon={ChevronRight} />
+                        <div className="h-6 w-px bg-slate-100 mx-2" />
+                        <Button onClick={() => openCreate()} icon={Plus} size="sm">Bloquear Fecha</Button>
+                    </div>
+                </div>
 
-                        <div className="flex items-center gap-3">
-                            <select
-                                value={selectedEventType}
-                                onChange={(event) => setSelectedEventType(event.target.value)}
-                                className="rounded-full border border-slate-200 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600"
-                            >
-                                {['Todos', ...eventTypes].map((type) => (
-                                    <option key={type} value={type}>{type}</option>
+                {/* Calendar Layout */}
+                <div className="grid gap-8 lg:grid-cols-4">
+                    <div className="lg:col-span-3">
+                        <Card noPadding className="border-none shadow-2xl shadow-slate-200/40 overflow-hidden">
+                             {/* Week Headers */}
+                            <div className="grid grid-cols-7 bg-slate-900 border-b border-white/5">
+                                {['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map((day) => (
+                                    <div key={day} className="py-3 text-center text-[10px] font-black uppercase tracking-[0.2em] text-white/40">
+                                        {day}
+                                    </div>
                                 ))}
-                            </select>
-                            <button onClick={() => setCurrentDate(new Date(year, month - 1, 1))} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
-                                <ChevronLeft className="h-4 w-4" />
-                            </button>
-                            <div className="rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-900">
-                                {MONTHS[month]} {year}
                             </div>
-                            <button onClick={() => setCurrentDate(new Date(year, month + 1, 1))} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
-                                <ChevronRight className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => openCreateModal(new Date().getDate())} className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white">
-                                <Plus className="h-4 w-4" />
-                                Bloquear fecha
-                            </button>
-                        </div>
-                    </div>
-                </section>
 
-                <section className="rounded-[2rem] border border-slate-200 bg-white shadow-sm">
-                    <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
-                            <div key={day} className="py-4 text-center text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
-                                {day}
-                            </div>
-                        ))}
-                    </div>
+                            {/* Calendar Days */}
+                            <div className="grid grid-cols-7">
+                                {Array.from({ length: startingDay }).map((_, i) => (
+                                    <div key={`empty-${i}`} className="min-h-[140px] border-b border-r border-slate-50 bg-slate-50/30" />
+                                ))}
 
-                    <div className="grid grid-cols-7">
-                        {Array.from({ length: startingDay }).map((_, index) => (
-                            <div key={`empty-${index}`} className="min-h-[150px] border-b border-r border-slate-100 bg-slate-50/60" />
-                        ))}
+                                {Array.from({ length: totalDays }).map((_, i) => {
+                                    const day = i + 1;
+                                    const dayEvents = eventsByDay[day] || [];
+                                    const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
 
-                        {Array.from({ length: totalDays }).map((_, index) => {
-                            const day = index + 1;
-                            const dayEvents = eventsByDay[day] || [];
-                            const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
-
-                            return (
-                                <div
-                                    key={day}
-                                    className={clsx(
-                                        'min-h-[150px] border-b border-r border-slate-100 p-4 transition hover:bg-slate-50',
-                                        isToday && 'bg-primary-50/60'
-                                    )}
-                                >
-                                    <div className="mb-4 flex items-center justify-between">
-                                        <button
-                                            onClick={() => openCreateModal(day)}
+                                    return (
+                                        <div
+                                            key={day}
+                                            onClick={() => openCreate(day)}
                                             className={clsx(
-                                                'flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition',
-                                                isToday ? 'bg-primary-500 text-white' : 'bg-slate-100 text-slate-700'
+                                                'min-h-[140px] border-b border-r border-slate-50 p-3 transition-all duration-300 hover:bg-primary/5 cursor-pointer group',
+                                                isToday && 'bg-primary/5 shadow-inner shadow-primary/10'
                                             )}
                                         >
-                                            {day}
-                                        </button>
-                                        <button onClick={() => openCreateModal(day)} className="text-slate-300 transition hover:text-slate-600">
-                                            <Plus className="h-4 w-4" />
-                                        </button>
-                                    </div>
+                                            <div className="flex items-center justify-between mb-3">
+                                                <span className={clsx(
+                                                    'flex h-7 w-7 items-center justify-center rounded-lg text-xs font-black transition-all',
+                                                    isToday ? 'bg-primary text-white scale-110 shadow-lg shadow-primary/20' : 'text-slate-400 group-hover:text-primary group-hover:scale-110'
+                                                )}>
+                                                    {day}
+                                                </span>
+                                                <Plus className="h-3 w-3 text-slate-200 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            </div>
 
-                                    <div className="space-y-2">
-                                        {dayEvents.map((event) => (
-                                            <button
-                                                key={event.id}
-                                                onClick={() => openEditModal(event)}
-                                                className={clsx(
-                                                    'w-full rounded-[1rem] border px-3 py-2 text-left transition hover:shadow-sm',
-                                                    EVENT_STYLES[event.type] || EVENT_STYLES.blocked
-                                                )}
-                                            >
-                                                <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em]">{event.type} · {event.status || 'pending'}</p>
-                                                <p className="mt-1 truncate text-sm font-medium">{event.title}</p>
-                                                <p className="mt-1 truncate text-[11px] uppercase tracking-[0.18em] opacity-70">
-                                                    {event.project?.lead?.event_type || 'Sin tipo'}
-                                                </p>
-                                                <p className="mt-1 text-xs opacity-70">{timeRange(event.start, event.end)}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                                            <div className="space-y-1.5">
+                                                {dayEvents.map((ev) => (
+                                                    <div
+                                                        key={ev.id}
+                                                        onClick={(e) => { e.stopPropagation(); openEdit(ev); }}
+                                                        className={clsx(
+                                                            'rounded-xl border p-2 shadow-sm transition-all hover:translate-y-[-2px] hover:shadow-md cursor-pointer',
+                                                            ev.type === 'session' ? 'bg-primary/5 border-primary/20' : 'bg-slate-50 border-slate-100'
+                                                        )}
+                                                    >
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <Badge variant={EVENT_STYLES[ev.type]} className="text-[7.5px] px-1.5 py-0">
+                                                                {ev.type === 'session' ? 'SESIÓN' : 'BLOQUEO'}
+                                                            </Badge>
+                                                            <span className="text-[8px] font-black text-slate-400">{new Date(ev.start).getHours()}:00</span>
+                                                        </div>
+                                                        <p className="text-[10px] font-black text-slate-800 tracking-tight leading-tight line-clamp-2">
+                                                            {ev.title}
+                                                        </p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
                     </div>
-                </section>
 
-                <section className="grid gap-6 lg:grid-cols-3">
-                    <InfoCard icon={CalendarDays} title="Sesiones">
-                        Los eventos ligados a proyectos pueden abrirse y editarse desde esta misma agenda.
-                    </InfoCard>
-                    <InfoCard icon={Lock} title="Bloqueos">
-                        Los bloqueos manuales ya se actualizan sobre el mismo registro cuando editas uno existente.
-                    </InfoCard>
-                    <InfoCard icon={Clock3} title="Flujo">
-                        Un click sobre el dia crea un evento nuevo. Un click sobre una tarjeta existente la edita.
-                    </InfoCard>
-                </section>
+                    {/* Sidebar Info */}
+                    <div className="space-y-6">
+                        <Card title="Filtros & Vista" subtitle="Personaliza tu perspectiva">
+                             <div className="space-y-4">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tipo de Evento</label>
+                                <div className="space-y-2">
+                                    {['Todos', ...eventTypes].map(t => (
+                                        <button 
+                                            key={t}
+                                            onClick={() => setSelectedEventType(t)}
+                                            className={clsx(
+                                                'w-full flex items-center justify-between px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all',
+                                                selectedEventType === t ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                                            )}
+                                        >
+                                            {t}
+                                            <CalendarIcon className="h-3 w-3 opacity-40" />
+                                        </button>
+                                    ))}
+                                </div>
+                             </div>
+                        </Card>
+
+                        <Card className="bg-slate-900 border-none text-white overflow-hidden p-0">
+                            <div className="p-6">
+                                <Sparkles className="h-8 w-8 text-primary mb-4" />
+                                <h4 className="text-lg font-black tracking-tight leading-tight">Tu tiempo es tu activo más valioso.</h4>
+                                <p className="mt-2 text-xs font-medium text-slate-400 leading-relaxed italic">
+                                    Bloquea fechas personales para evitar reservas automáticas en la web.
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 bg-white/5 flex items-center gap-3">
+                                <CalendarCheck className="h-4 w-4 text-green-500" />
+                                <span className="text-[9px] font-black uppercase tracking-[0.2em]">Disponibilidad Sincronizada</span>
+                            </div>
+                        </Card>
+                    </div>
+                </div>
             </div>
 
-            <AnimatePresence>
-                {showModal && (
-                    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-900/70 p-6 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                            className="w-full max-w-xl rounded-[2rem] bg-white p-8 shadow-2xl"
-                        >
-                            <div className="mb-8 flex items-center justify-between">
-                                <div>
-                                    <p className="text-[11px] uppercase tracking-[0.22em] text-slate-400">
-                                        {editingEventId ? 'Editar evento' : 'Nuevo evento'}
-                                    </p>
-                                    <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                                        {editingEventId ? 'Actualizar agenda' : `Bloqueo o reserva para el dia ${selectedDay}`}
-                                    </h2>
-                                </div>
-                                <button onClick={closeModal} className="rounded-full border border-slate-200 p-3 text-slate-500 transition hover:text-slate-900">
-                                    <X className="h-4 w-4" />
-                                </button>
-                            </div>
+            {/* Event Management Drawer */}
+            <Drawer 
+                isOpen={isDrawerOpen} 
+                onClose={closeDrawer} 
+                title={editingEventId ? 'Actualizar Agenda' : 'Nuevo Registro'}
+            >
+                <form onSubmit={submitEvent} className="space-y-6">
+                    <Input 
+                        label="Título / Descripción" 
+                        value={data.title}
+                        onChange={e => setData('title', e.target.value)}
+                        placeholder="Ej. Sesión en playa o Vacaciones"
+                        error={errors.title}
+                    />
 
-                            <form onSubmit={submitEvent} className="space-y-5">
-                                <div>
-                                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                        Titulo
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={data.title}
-                                        onChange={(event) => setData('title', event.target.value)}
-                                        required
-                                        className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
-                                        placeholder="Wedding day coverage"
-                                    />
-                                </div>
-
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <div>
-                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                            Inicio
-                                        </label>
-                                        <input
-                                            type="datetime-local"
-                                            value={data.start}
-                                            onChange={(event) => setData('start', event.target.value)}
-                                            required
-                                            className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                            Fin
-                                        </label>
-                                        <input
-                                            type="datetime-local"
-                                            value={data.end}
-                                            onChange={(event) => setData('end', event.target.value)}
-                                            required
-                                            className="w-full rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none focus:border-primary-300"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                        Tipo
-                                    </label>
-                                    <div className="grid grid-cols-3 gap-3">
-                                        {['session', 'blocked', 'tentative'].map((type) => (
-                                            <button
-                                                key={type}
-                                                type="button"
-                                                onClick={() => setData('type', type)}
-                                                className={clsx(
-                                                    'rounded-[1rem] border px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] transition',
-                                                    data.type === type
-                                                        ? 'border-slate-900 bg-slate-900 text-white'
-                                                        : 'border-slate-200 bg-slate-50 text-slate-600'
-                                                )}
-                                            >
-                                                {type}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                                    {editingEventId ? (
-                                        <button
-                                            type="button"
-                                            onClick={() => deleteEvent(editingEventId)}
-                                            className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-rose-700"
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            Eliminar
-                                        </button>
-                                    ) : <span />}
-
-                                    <div className="flex items-center gap-3">
-                                        <button type="button" onClick={closeModal} className="rounded-full border border-slate-200 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-600">
-                                            Cancelar
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={processing}
-                                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white"
-                                        >
-                                            <Pencil className="h-4 w-4" />
-                                            {processing ? 'Guardando...' : editingEventId ? 'Actualizar' : 'Guardar'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </motion.div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <Input 
+                            type="datetime-local" 
+                            label="Inicio" 
+                            value={data.start}
+                            onChange={e => setData('start', e.target.value)}
+                            error={errors.start}
+                        />
+                        <Input 
+                            type="datetime-local" 
+                            label="Fin" 
+                            value={data.end}
+                            onChange={e => setData('end', e.target.value)}
+                            error={errors.end}
+                        />
                     </div>
-                )}
-            </AnimatePresence>
+
+                    <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tipo de Registro</label>
+                        <div className="grid grid-cols-3 gap-2">
+                            {['session', 'blocked', 'tentative'].map(t => (
+                                <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setData('type', t)}
+                                    className={clsx(
+                                        'rounded-xl border py-3 text-[10px] font-black uppercase tracking-[0.1em] transition-all',
+                                        data.type === t ? 'border-primary bg-primary/10 text-primary shadow-sm' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'
+                                    )}
+                                >
+                                    {t === 'session' ? 'Sesión' : t === 'blocked' ? 'Bloqueo' : 'Tentativa'}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="pt-6 flex items-center justify-between border-t border-slate-100">
+                        {editingEventId ? (
+                            <button
+                                type="button"
+                                onClick={handleDelete}
+                                className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-700"
+                            >
+                                <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                            </button>
+                        ) : <div />}
+                        
+                        <div className="flex gap-3">
+                            <Button variant="outline" onClick={closeDrawer} type="button">Cancelar</Button>
+                            <Button type="submit" loading={processing} icon={CalendarCheck}>
+                                {editingEventId ? 'Actualizar' : 'Guardar'}
+                            </Button>
+                        </div>
+                    </div>
+                </form>
+            </Drawer>
         </AdminLayout>
     );
 }
 
 function toDateTimeLocal(value) {
     if (!value) return '';
-
     const date = new Date(value);
     const pad = (part) => String(part).padStart(2, '0');
-
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
-
-function timeRange(start, end) {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-
-    return `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
-
-function InfoCard({ icon: Icon, title, children }) {
-    return (
-        <article className="rounded-[1.8rem] border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-500">
-                <Icon className="h-5 w-5" />
-            </div>
-            <h3 className="mt-4 text-lg font-semibold text-slate-900">{title}</h3>
-            <p className="mt-2 text-sm leading-7 text-slate-500">{children}</p>
-        </article>
-    );
 }

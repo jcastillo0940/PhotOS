@@ -3,7 +3,8 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
 import { buildSlots } from '@/lib/availability';
-import { ChevronLeft, Save } from 'lucide-react';
+import { ChevronLeft, Save, User, Mail, Phone, Calendar as CalendarIcon, Clock, MessageSquare, Stamp, Sparkles } from 'lucide-react';
+import { Card, Input, Button, Badge } from '@/Components/UI';
 
 export default function Create({ eventTypes = [], busyCalendarEvents = [], businessHours, availabilitySettings }) {
     const { data, setData, post, processing, errors } = useForm({
@@ -28,116 +29,159 @@ export default function Create({ eventTypes = [], busyCalendarEvents = [], busin
         }
     }, [availableSlots]);
 
-    const submit = (event) => {
-        event.preventDefault();
+    const submit = (e) => {
+        e.preventDefault();
         post('/admin/leads');
     };
 
     return (
         <AdminLayout>
-            <Head title="Nuevo lead" />
+            <Head title="Nuevo Lead Manual — CRM" />
 
-            <div className="space-y-8">
-                <Link href="/admin/leads" className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900">
-                    <ChevronLeft className="h-4 w-4" />
-                    Volver a leads
-                </Link>
+            <div className="space-y-8 max-w-6xl mx-auto">
+                {/* Header */}
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div>
+                        <Link href="/admin/leads" className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-all">
+                            <ChevronLeft className="h-3.5 w-3.5" /> Volver al CRM
+                        </Link>
+                        <h2 className="mt-2 text-2xl font-black text-slate-800 tracking-tight">Registro Manual de Lead</h2>
+                        <p className="text-sm font-medium text-slate-500">Ingresa prospectos recibidos por canales externos.</p>
+                    </div>
+                    <Button onClick={submit} loading={processing} icon={Save}>
+                        Registrar Prospecto
+                    </Button>
+                </div>
 
-                <form onSubmit={submit} className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-                    <div className="mb-8">
-                        <p className="text-[11px] uppercase tracking-[0.24em] text-slate-400">CRM</p>
-                        <h1 className="mt-3 text-3xl font-semibold text-slate-900">Crear lead manual</h1>
-                        <p className="mt-2 text-sm text-slate-500">Ideal para llamadas, referencias o contactos entrados fuera del formulario web.</p>
+                <div className="grid gap-8 lg:grid-cols-3">
+                    <div className="lg:col-span-2 space-y-8">
+                        {/* Primary Info */}
+                        <Card title="Información del Cliente" subtitle="Datos básicos de contacto e identificación">
+                            <div className="grid gap-6 sm:grid-cols-2">
+                                <Input 
+                                    label="Nombre Completo" 
+                                    icon={User}
+                                    value={data.name} 
+                                    onChange={v => setData('name', v.target.value)}
+                                    error={errors.name}
+                                    placeholder="Ej. Juan Pérez"
+                                />
+                                <Input 
+                                    label="Correo Electrónico" 
+                                    icon={Mail}
+                                    type="email"
+                                    value={data.email} 
+                                    onChange={v => setData('email', v.target.value)}
+                                    error={errors.email}
+                                />
+                                <Input 
+                                    label="Teléfono / WhatsApp" 
+                                    icon={Phone}
+                                    value={data.phone} 
+                                    onChange={v => setData('phone', v.target.value)}
+                                    error={errors.phone}
+                                />
+                                <Input 
+                                    label="Documento de Identidad" 
+                                    icon={Stamp}
+                                    value={data.client_document} 
+                                    onChange={v => setData('client_document', v.target.value)}
+                                    error={errors.client_document}
+                                    placeholder="CIF, RUC, Cédula"
+                                />
+                            </div>
+                        </Card>
+
+                        {/* Event Details & Availability */}
+                        <Card title="Agendamiento y Evento" subtitle="Define la fecha tentativa y tipo de servicio">
+                             <div className="space-y-6">
+                                <div className="grid gap-6 sm:grid-cols-2">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Tipo de Servicio</label>
+                                        <div className="relative group">
+                                            <select 
+                                                value={data.event_type}
+                                                onChange={e => setData('event_type', e.target.value)}
+                                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-primary focus:bg-white transition-all appearance-none"
+                                            >
+                                                {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-slate-400">
+                                                <ChevronLeft className="h-4 w-4 -rotate-90" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Hora Tentativa</label>
+                                        <div className="relative group">
+                                            <select 
+                                                disabled={!data.tentative_date || availableSlots.length === 0}
+                                                value={data.tentative_time}
+                                                onChange={e => setData('tentative_time', e.target.value)}
+                                                className="w-full rounded-2xl border border-slate-200 bg-slate-50/50 px-4 py-3 text-sm font-bold text-slate-700 outline-none focus:border-primary focus:bg-white transition-all appearance-none disabled:opacity-50"
+                                            >
+                                                <option value="">{data.tentative_date ? 'Seleccionar hora' : 'Elige una fecha primero'}</option>
+                                                {availableSlots.map(s => <option key={s} value={s}>{s}</option>)}
+                                            </select>
+                                            <Clock className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+                                        </div>
+                                        {errors.tentative_time && <p className="text-[10px] font-bold text-rose-500 uppercase mt-1">{errors.tentative_time}</p>}
+                                    </div>
+                                </div>
+
+                                <div className="rounded-[1.8rem] overflow-hidden border border-slate-100 shadow-sm">
+                                    <AvailabilityCalendar
+                                        value={data.tentative_date}
+                                        onChange={v => setData('tentative_date', v)}
+                                        busyEvents={busyCalendarEvents}
+                                        businessHours={businessHours}
+                                        availabilitySettings={availabilitySettings}
+                                    />
+                                </div>
+                             </div>
+                        </Card>
                     </div>
 
-                    <div className="grid gap-5 md:grid-cols-2">
-                        <Field label="Nombre" value={data.name} onChange={(value) => setData('name', value)} error={errors.name} />
-                        <Field label="Email" type="email" value={data.email} onChange={(value) => setData('email', value)} error={errors.email} />
-                        <SelectField label="Tipo de evento" value={data.event_type} onChange={(value) => setData('event_type', value)} error={errors.event_type} options={eventTypes} />
-                        <Field label="Telefono" value={data.phone} onChange={(value) => setData('phone', value)} error={errors.phone} />
-                        <Field label="Documento cliente" value={data.client_document} onChange={(value) => setData('client_document', value)} error={errors.client_document} />
-                    </div>
+                    <div className="space-y-8">
+                        {/* Message / Notes */}
+                        <Card title="Notas del Lead" subtitle="Detalles adicionales o requerimientos">
+                            <div className="space-y-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <MessageSquare className="h-4 w-4 text-primary" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Mensaje de Referencia</span>
+                                </div>
+                                <textarea
+                                    rows={8}
+                                    value={data.message}
+                                    onChange={e => setData('message', e.target.value)}
+                                    className="w-full rounded-[1.8rem] border border-slate-200 bg-slate-50/50 px-6 py-5 text-sm font-medium text-slate-700 outline-none focus:border-primary focus:bg-white transition-all"
+                                    placeholder="Describe lo conversado con el cliente..."
+                                />
+                                 {errors.message && <p className="text-[10px] font-bold text-rose-500 uppercase">{errors.message}</p>}
+                            </div>
+                        </Card>
 
-                    <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_.8fr]">
-                        <AvailabilityCalendar
-                            label="Fecha tentativa"
-                            value={data.tentative_date}
-                            onChange={(value) => setData('tentative_date', value)}
-                            error={errors.tentative_date}
-                            busyEvents={busyCalendarEvents}
-                            businessHours={businessHours}
-                            availabilitySettings={availabilitySettings}
-                            helperText="El calendario bloquea automaticamente los dias sin cupos segun la configuracion del estudio."
-                        />
-
-                        <SelectField
-                            label="Hora disponible"
-                            value={data.tentative_time}
-                            onChange={(value) => setData('tentative_time', value)}
-                            error={errors.tentative_time}
-                            options={availableSlots}
-                            placeholder={data.tentative_date ? 'Selecciona una hora disponible' : 'Selecciona una fecha primero'}
-                            disabled={!data.tentative_date || availableSlots.length === 0}
-                        />
+                        {/* Status Preview */}
+                        <Card noPadding className="bg-primary border-none shadow-2xl shadow-primary/20 text-white overflow-hidden">
+                            <div className="p-6 relative">
+                                <Sparkles className="absolute -right-4 -top-4 h-24 w-24 text-white/10 rotate-12" />
+                                <Badge variant="white" className="mb-4 text-primary font-black uppercase tracking-[0.2em] text-[8px]">Próximo Paso</Badge>
+                                <h4 className="text-lg font-black tracking-tight leading-snug">Una vez creado, podrás calificarlo o convertirlo en Proyecto.</h4>
+                                <p className="mt-3 text-xs font-medium text-white/80 leading-relaxed italic">
+                                    "El éxito de una sesión comienza con una gestión impecable del contacto inicial."
+                                </p>
+                            </div>
+                            <div className="px-6 py-4 bg-white/10 backdrop-blur-sm border-t border-white/10">
+                                <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest">
+                                    <span>Estado Inicial:</span>
+                                    <Badge variant="white" className="text-[9px]">Nuevo Lead</Badge>
+                                </div>
+                            </div>
+                        </Card>
                     </div>
-
-                    <div className="mt-5">
-                        <label className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Mensaje</label>
-                        <textarea
-                            rows={5}
-                            value={data.message}
-                            onChange={(event) => setData('message', event.target.value)}
-                            className="w-full rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400"
-                        />
-                        {errors.message && <p className="mt-1 text-xs text-rose-600">{errors.message}</p>}
-                    </div>
-
-                    <div className="mt-8 flex justify-end">
-                        <button
-                            disabled={processing}
-                            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800 disabled:opacity-70"
-                        >
-                            <Save className="h-4 w-4" />
-                            {processing ? 'Guardando...' : 'Crear lead'}
-                        </button>
-                    </div>
-                </form>
+                </div>
             </div>
         </AdminLayout>
-    );
-}
-
-function Field({ label, value, onChange, error, type = 'text' }) {
-    return (
-        <label className="space-y-2">
-            <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
-            <input
-                type={type}
-                value={value}
-                onChange={(event) => onChange(event.target.value)}
-                className="w-full rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400"
-            />
-            {error && <p className="text-xs text-rose-600">{error}</p>}
-        </label>
-    );
-}
-
-function SelectField({ label, value, onChange, error, options = [], placeholder = 'Selecciona una opcion', disabled = false }) {
-    return (
-        <label className="space-y-2">
-            <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
-            <select
-                value={value}
-                disabled={disabled}
-                onChange={(event) => onChange(event.target.value)}
-                className="w-full rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 disabled:opacity-60"
-            >
-                <option value="">{placeholder}</option>
-                {options.map((option) => (
-                    <option key={option} value={option}>{option}</option>
-                ))}
-            </select>
-            {error && <p className="text-xs text-rose-600">{error}</p>}
-        </label>
     );
 }

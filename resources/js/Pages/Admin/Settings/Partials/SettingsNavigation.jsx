@@ -1,40 +1,51 @@
 import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import { CreditCard, FlaskConical, Palette, PlugZap } from 'lucide-react';
+import { CreditCard, FlaskConical, Palette, PlugZap, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const items = [
-    { href: '/admin/settings/integrations', label: 'Integraciones', helper: 'R2, Alanube, pagos y SMTP', icon: PlugZap },
-    { href: '/admin/settings/billing', label: 'Facturacion', helper: 'ITBMS, Alanube y disponibilidad', icon: CreditCard },
-    { href: '/admin/settings/branding', label: 'Branding', helper: 'Nombre, logo, favicon y watermark', icon: Palette },
-    { href: '/admin/settings/tests', label: 'Centro de pruebas', helper: 'Valida conexiones y servicios', icon: FlaskConical },
+    { href: '/admin/settings/branding', label: 'Estudio & Branding', helper: 'Logo, identidad y datos legales', icon: Palette },
+    { href: '/admin/settings/integrations', label: 'Infraestructura', helper: 'R2, Alanube y paginas API', icon: PlugZap, developerOnly: true },
+    { href: '/admin/settings/billing', label: 'Finanzas Config', helper: 'Impuestos y facturación', icon: CreditCard, developerOnly: true },
+    { href: '/admin/settings/tests', label: 'Centro de Diagnóstico', helper: 'Valida servicios y conexiones', icon: FlaskConical, developerOnly: true },
 ];
 
 export default function SettingsNavigation() {
     const { url, props } = usePage();
     const isSystemOwner = props.auth?.user?.role === 'developer';
-    const visibleItems = items.filter((item) => isSystemOwner || item.href === '/admin/settings/branding');
+    const visibleItems = items.filter((item) => !item.developerOnly || isSystemOwner);
 
     return (
-        <div className="grid gap-3 lg:grid-cols-4">
-            {visibleItems.map(({ href, label, helper, icon: Icon }) => (
-                <Link
-                    key={href}
-                    href={href}
-                    className={clsx(
-                        'rounded-[1.5rem] border p-4 transition shadow-sm',
-                        url.startsWith(href)
-                            ? 'border-[#171411] bg-[#171411] text-white'
-                            : 'border-[#e6e0d5] bg-white text-slate-700 hover:-translate-y-0.5 hover:shadow-md'
-                    )}
-                >
-                    <div className={clsx('flex h-11 w-11 items-center justify-center rounded-2xl', url.startsWith(href) ? 'bg-white/10' : 'bg-[#f4efe7]')}>
-                        <Icon className={clsx('h-5 w-5', url.startsWith(href) ? 'text-white' : 'text-slate-700')} />
-                    </div>
-                    <p className="mt-4 text-sm font-semibold">{label}</p>
-                    <p className={clsx('mt-1 text-xs leading-5', url.startsWith(href) ? 'text-white/70' : 'text-slate-500')}>{helper}</p>
-                </Link>
-            ))}
+        <div className="flex flex-wrap gap-4">
+            {visibleItems.map(({ href, label, helper, icon: Icon }) => {
+                const isActive = url.startsWith(href);
+                return (
+                    <Link
+                        key={href}
+                        href={href}
+                        className={clsx(
+                            'group flex-1 min-w-[240px] rounded-2xl border p-5 transition-all duration-300',
+                            isActive
+                                ? 'border-primary/20 bg-primary/5 shadow-lg shadow-primary/5'
+                                : 'border-slate-100 bg-white hover:border-primary/20 hover:bg-slate-50/50'
+                        )}
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className={clsx(
+                                'flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300',
+                                isActive ? 'bg-primary text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary'
+                            )}>
+                                <Icon className="h-5 w-5" />
+                            </div>
+                            <ChevronRight className={clsx('h-4 w-4 transition-all', isActive ? 'text-primary' : 'text-slate-200 group-hover:text-primary')} />
+                        </div>
+                        <div className="mt-4">
+                            <p className={clsx('text-sm font-black tracking-tight', isActive ? 'text-primary' : 'text-slate-800')}>{label}</p>
+                            <p className="mt-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">{helper}</p>
+                        </div>
+                    </Link>
+                );
+            })}
         </div>
     );
 }

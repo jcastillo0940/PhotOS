@@ -129,15 +129,15 @@ function NavLink({ href, icon: Icon, label, active, compact, onNavigate }) {
             href={href}
             onClick={onNavigate}
             className={clsx(
-                'group flex items-center gap-3 rounded-2xl px-3 py-3 text-sm transition-all',
+                'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all',
                 active
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-500 hover:bg-white hover:text-slate-900',
+                    ? 'bg-primary/10 text-primary shadow-sm'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900',
                 compact && 'justify-center px-0'
             )}
         >
-            <Icon className={clsx('h-4 w-4 flex-shrink-0', active ? 'text-white' : 'text-slate-400 group-hover:text-slate-700')} />
-            {!compact && <span className="truncate font-medium">{label}</span>}
+            <Icon className={clsx('h-4 w-4 flex-shrink-0', active ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600')} />
+            {!compact && <span className={clsx('truncate font-medium', active ? 'text-primary' : 'text-slate-600')}> {label}</span>}
         </Link>
     );
 }
@@ -146,288 +146,154 @@ export default function AdminLayout({ children }) {
     const { url, props } = usePage();
     const user = props.auth?.user;
     const branding = props.branding || {};
-    const billing = props.tenantBilling || {};
     const [compact, setCompact] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
 
-    const isSystemOwner = user?.role === 'developer';
-    const isPhotographer = user?.role === 'photographer';
     const sections = getSections(user?.role);
     const pageMeta = currentPageMeta(url, user?.role);
     const userInitials = user?.name
         ? user.name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
-        : 'ST';
+        : 'AD';
 
     const renderSidebar = (mobile = false) => (
         <aside
             className={clsx(
-                'flex h-screen flex-col overflow-hidden border-r border-[#e8e3da] bg-[#f7f3ec]',
-                compact && !mobile ? 'w-[92px]' : 'w-[292px]',
-                mobile && 'w-full max-w-[320px]'
+                'flex h-screen flex-col overflow-hidden border-r border-slate-200 bg-white transition-all duration-300',
+                compact && !mobile ? 'w-[70px]' : 'w-[250px]',
+                mobile && 'w-full max-w-[280px]'
             )}
         >
-            <div className="border-b border-[#e8e3da] px-4 py-4">
-                <div className="flex items-center justify-between gap-3">
-                    <Link href="/admin" className="flex min-w-0 items-center gap-3">
-                        {branding.app_logo_url ? (
-                            <img src={branding.app_logo_url} alt={branding.app_name || 'Studio logo'} className="h-11 w-11 rounded-2xl object-cover shadow-sm" />
-                        ) : (
-                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#13110f] text-white shadow-sm">
-                                <Camera className="h-5 w-5" />
-                            </div>
-                        )}
-                        {!compact && (
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">{branding.app_name || 'PhotOS'}</p>
-                                <p className="truncate text-xs text-slate-500">{branding.app_tagline || 'Backoffice del estudio'}</p>
-                            </div>
-                        )}
-                    </Link>
-
-                    {mobile ? (
-                        <button
-                            type="button"
-                            onClick={() => setMobileOpen(false)}
-                            className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[#e8e3da] bg-white text-slate-500"
-                        >
-                            <X className="h-4 w-4" />
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={() => setCompact((value) => !value)}
-                            className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-[#e8e3da] bg-white text-slate-500 transition hover:text-slate-900 lg:flex"
-                        >
-                            {compact ? <PanelLeftOpen className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                        </button>
-                    )}
-                </div>
-            </div>
-
-            <div className="border-b border-[#e8e3da] px-4 py-3">
-                {isSystemOwner ? (
-                    <div className={clsx('grid gap-3', compact && !mobile ? 'grid-cols-1' : 'grid-cols-2')}>
-                        <Link
-                            href="/admin/saas/tenants"
-                            onClick={() => setMobileOpen(false)}
-                            className={clsx(
-                                'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#13110f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black',
-                                compact && !mobile && 'px-0'
-                            )}
-                        >
-                            <Building2 className="h-4 w-4" />
-                            {!compact && 'Gestionar tenants'}
-                        </Link>
-                        <Link
-                            href="/admin/settings"
-                            onClick={() => setMobileOpen(false)}
-                            className={clsx(
-                                'inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9d1c4] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50',
-                                compact && !mobile && 'px-0'
-                            )}
-                        >
-                            <Wrench className="h-4 w-4" />
-                            {!compact && 'Config global'}
-                        </Link>
+            <div className="flex h-16 items-center flex-shrink-0 px-6">
+                <Link href="/admin" className="flex items-center gap-3">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary shadow-lg shadow-primary/20 text-white">
+                        <Camera className="h-5 w-5" />
                     </div>
-                ) : isPhotographer ? (
-                    <div className={clsx('grid gap-3', compact && !mobile ? 'grid-cols-1' : 'grid-cols-1')}>
-                        <Link
-                            href="/admin/projects"
-                            onClick={() => setMobileOpen(false)}
-                            className={clsx(
-                                'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#13110f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black',
-                                compact && !mobile && 'px-0'
-                            )}
-                        >
-                            <FolderKanban className="h-4 w-4" />
-                            {!compact && 'Mis proyectos'}
-                        </Link>
-                    </div>
-                ) : (
-                    <div className={clsx('grid gap-3', compact && !mobile ? 'grid-cols-1' : 'grid-cols-2')}>
-                        <Link
-                            href="/admin/projects"
-                            onClick={() => setMobileOpen(false)}
-                            className={clsx(
-                                'inline-flex items-center justify-center gap-2 rounded-2xl bg-[#13110f] px-4 py-3 text-sm font-semibold text-white transition hover:bg-black',
-                                compact && !mobile && 'px-0'
-                            )}
-                        >
-                            <CirclePlus className="h-4 w-4" />
-                            {!compact && 'Nueva coleccion'}
-                        </Link>
-                        <Link
-                            href="/admin/leads/create"
-                            onClick={() => setMobileOpen(false)}
-                            className={clsx(
-                                'inline-flex items-center justify-center gap-2 rounded-2xl border border-[#d9d1c4] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50',
-                                compact && !mobile && 'px-0'
-                            )}
-                        >
-                            <Sparkles className="h-4 w-4" />
-                            {!compact && 'Nuevo lead'}
-                        </Link>
-                    </div>
-                )}
-            </div>
-
-            <div className="flex-1 overflow-hidden px-3 py-4">
-                <div className="space-y-5">
-                    {sections.map((section) => {
-                        const visibleItems = section.items;
-                        return (
-                            <div key={section.label}>
-                                {!compact && <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{section.label}</p>}
-                                <div className="space-y-1">
-                                    {visibleItems.map((item) => (
-                                        <NavLink
-                                            key={item.href}
-                                            href={item.href}
-                                            icon={item.icon}
-                                            label={item.label}
-                                            compact={compact && !mobile}
-                                            active={isActive(url, item.match)}
-                                            onNavigate={() => setMobileOpen(false)}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className="border-t border-[#e8e3da] p-3">
-                <div className={clsx('rounded-[1.4rem] border border-[#e5ddd1] bg-white p-3 shadow-sm', compact && !mobile && 'px-2.5')}>
-                    <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-[#f1ebe1] text-xs font-bold text-slate-700">
-                            {userInitials}
-                        </div>
-                        {!compact && (
-                            <div className="min-w-0">
-                                <p className="truncate text-sm font-semibold text-slate-900">{user?.name || 'Studio user'}</p>
-                                <p className="truncate text-xs uppercase tracking-[0.18em] text-slate-400">{user?.role || 'owner'}</p>
-                            </div>
-                        )}
-                    </div>
-
                     {!compact && (
-                        <div className="mt-3 rounded-2xl bg-[#f7f3ec] px-3 py-2.5">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso rapido</p>
-                            <p className="mt-1 text-xs font-medium leading-5 text-slate-700">Todo el estudio se maneja desde este panel.</p>
+                        <span className="text-xl font-black tracking-tight text-slate-800">
+                            Phot<span className="text-primary text-2xl">OS</span>
+                        </span>
+                    )}
+                </Link>
+            </div>
+
+            <div className="flex-1 overflow-y-auto overflow-x-hidden py-6 px-4 custom-scrollbar">
+                <div className="space-y-7">
+                    {sections.map((section) => (
+                        <div key={section.label}>
+                            {!compact && (
+                                <p className="mb-4 px-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+                                    {section.label}
+                                </p>
+                            )}
+                            <div className="space-y-1">
+                                {section.items.map((item) => (
+                                    <NavLink
+                                        key={item.href}
+                                        href={item.href}
+                                        icon={item.icon}
+                                        label={item.label}
+                                        compact={compact && !mobile}
+                                        active={isActive(url, item.match)}
+                                        onNavigate={() => setMobileOpen(false)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            <div className="border-t border-slate-100 p-4">
+                <div className={clsx(
+                    'flex items-center gap-3 rounded-xl bg-slate-50 p-3 transition-all',
+                    compact && !mobile && 'justify-center p-2'
+                )}>
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-xs font-bold text-slate-700 shadow-sm">
+                        {userInitials}
+                    </div>
+                    {!compact && (
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-bold text-slate-800">{user?.name}</p>
+                            <p className="truncate text-[10px] font-bold uppercase tracking-wider text-primary">{user?.role}</p>
                         </div>
                     )}
-
-                    <Link
-                        href="/logout"
-                        method="post"
-                        as="button"
-                        className={clsx(
-                            'mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-[#e5ddd1] px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50',
-                            compact && !mobile && 'px-0'
-                        )}
-                    >
-                        <LogOut className="h-4 w-4" />
-                        {!compact && 'Cerrar sesion'}
-                    </Link>
+                    {!compact && (
+                        <Link href="/logout" method="post" as="button" className="text-slate-400 hover:text-red-500 transition-colors">
+                            <LogOut className="h-4 w-4" />
+                        </Link>
+                    )}
                 </div>
             </div>
         </aside>
     );
 
     return (
-        <div className="flex h-screen overflow-hidden bg-[#f2ede4] text-slate-800">
+        <div className="flex h-screen overflow-hidden bg-[#f5f6f8] text-slate-800 font-sans">
             <div className="hidden lg:flex">{renderSidebar(false)}</div>
 
-            <AnimateMobileSidebar open={mobileOpen}>
-                {renderSidebar(true)}
-            </AnimateMobileSidebar>
+            {/* Mobile Overlay */}
+            {mobileOpen && (
+                <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-300 lg:hidden">
+                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+                    <div className="relative animate-in slide-in-from-left duration-300">
+                        {renderSidebar(true)}
+                    </div>
+                </div>
+            )}
 
-            <main className="flex h-screen min-w-0 flex-1 flex-col overflow-hidden">
-                <header className="sticky top-0 z-30 border-b border-[#e8e3da] bg-[#f2ede4]/95 px-4 py-4 backdrop-blur md:px-8">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex min-w-0 items-start gap-3">
-                            <button
-                                type="button"
-                                onClick={() => setMobileOpen(true)}
-                                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#ddd5c9] bg-white text-slate-600 lg:hidden"
-                            >
-                                <Menu className="h-4 w-4" />
-                            </button>
+            <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-8 flex-shrink-0 shadow-sm z-20">
+                    <div className="flex items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setMobileOpen(true)}
+                            className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 lg:hidden"
+                        >
+                            <Menu className="h-5 w-5" />
+                        </button>
+                        
+                        <button
+                            type="button"
+                            onClick={() => setCompact(!compact)}
+                            className="hidden h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:text-primary transition-colors lg:flex"
+                        >
+                            {compact ? <PanelLeftOpen className="h-5 w-5" /> : <PanelLeftClose className="h-5 w-5" />}
+                        </button>
 
-                            <div className="min-w-0">
-                                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Backoffice</p>
-                                <h1 className="truncate text-2xl font-semibold tracking-tight text-slate-900">{pageMeta.title}</h1>
-                                <p className="mt-1 max-w-2xl text-sm text-slate-500">{pageMeta.description}</p>
+                        <div className="h-6 w-[1px] bg-slate-200 mx-2 hidden md:block" />
+
+                        <div className="hidden md:block">
+                            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400">
+                                <span>Admin</span>
+                                <span className="text-slate-300">/</span>
+                                <span className="text-slate-800">{pageMeta.title}</span>
                             </div>
                         </div>
+                    </div>
 
-                        <div className="flex items-center gap-3">
-                            {isSystemOwner ? (
-                                <>
-                                    <Link
-                                        href="/admin/saas/tenants"
-                                        className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
-                                    >
-                                        <ShieldEllipsis className="h-4 w-4" />
-                                        Tenants
-                                    </Link>
-                                    <Link
-                                        href="/admin/settings"
-                                        className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
-                                    >
-                                        <Settings2 className="h-4 w-4" />
-                                        Config global
-                                    </Link>
-                                </>
-                            ) : isPhotographer ? (
-                                <Link
-                                    href="/admin/projects"
-                                    className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
-                                >
-                                    <FolderKanban className="h-4 w-4" />
-                                    Mis proyectos
-                                </Link>
-                            ) : (
-                                <>
-                                    <Link
-                                        href="/admin/calendar"
-                                        className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
-                                    >
-                                        <CalendarRange className="h-4 w-4" />
-                                        Agenda
-                                    </Link>
-                                    <Link
-                                        href="/admin/settings"
-                                        className="hidden items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 md:inline-flex"
-                                    >
-                                        <Settings2 className="h-4 w-4" />
-                                        Branding
-                                    </Link>
-                                </>
-                            )}
-                            <button
-                                type="button"
-                                className="flex h-11 w-11 items-center justify-center rounded-2xl border border-[#ddd5c9] bg-white text-slate-500 transition hover:text-slate-900"
-                            >
-                                <Bell className="h-4 w-4" />
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-3">
+                        <button className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500 transition hover:bg-slate-50 hover:text-primary relative">
+                            <Bell className="h-5 w-5" />
+                            <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-primary border-2 border-white" />
+                        </button>
+                        <div className="h-10 w-[1px] bg-slate-200 mx-1 hidden sm:block" />
+                        <button className="flex items-center gap-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-1.5 hover:bg-slate-100 transition-colors">
+                            <div className="h-7 w-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600 shadow-sm">
+                                {userInitials}
+                            </div>
+                            <span className="text-sm font-bold text-slate-700 hidden sm:inline">{user?.name?.split(' ')[0]}</span>
+                        </button>
                     </div>
                 </header>
 
-                <section className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8">
-                    <div className="mx-auto w-full max-w-[1440px]">
-                        {billing?.banner && (
-                            <div className="mb-6 rounded-[1.6rem] border border-[#eadcc9] bg-[#fbf6ef] px-5 py-4 text-sm text-slate-700">
-                                <p className="font-semibold text-slate-900">Cuenta en modo restringido</p>
-                                <p className="mt-1">{billing.banner}</p>
-                            </div>
-                        )}
+                <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 custom-scrollbar">
+                    <div className="mx-auto w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
                         {children}
                     </div>
-                </section>
+                    <footer className="mt-12 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-slate-300">
+                        © {new Date().getFullYear()} PhotOS — Modern Studio OS
+                    </footer>
+                </div>
             </main>
         </div>
     );

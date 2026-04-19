@@ -13,217 +13,182 @@ import {
     ShieldCheck,
     Target,
     Workflow,
+    TrendingUp,
+    Clock,
+    CheckCircle2,
+    Calendar,
+    ChevronRight,
+    Zap
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Card, StatsCard, Badge, Button, Chart } from '@/Components/UI';
 
-function StatCard({ eyebrow, title, value, detail, icon: Icon, tone = 'slate' }) {
-    const tones = {
-        slate: 'bg-white border-[#e6e0d5] text-slate-900',
-        dark: 'bg-[#171411] border-[#171411] text-white',
-        mint: 'bg-[#ecf8f3] border-[#d7efe4] text-slate-900',
+export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary, eventReports = [] }) {
+    const currentPlan = plans?.find((plan) => plan.code === currentPlanCode) || plans?.[0];
+    const topReports = eventReports.slice(0, 4);
+
+    const performanceChartOptions = {
+        chart: { id: 'performance-chart', fontFamily: 'inherit' },
+        xaxis: { categories: eventReports.map(r => r.type).slice(0, 6) },
+        colors: ['#02c0ce', '#fb6d9d'],
+        stroke: { curve: 'smooth', width: 2 },
     };
 
+    const performanceChartSeries = [
+        { name: 'Leads', data: eventReports.map(r => r.leads_count).slice(0, 6) },
+        { name: 'Proyectos', data: eventReports.map(r => r.projects_count).slice(0, 6) }
+    ];
+
     return (
-        <div className={clsx('rounded-[1.8rem] border p-6 shadow-sm', tones[tone])}>
-            <div className="flex items-start justify-between gap-4">
-                <div>
-                    <p className={clsx('text-[11px] font-semibold uppercase tracking-[0.24em]', tone === 'dark' ? 'text-white/55' : 'text-slate-400')}>{eyebrow}</p>
-                    <p className="mt-4 text-3xl font-semibold tracking-tight">{value}</p>
-                    <p className={clsx('mt-2 text-sm', tone === 'dark' ? 'text-white/70' : 'text-slate-500')}>{title}</p>
+        <AdminLayout>
+            <Head title="Estudio — Resumen General" />
+
+            <div className="space-y-8">
+                {/* Modern Header */}
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Panel del Estudio</h2>
+                        <p className="text-sm font-medium text-slate-500">Bienvenido de nuevo. Aquí tienes un resumen de tu operación hoy.</p>
+                    </div>
+                    <div className="flex gap-2">
+                        <Link href="/admin/projects">
+                            <Button variant="primary" icon={Plus}>Nueva Colección</Button>
+                        </Link>
+                    </div>
                 </div>
-                <div className={clsx('flex h-12 w-12 items-center justify-center rounded-2xl', tone === 'dark' ? 'bg-white/10' : 'bg-[#f3eee6]')}>
-                    <Icon className={clsx('h-5 w-5', tone === 'dark' ? 'text-white' : 'text-slate-700')} />
+
+                {/* KPI Cards */}
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatsCard 
+                        title="Leads Activos" 
+                        value={stats.leads_count} 
+                        icon={Target} 
+                        color="primary"
+                        trend="up"
+                        trendValue="+12%"
+                    />
+                    <StatsCard 
+                        title="Colecciones" 
+                        value={stats.active_projects} 
+                        icon={FolderKanban} 
+                        color="info"
+                    />
+                    <StatsCard 
+                        title="Ingresos Totales" 
+                        value={`$${Number(stats.total_revenue || 0).toLocaleString()}`} 
+                        icon={BadgeDollarSign} 
+                        color="success"
+                        trend="up"
+                        trendValue="+8.4%"
+                    />
+                    <StatsCard 
+                        title="Próximo Evento" 
+                        value={stats.next_event ? stats.next_event.title : 'Libre'} 
+                        icon={CalendarRange} 
+                        color={stats.next_event ? "warning" : "slate"}
+                    />
+                </div>
+
+                {/* Middle Section: Business Logic */}
+                <div className="grid gap-8 xl:grid-cols-3">
+                    <Card className="xl:col-span-2" title="Desempeño por Categoría" subtitle="Relación Leads vs Proyectos activos">
+                        <Chart options={performanceChartOptions} series={performanceChartSeries} type="bar" height={320} />
+                    </Card>
+
+                    <Card title="Plan y Recursos" subtitle="Estado de tu suscripción">
+                        <div className="mb-6 overflow-hidden rounded-2xl border border-primary/10 bg-primary/5 p-5">
+                            <div className="flex items-center justify-between">
+                                <Badge variant="primary" className="px-3 uppercase font-black tracking-widest">{currentPlan?.name}</Badge>
+                                <Zap className="h-4 w-4 text-primary" />
+                            </div>
+                            <p className="mt-4 text-sm font-medium text-slate-600 leading-relaxed">
+                                {currentPlan?.audience || 'Tu configuración actual del estudio.'}
+                            </p>
+                            <div className="mt-4 flex items-baseline gap-1">
+                                <span className="text-2xl font-black text-slate-800">{currentPlan?.price_label || 'Incluido'}</span>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase">/ mes</span>
+                            </div>
+                        </div>
+                        
+                        <div className="space-y-3">
+                            <ConnectionPill label="Cloudflare R2" active={system.r2_status} icon={Cloud} />
+                            <ConnectionPill label="Pagos PayPal" active={system.paypal_status} icon={BadgeDollarSign} />
+                            <ConnectionPill label="TiloPay" active={system.tilopay_status} icon={ShieldCheck} />
+                        </div>
+                        
+                        <Link href="/admin/settings" className="mt-6 flex items-center justify-center gap-2 text-xs font-bold text-primary hover:underline">
+                            Gestionar suscripción y ajustes <ChevronRight className="h-3 w-3" />
+                        </Link>
+                    </Card>
+                </div>
+
+                {/* Bottom Section: Operations */}
+                <div className="grid gap-8 lg:grid-cols-2">
+                    <Card noPadding title="Accesos Rápidos" subtitle="Tareas frecuentes del día">
+                        <div className="grid gap-0 sm:grid-cols-2 divide-x divide-y divide-slate-100">
+                             <ActionTile href="/admin/projects" icon={FolderKanban} title="Colecciones" desc="Gestionar material y galerías." />
+                             <ActionTile href="/admin/calendar" icon={CalendarRange} title="Agenda" desc="Revisa eventos y disponibilidad." />
+                             <ActionTile href="/admin/contracts" icon={ReceiptText} title="Contratos" desc="Firmas y documentos pendientes." />
+                             <ActionTile href="/admin/automations" icon={Workflow} title="Bots" desc="Configurar flujos automáticos." />
+                        </div>
+                    </Card>
+
+                    <Card noPadding title="Asistente Virtual" subtitle="Lo que no debes olvidar hoy">
+                        <div className="p-6 space-y-4">
+                            {[
+                                { t: 'Confirmar sesión técnica', d: 'Faltan 2 días para el evento de boda.', done: false },
+                                { t: 'Publicar galería "Family"', d: 'El cliente espera la entrega final.', done: true },
+                                { t: 'Revisar saldo pendiente', d: 'Hay un recibo sin conciliar en TiloPay.', done: false },
+                            ].map((task, i) => (
+                                <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-slate-50 bg-slate-50/50 group hover:bg-white hover:border-slate-200 transition-all">
+                                    <div className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg ${task.done ? 'bg-green-100 text-green-600' : 'bg-slate-200 text-slate-400'}`}>
+                                        {task.done ? <CheckCircle2 className="h-4 w-4" /> : <Clock className="h-4 w-4" />}
+                                    </div>
+                                    <div>
+                                        <p className={`text-sm font-bold ${task.done ? 'text-slate-400 line-through' : 'text-slate-800'}`}>{task.t}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">{task.d}</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="border-t border-slate-100 p-4">
+                            <Button variant="outline" className="w-full" size="sm" icon={Bot}>Preguntar a IA Assistant</Button>
+                        </div>
+                    </Card>
                 </div>
             </div>
-            {detail && <p className={clsx('mt-6 text-sm', tone === 'dark' ? 'text-white/70' : 'text-slate-500')}>{detail}</p>}
-        </div>
+        </AdminLayout>
     );
 }
 
-function ActionTile({ href, icon: Icon, title, description }) {
+function Plus(props) {
+    return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+}
+
+function ActionTile({ href, icon: Icon, title, desc }) {
     return (
-        <Link href={href} className="group rounded-[1.6rem] border border-[#e6e0d5] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
-            <div className="flex items-start justify-between gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#f4efe7] text-slate-700">
+        <Link href={href} className="p-6 hover:bg-slate-50 transition-all group">
+            <div className="flex items-center gap-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 group-hover:bg-primary group-hover:text-white transition-all">
                     <Icon className="h-5 w-5" />
                 </div>
-                <ArrowRight className="h-4 w-4 text-slate-300 transition group-hover:text-slate-700" />
+                <div>
+                    <p className="text-sm font-bold text-slate-800">{title}</p>
+                    <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">{desc}</p>
+                </div>
             </div>
-            <h3 className="mt-5 text-base font-semibold text-slate-900">{title}</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
         </Link>
     );
 }
 
 function ConnectionPill({ label, active, icon: Icon }) {
     return (
-        <div className="flex items-center justify-between rounded-2xl border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
+        <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/30 px-4 py-3">
             <div className="flex items-center gap-3">
-                <div className={clsx('flex h-10 w-10 items-center justify-center rounded-2xl', active ? 'bg-[#e6f7ef] text-[#16794f]' : 'bg-white text-slate-400')}>
-                    <Icon className="h-4 w-4" />
-                </div>
-                <div>
-                    <p className="text-sm font-semibold text-slate-900">{label}</p>
-                    <p className="text-xs text-slate-400">{active ? 'Conectado' : 'Pendiente'}</p>
-                </div>
+                <Icon className={clsx('h-4 w-4', active ? 'text-primary' : 'text-slate-300')} />
+                <span className="text-xs font-bold text-slate-600">{label}</span>
             </div>
-            <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', active ? 'bg-[#dff4e9] text-[#16794f]' : 'bg-white text-slate-500 border border-[#e6e0d5]')}>
-                {active ? 'OK' : 'Check'}
-            </span>
+            <div className={`h-1.5 w-1.5 rounded-full ${active ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-slate-200'}`} />
         </div>
-    );
-}
-
-export default function Dashboard({ stats, system, plans, currentPlanCode, technicalSummary, eventReports = [] }) {
-    const currentPlan = plans?.find((plan) => plan.code === currentPlanCode) || plans?.[0];
-    const topReports = eventReports.slice(0, 4);
-
-    return (
-        <AdminLayout>
-            <Head title="Resumen del estudio" />
-
-            <div className="space-y-8">
-                <section className="rounded-[2rem] border border-[#e4ddd2] bg-[linear-gradient(135deg,#171411_0%,#25201b_55%,#312a22_100%)] px-7 py-7 text-white shadow-sm md:px-8 md:py-8">
-                    <div className="grid gap-8 xl:grid-cols-[1.35fr_.65fr]">
-                        <div>
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">Vision general</p>
-                            <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight">Un backoffice pensado para trabajar rapido, publicar mejor y no perder el hilo comercial.</h2>
-                            <p className="mt-4 max-w-2xl text-sm leading-7 text-white/72">
-                                Desde aqui deberias poder entrar a colecciones, agenda, contratos, automatizaciones y facturacion sin tener que recordar rutas ni depender de una pantalla sobrecargada.
-                            </p>
-                            <div className="mt-6 flex flex-wrap gap-3">
-                                <Link href="/admin/projects" className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 transition hover:bg-[#f4efe7]">
-                                    <FolderKanban className="h-4 w-4" />
-                                    Abrir colecciones
-                                </Link>
-                                <Link href="/admin/leads" className="inline-flex items-center gap-2 rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/5">
-                                    <Target className="h-4 w-4" />
-                                    Revisar leads
-                                </Link>
-                            </div>
-                        </div>
-
-                        <div className="rounded-[1.8rem] border border-white/10 bg-white/5 p-6">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">Plan activo</p>
-                            <h3 className="mt-4 text-xl font-semibold">{currentPlan?.name || 'Plan del estudio'}</h3>
-                            <p className="mt-2 text-sm text-white/72">{currentPlan?.audience || 'Configuracion general del estudio y sus recursos.'}</p>
-                            <div className="mt-5 space-y-3">
-                                <div className="rounded-2xl bg-white/8 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Precio</p>
-                                    <p className="mt-1 text-sm font-semibold">{currentPlan?.price_label || '-'}</p>
-                                </div>
-                                <div className="rounded-2xl bg-white/8 px-4 py-3">
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Costo operativo</p>
-                                    <p className="mt-1 text-sm font-semibold">{technicalSummary?.hosting_cost_label || 'Calculando...'}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-                    <StatCard eyebrow="Leads" title="Nuevas oportunidades registradas" value={stats.leads_count} detail="Seguimiento comercial activo." icon={Target} />
-                    <StatCard eyebrow="Colecciones" title="Proyectos en marcha" value={stats.active_projects} detail="Galerias y entregas abiertas." icon={FolderKanban} tone="mint" />
-                    <StatCard eyebrow="Ingresos" title="Facturacion acumulada" value={`$${Number(stats.total_revenue || 0).toLocaleString()}`} detail="Suma de facturas emitidas." icon={BadgeDollarSign} />
-                    <StatCard eyebrow="Agenda" title={stats.next_event ? new Date(stats.next_event.start).toLocaleDateString() : 'Sin evento'} value={stats.next_event ? stats.next_event.title : 'Proximo evento'} detail="Tu siguiente compromiso agendado." icon={CalendarRange} tone="dark" />
-                </section>
-
-                <section className="grid gap-8 xl:grid-cols-[1.1fr_.9fr]">
-                    <div className="space-y-8">
-                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Accesos del dia</p>
-                                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Tareas frecuentes del estudio</h3>
-                                </div>
-                                <Link href="/admin/settings" className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm font-semibold text-slate-700">
-                                    <Layers3 className="h-4 w-4" />
-                                    Ajustes del sistema
-                                </Link>
-                            </div>
-
-                            <div className="mt-6 grid gap-4 md:grid-cols-2">
-                                <ActionTile href="/admin/projects" icon={FolderKanban} title="Gestionar colecciones" description="Sube material, define portada, comparte galeria y controla estado del proyecto." />
-                                <ActionTile href="/admin/calendar" icon={CalendarRange} title="Ordenar agenda" description="Revisa disponibilidad, eventos activos y proximas sesiones." />
-                                <ActionTile href="/admin/contracts" icon={ReceiptText} title="Controlar contratos" description="Verifica firma, documentos pendientes y acceso publico." />
-                                <ActionTile href="/admin/automations" icon={Workflow} title="Automatizar seguimiento" description="Activa tareas, recordatorios y webhooks por tipo de evento." />
-                            </div>
-                        </div>
-
-                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
-                            <div className="flex flex-wrap items-center justify-between gap-4">
-                                <div>
-                                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Negocio</p>
-                                    <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Lectura rapida por tipo de evento</h3>
-                                </div>
-                                <Link href="/admin/leads" className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600">
-                                    Ir al CRM
-                                    <ArrowRight className="h-4 w-4" />
-                                </Link>
-                            </div>
-
-                            <div className="mt-6 grid gap-4 md:grid-cols-2">
-                                {topReports.length > 0 ? topReports.map((report) => (
-                                    <div key={report.type} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
-                                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Tipo de evento</p>
-                                        <h4 className="mt-2 text-lg font-semibold text-slate-900">{report.type}</h4>
-                                        <div className="mt-5 grid grid-cols-2 gap-3">
-                                            <Metric label="Leads" value={report.leads_count} />
-                                            <Metric label="Proyectos" value={report.projects_count} />
-                                            <Metric label="Proximos" value={report.upcoming_events_count} />
-                                            <Metric label="Ingresos" value={`$${Number(report.revenue || 0).toLocaleString()}`} />
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <div className="rounded-[1.6rem] border border-dashed border-[#ddd5c9] px-6 py-14 text-center text-sm text-slate-400">
-                                        Todavia no hay reportes segmentados por tipo de evento.
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="space-y-8">
-                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Integraciones</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Estado del sistema</h3>
-                            <div className="mt-6 space-y-3">
-                                <ConnectionPill label="Cloudflare R2" active={system.r2_status} icon={Cloud} />
-                                <ConnectionPill label="PayPal" active={system.paypal_status} icon={BadgeDollarSign} />
-                                <ConnectionPill label="TiloPay" active={system.tilopay_status} icon={ShieldCheck} />
-                            </div>
-                            <Link href="/admin/settings/tests" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                Abrir centro de pruebas
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </div>
-
-                        <div className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Automatizacion</p>
-                            <h3 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Lo que conviene no olvidar</h3>
-                            <div className="mt-6 space-y-3">
-                                {[
-                                    'Confirmar fecha y hora antes del evento.',
-                                    'Publicar la galeria y disparar mensaje al cliente.',
-                                    'Enviar NPS y recordatorios de saldo pendiente.',
-                                ].map((item) => (
-                                    <div key={item} className="flex items-start gap-3 rounded-2xl border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
-                                        <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-[#171411] text-white">
-                                            <Bot className="h-3.5 w-3.5" />
-                                        </div>
-                                        <p className="text-sm leading-6 text-slate-600">{item}</p>
-                                    </div>
-                                ))}
-                            </div>
-                            <Link href="/admin/automations" className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
-                                Configurar automatizaciones
-                                <ArrowRight className="h-4 w-4" />
-                            </Link>
-                        </div>
-                    </div>
-                </section>
-            </div>
-        </AdminLayout>
     );
 }
 

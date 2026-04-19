@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowRight,
@@ -11,38 +11,33 @@ import {
     Search,
     UploadCloud,
     Workflow,
+    ChevronRight,
+    Plus,
+    Filter,
+    Clock,
+    CheckCircle2
 } from 'lucide-react';
-import { clsx } from 'clsx';
+import { Card, StatsCard, Badge, Button, Input } from '@/Components/UI';
+import CreateProjectDrawer from './Partials/CreateProjectDrawer';
 
 const statusStyles = {
-    active: 'bg-[#e9f4ff] text-[#1f5f93]',
-    pending_payment: 'bg-[#fff4de] text-[#9a6b00]',
-    editing: 'bg-[#f3ecff] text-[#6845b0]',
-    delivered: 'bg-[#e6f7ef] text-[#16794f]',
+    active: 'primary',
+    pending_payment: 'warning',
+    editing: 'info',
+    delivered: 'success',
 };
 
 const statusLabels = {
     active: 'Activo',
-    pending_payment: 'Pago pendiente',
-    editing: 'Edicion',
+    pending_payment: 'Caja Pendiente',
+    editing: 'En Edición',
     delivered: 'Entregado',
 };
 
-function SummaryCard({ label, value, detail }) {
-    return (
-        <div className="rounded-[1.7rem] border border-[#e6e0d5] bg-white px-5 py-5 shadow-sm">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">{label}</p>
-            <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{value}</p>
-            <p className="mt-1 text-sm text-slate-500">{detail}</p>
-        </div>
-    );
-}
-
 export default function Index({ projects, installationPlan, eventTypes = [] }) {
-    const [showDirectForm, setShowDirectForm] = useState(false);
+    const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [selectedEventType, setSelectedEventType] = useState('Todos');
     const [search, setSearch] = useState('');
-    const { data, setData, post, processing, reset } = useForm({ client_name: '', project_name: '' });
 
     const filteredProjects = useMemo(() => {
         return projects.filter((project) => {
@@ -62,179 +57,140 @@ export default function Index({ projects, installationPlan, eventTypes = [] }) {
         });
     }, [projects, search, selectedEventType]);
 
-    const summary = useMemo(() => ({
+    const stats = {
         total: projects.length,
-        active: projects.filter((project) => project.status === 'active').length,
-        delivered: projects.filter((project) => project.status === 'delivered').length,
-        portfolio: projects.filter((project) => (project.photos || []).some((photo) => photo.show_on_website)).length,
-    }), [projects]);
-
-    const submitDirect = (event) => {
-        event.preventDefault();
-        post('/admin/projects', {
-            onSuccess: () => {
-                setShowDirectForm(false);
-                reset();
-            },
-        });
+        active: projects.filter(p => p.status === 'active').length,
+        delivered: projects.filter(p => p.status === 'delivered').length,
+        portfolio: projects.filter(p => (p.photos || []).some(ph => ph.show_on_website)).length,
     };
 
     return (
         <AdminLayout>
-            <Head title="Colecciones" />
+            <Head title="Proyectos — Colecciones" />
 
             <div className="space-y-8">
-                <section className="rounded-[2rem] border border-[#e4ddd2] bg-white p-7 shadow-sm">
-                    <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
-                        <div className="max-w-3xl">
-                            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Colecciones</p>
-                            <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900">Un lugar claro para abrir, revisar y entregar cada proyecto.</h2>
-                            <p className="mt-3 text-sm leading-7 text-slate-500">
-                                La vista prioriza lo que el estudio necesita todos los dias: buscar rapido, detectar estado, abrir una coleccion y crear proyectos nuevos sin perderse.
-                            </p>
-                        </div>
-
-                        <div className="flex flex-wrap gap-3">
-                            <Link href="/admin/leads" className="inline-flex items-center gap-2 rounded-2xl border border-[#ddd5c9] bg-[#fbf9f6] px-4 py-3 text-sm font-semibold text-slate-700">
-                                <Workflow className="h-4 w-4" />
-                                Desde leads
-                            </Link>
-                            <button
-                                type="button"
-                                onClick={() => setShowDirectForm((value) => !value)}
-                                className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white"
-                            >
-                                <CirclePlus className="h-4 w-4" />
-                                Nueva coleccion
-                            </button>
-                        </div>
+                {/* Header Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-6">
+                    <div>
+                        <h2 className="text-2xl font-black text-slate-800 tracking-tight">Centro de Colecciones</h2>
+                        <p className="text-sm font-medium text-slate-500">Gestión de flujo fotográfico y entregas al cliente.</p>
                     </div>
-
-                    <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        <SummaryCard label="Total" value={summary.total} detail="Colecciones registradas" />
-                        <SummaryCard label="Activas" value={summary.active} detail="En trabajo o pendientes" />
-                        <SummaryCard label="Entregadas" value={summary.delivered} detail="Colecciones cerradas" />
-                        <SummaryCard label="Portafolio" value={summary.portfolio} detail="Con fotos visibles en la web" />
+                    <div className="flex gap-2">
+                        <Link href="/admin/leads">
+                            <Button variant="outline" icon={Workflow}>Desde Leads</Button>
+                        </Link>
+                        <Button onClick={() => setIsCreateOpen(true)} icon={Plus}>Nueva Colección</Button>
                     </div>
-                </section>
+                </div>
 
-                {showDirectForm && (
-                    <section className="rounded-[2rem] border border-[#d9d1c4] bg-[#171411] p-7 text-white shadow-sm">
-                        <form onSubmit={submitDirect} className="grid gap-4 xl:grid-cols-[1fr_1fr_auto]">
-                            <div>
-                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Nombre del cliente</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={data.client_name}
-                                    onChange={(event) => setData('client_name', event.target.value)}
-                                    placeholder="Ej. Ana y Luis"
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35"
-                                />
-                            </div>
-                            <div>
-                                <label className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Nombre de la coleccion</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={data.project_name}
-                                    onChange={(event) => setData('project_name', event.target.value)}
-                                    placeholder="Ej. Boda en Santa Maria"
-                                    className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/35"
-                                />
-                            </div>
-                            <div className="flex items-end gap-3">
-                                <button type="button" onClick={() => setShowDirectForm(false)} className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-semibold text-white/75">
-                                    Cancelar
-                                </button>
-                                <button type="submit" disabled={processing} className="rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900">
-                                    {processing ? 'Creando...' : 'Crear'}
-                                </button>
-                            </div>
-                        </form>
-                    </section>
-                )}
+                {/* KPI Overview */}
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                    <StatsCard title="Proyectos Totales" value={stats.total} icon={FolderKanban} color="info" />
+                    <StatsCard title="En Producción" value={stats.active} icon={Clock} color="primary" />
+                    <StatsCard title="Entregadas" value={stats.delivered} icon={CheckCircle2} color="success" />
+                    <StatsCard title="En Portafolio" value={stats.portfolio} icon={BadgeCheck} color="warning" />
+                </div>
 
-                <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                        <div className="relative w-full max-w-xl">
-                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                            <input
+                {/* Filter & Search Bar */}
+                <Card noPadding className="border-none shadow-xl shadow-slate-200/40">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between p-4 gap-4">
+                        <div className="flex-1 max-w-2xl">
+                            <Input 
+                                placeholder="Buscar por nombre, cliente, lugar..." 
+                                icon={Search}
                                 value={search}
-                                onChange={(event) => setSearch(event.target.value)}
-                                placeholder="Buscar por nombre, cliente, lugar o categoria"
-                                className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] py-3 pl-11 pr-4 text-sm text-slate-700 outline-none"
+                                onChange={e => setSearch(e.target.value)}
                             />
                         </div>
-
                         <div className="flex flex-wrap items-center gap-3">
-                            <select
-                                value={selectedEventType}
-                                onChange={(event) => setSelectedEventType(event.target.value)}
-                                className="rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none"
-                            >
-                                {['Todos', ...eventTypes].map((type) => (
-                                    <option key={type} value={type}>{type}</option>
-                                ))}
-                            </select>
-
-                            <div className="rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700">
-                                Plan del estudio: <span className="font-semibold">{installationPlan?.name}</span>
+                            <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-100">
+                                <Filter className="h-3.5 w-3.5 text-slate-400" />
+                                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Categoría:</span>
+                                <select 
+                                    className="bg-transparent border-none text-xs font-bold text-slate-700 focus:ring-0"
+                                    value={selectedEventType}
+                                    onChange={e => setSelectedEventType(e.target.value)}
+                                >
+                                    <option value="Todos">Todos</option>
+                                    {eventTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                </select>
                             </div>
+                            <Badge variant="primary" className="py-2.5 px-4 rounded-xl border border-primary/10">
+                                Plan: {installationPlan?.name}
+                            </Badge>
                         </div>
                     </div>
 
-                    <div className="mt-6 grid gap-4 xl:grid-cols-2">
-                        {filteredProjects.length > 0 ? filteredProjects.map((project) => (
-                            <Link
-                                key={project.id}
-                                href={`/admin/projects/${project.id}`}
-                                className="group rounded-[1.75rem] border border-[#ece5d8] bg-[#fbf9f6] p-5 transition hover:-translate-y-0.5 hover:border-[#d9d1c4] hover:shadow-sm"
-                            >
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="flex min-w-0 items-start gap-4">
-                                        <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white text-slate-700 shadow-sm">
-                                            <FolderKanban className="h-5 w-5" />
+                    <div className="overflow-x-auto">
+                        <div className="grid gap-6 p-6 sm:grid-cols-2 xl:grid-cols-3">
+                            {filteredProjects.map((project) => (
+                                <Link
+                                    key={project.id}
+                                    href={`/admin/projects/${project.id}`}
+                                    className="group flex flex-col justify-between rounded-[1.8rem] border border-slate-100 bg-white p-6 transition-all duration-300 hover:border-primary/30 hover:shadow-2xl hover:shadow-slate-200/60"
+                                >
+                                    <div>
+                                        <div className="flex items-start justify-between mb-6">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-50 text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+                                                <FolderKanban className="h-6 w-6" />
+                                            </div>
+                                            <Badge variant={statusStyles[project.status] || 'slate'} className="uppercase font-black text-[9px] tracking-widest">
+                                                {statusLabels[project.status] || project.status}
+                                            </Badge>
                                         </div>
-                                        <div className="min-w-0">
-                                            <h3 className="truncate text-lg font-semibold text-slate-900">{project.name}</h3>
-                                            <p className="mt-1 text-sm text-slate-500">{project.lead?.name || 'Cliente directo'}</p>
+
+                                        <h3 className="text-lg font-black text-slate-800 tracking-tight line-clamp-1 group-hover:text-primary transition-colors">
+                                            {project.name}
+                                        </h3>
+                                        <p className="mt-1 text-xs font-bold text-slate-400 uppercase tracking-tight">
+                                            {project.lead?.name || 'Cliente Directo'}
+                                        </p>
+
+                                        <div className="mt-6 flex flex-wrap gap-2">
+                                            <InfoLabel icon={CalendarRange} text={project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Pendiente'} />
+                                            <InfoLabel icon={MapPin} text={project.location || 'Sin Ubicación'} />
                                         </div>
                                     </div>
 
-                                    <span className={clsx('rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]', statusStyles[project.status] || 'bg-white text-slate-500 border border-[#e6e0d5]')}>
-                                        {statusLabels[project.status] || project.status}
-                                    </span>
-                                </div>
-
-                                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                                    <InfoPill icon={BadgeCheck} label="Tipo" value={project.lead?.event_type || 'Sin categoria'} />
-                                    <InfoPill icon={CalendarRange} label="Fecha" value={project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Por definir'} />
-                                    <InfoPill icon={MapPin} label="Lugar" value={project.location || 'Sin ubicacion'} />
-                                </div>
-
-                                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[#ebe5db] pt-4">
-                                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                                        <UploadCloud className="h-3.5 w-3.5" />
-                                        {project.contract?.status === 'signed' ? 'Contrato firmado' : 'Firma pendiente'}
+                                    <div className="mt-8 flex items-center justify-between border-t border-slate-50 pt-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`h-2 w-2 rounded-full ${project.contract?.status === 'signed' ? 'bg-green-500' : 'bg-slate-200'}`} />
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                {project.contract?.status === 'signed' ? 'Contrato OK' : 'Firma Pendiente'}
+                                            </span>
+                                        </div>
+                                        <span className="text-[11px] font-black text-primary flex items-center gap-1 group-hover:translate-x-1 transition-all">
+                                            ADMINISTRAR <ChevronRight className="h-3.5 w-3.5" />
+                                        </span>
                                     </div>
-                                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-800">
-                                        Abrir coleccion
-                                        <ArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
-                                    </div>
+                                </Link>
+                            ))}
+
+                            {filteredProjects.length === 0 && (
+                                <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-100 rounded-[2rem]">
+                                    <FolderKanban className="h-10 w-10 text-slate-200 mx-auto" />
+                                    <p className="mt-4 text-sm font-bold text-slate-400 uppercase tracking-widest">No se encontraron colecciones</p>
                                 </div>
-                            </Link>
-                        )) : (
-                            <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] px-6 py-16 text-center xl:col-span-2">
-                                <FolderKanban className="mx-auto h-8 w-8 text-slate-300" />
-                                <h3 className="mt-4 text-lg font-semibold text-slate-900">No hay colecciones para este filtro.</h3>
-                                <p className="mt-2 text-sm text-slate-500">Prueba con otro tipo de evento o crea una nueva coleccion desde el panel superior.</p>
-                            </div>
-                        )}
+                            )}
+                        </div>
                     </div>
-                </section>
+                </Card>
             </div>
+
+            <CreateProjectDrawer 
+                isOpen={isCreateOpen}
+                onClose={() => setIsCreateOpen(false)}
+            />
         </AdminLayout>
+    );
+}
+
+function InfoLabel({ icon: Icon, text }) {
+    return (
+        <div className="flex items-center gap-1.5 rounded-lg bg-slate-50/50 px-2.5 py-1.5 border border-slate-100/50">
+            <Icon className="h-3 w-3 text-slate-400" />
+            <span className="text-[10px] font-bold text-slate-600 truncate max-w-[120px]">{text}</span>
+        </div>
     );
 }
 
