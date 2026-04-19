@@ -22,7 +22,7 @@ class SeedMisaelDavidTenant extends Command
             'name' => 'Misael David Demo',
             'slug' => 'misaeldavid-demo',
             'status' => 'active',
-            'plan_code' => 'studio',
+            'plan_code' => 'business',
             'billing_email' => 'admin@misaeldavid.com',
             'storage_limit_bytes' => 0,
             'ai_enabled' => true,

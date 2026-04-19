@@ -18,6 +18,7 @@ export default function Ai({ project, faceRecognition }) {
     const sponsorSelectionLimit = capabilities.sponsor_selection_limit;
     const requiresExplicitSponsors = !!capabilities.requires_explicit_sponsors;
     const sponsorCatalog = project?.sponsor_catalog || faceRecognition?.sponsor_catalog || [];
+    const aiMonthlyLimit = capabilities.ai_scans_monthly_limit ?? capabilities.photos_per_month_limit;
 
     const [faceRecognitionEnabled, setFaceRecognitionEnabled] = React.useState(!!project.face_recognition_enabled);
     const [selectedSponsors, setSelectedSponsors] = React.useState(project.selected_sponsors || faceRecognition?.selected_sponsors || []);
@@ -110,7 +111,7 @@ export default function Ai({ project, faceRecognition }) {
                     <div className="mt-6 grid gap-4 xl:grid-cols-4">
                         <CapabilityCard icon={ScanFace} eyebrow="Identidad" title="Rostros" description="Entrena referencias base para reconocer personas conocidas en la galeria." />
                         <CapabilityCard icon={Camera} eyebrow="Plan" title={supportsSponsorDetection ? 'Patrocinadores activos' : 'Patrocinadores bloqueados'} description={supportsSponsorDetection ? 'La corrida IA solo analizara los patrocinadores seleccionados para este evento.' : 'Starter y Basic ocultan por completo la seleccion y busqueda de patrocinadores.'} />
-                        <CapabilityCard icon={WandSparkles} eyebrow="Cuota" title="Procesamiento mensual" description={capabilities.photos_per_month_limit ? `${capabilities.remaining_photo_quota ?? 0} de ${capabilities.photos_per_month_limit} fotos disponibles este mes.` : 'Sin cuota de fotos configurada en este tenant.'} />
+                        <CapabilityCard icon={WandSparkles} eyebrow="Cuota" title="Procesamiento mensual" description={aiMonthlyLimit ? `${capabilities.remaining_photo_quota ?? 0} de ${aiMonthlyLimit} fotos disponibles este mes.` : 'Sin cuota de fotos configurada en este tenant.'} />
                         <CapabilityCard icon={UserRound} eyebrow="Evento" title="Seleccion actual" description={supportsSponsorDetection ? `${selectedSponsors.length} patrocinadores elegidos para este evento.` : 'No aplica para este plan.'} />
                     </div>
 
@@ -386,4 +387,3 @@ function CapabilityCard({ icon: Icon, eyebrow, title, description }) {
         </div>
     );
 }
-

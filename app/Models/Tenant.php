@@ -114,7 +114,7 @@ class Tenant extends Model
         return match ($feature) {
             'ai_scans', 'face_recognition' => $this->supportsFaceRecognition() && $this->remainingPhotoProcessingQuota() >= $amount,
             'sponsor_detection' => $this->supportsSponsorDetection(),
-            'photo_uploads' => ! $this->isSystemBlocked(),
+            'photo_uploads' => ! $this->isSystemBlocked() && $this->canUploadPhotos($amount),
             default => $this->resolveGenericFeatureAccess($feature, $amount),
         };
     }
@@ -148,15 +148,46 @@ class Tenant extends Model
 
     public function photosPerMonthLimit(): ?int
     {
-        $limit = $this->featureLimit('photos_per_month') ?? $this->featureLimit('ai_scans_monthly');
+        $limit = $this->featureLimit('photos_per_month');
 
         return $limit === null ? null : (int) $limit;
+    }
+
+    public function aiScansMonthlyLimit(): ?int
+    {
+        $limit = $this->featureLimit('ai_scans_monthly') ?? $this->featureLimit('photos_per_month');
+
+        return $limit === null ? null : (int) $limit;
+    }
+
+    public function currentMonthPhotoUploads(): int
+    {
+        return Photo::withoutGlobalScope('tenant')
+            ->where('tenant_id', $this->id)
+            ->where('created_at', '>=', now()->startOfMonth())
+            ->count();
+    }
+
+    public function remainingPhotoUploadQuota(): int
+    {
+        $limit = $this->photosPerMonthLimit();
+
+        if ($limit === null) {
+            return PHP_INT_MAX;
+        }
+
+        return max(0, $limit - $this->currentMonthPhotoUploads());
+    }
+
+    public function canUploadPhotos(int $count = 1): bool
+    {
+        return $this->remainingPhotoUploadQuota() >= max(1, $count);
     }
 
     public function remainingPhotoProcessingQuota(): int
     {
         $this->syncUsageLimits();
-        $limit = $this->photosPerMonthLimit();
+        $limit = $this->aiScansMonthlyLimit();
 
         if ($limit === null) {
             return PHP_INT_MAX;

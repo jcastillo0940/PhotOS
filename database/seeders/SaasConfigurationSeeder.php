@@ -8,6 +8,13 @@ use Illuminate\Support\Facades\DB;
 
 class SaasConfigurationSeeder extends Seeder
 {
+    private const LEGACY_PLAN_MAP = [
+        'studio' => 'starter',
+        'professional' => 'pro',
+        'studio_gold' => 'business',
+        'scale' => 'enterprise',
+    ];
+
     public function run(): void
     {
         $settings = [
@@ -34,6 +41,8 @@ class SaasConfigurationSeeder extends Seeder
             );
         }
 
+        $this->syncLegacyPlanCodes();
+
         foreach (SaasPlanCatalog::defaults() as $definition) {
             DB::table('saas_plans')->updateOrInsert(
                 ['code' => $definition['code']],
@@ -49,6 +58,38 @@ class SaasConfigurationSeeder extends Seeder
                     'created_at' => now(),
                 ]
             );
+        }
+
+        DB::table('saas_plans')
+            ->whereIn('code', array_keys(self::LEGACY_PLAN_MAP))
+            ->delete();
+
+        $activePlanFeatures = collect(SaasPlanCatalog::defaults())
+            ->mapWithKeys(fn (array $definition) => [$definition['code'] => $definition['features']])
+            ->all();
+
+        DB::table('tenants')
+            ->orderBy('id')
+            ->get(['id', 'plan_code'])
+            ->each(function (object $tenant) use ($activePlanFeatures) {
+                $features = $activePlanFeatures[$tenant->plan_code] ?? [];
+
+                DB::table('tenants')
+                    ->where('id', $tenant->id)
+                    ->update([
+                        'ai_enabled' => (bool) (($features['ai_face_recognition'] ?? false) || ($features['ai_sponsor_detection'] ?? false)),
+                        'custom_domain_enabled' => (bool) ($features['custom_domain'] ?? false),
+                        'updated_at' => now(),
+                    ]);
+            });
+    }
+
+    private function syncLegacyPlanCodes(): void
+    {
+        foreach (self::LEGACY_PLAN_MAP as $legacy => $current) {
+            DB::table('tenants')->where('plan_code', $legacy)->update(['plan_code' => $current]);
+            DB::table('tenant_subscriptions')->where('plan_code', $legacy)->update(['plan_code' => $current]);
+            DB::table('saas_registrations')->where('plan_code', $legacy)->update(['plan_code' => $current]);
         }
     }
 }

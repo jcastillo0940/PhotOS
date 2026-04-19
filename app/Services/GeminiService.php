@@ -5,16 +5,17 @@ namespace App\Services;
 use App\Models\Photo;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class GeminiService
 {
     private string $apiKey;
     private string $defaultModel;
 
-    private const SYSTEM_INSTRUCTION = 'Analiza la imagen deportiva. Responde Ãºnicamente en formato JSON siguiendo estrictamente estas reglas de brevedad para ahorrar tokens: marca: Solo el nombre de la marca de la camiseta (Ej: "Nike"). Si no hay, "N/A". dorsal: Solo el nÃºmero visible como string. Si no hay, "0". contexto: DescripciÃ³n tÃ©cnica en mÃ¡ximo 60 caracteres (Ej: "Delantero rematando de cabeza en Ã¡rea pequeÃ±a"). accion: Una sola palabra de esta lista: [Gol, Falta, Penal, Tiro_libre, Disputa, CelebraciÃ³n, Atajada, Otro]. RestricciÃ³n: No incluyas prosas, saludos ni explicaciones. Solo el objeto JSON.';
+    private const SYSTEM_INSTRUCTION = 'Analiza la imagen deportiva. Responde únicamente en formato JSON siguiendo estrictamente estas reglas de brevedad para ahorrar tokens: marca: Solo el nombre de la marca de la camiseta (Ej: "Nike"). Si no hay, "N/A". dorsal: Solo el número visible como string. Si no hay, "0". contexto: Descripción técnica en máximo 60 caracteres (Ej: "Delantero rematando de cabeza en área pequeña"). accion: Una sola palabra de esta lista: [Gol, Falta, Penal, Tiro_libre, Disputa, Celebración, Atajada, Otro]. Restricción: No incluyas prosas, saludos ni explicaciones. Solo el objeto JSON.';
 
     private const VALID_ACTIONS = [
-        'Gol', 'Falta', 'Penal', 'Tiro_libre', 'Disputa', 'CelebraciÃ³n', 'Atajada', 'Otro',
+        'Gol', 'Falta', 'Penal', 'Tiro_libre', 'Disputa', 'Celebración', 'Atajada', 'Otro',
     ];
 
     public function __construct()
@@ -31,17 +32,17 @@ class GeminiService
     public function analyzePhoto(Photo $photo, ?string $model = null): array
     {
         if (! $this->enabled()) {
-            throw new \RuntimeException('GEMINI_API_KEY no estÃ¡ configurada.');
+            throw new \RuntimeException('GEMINI_API_KEY no está configurada.');
         }
 
         $modelToUse = filled($model) ? $model : $this->defaultModel;
         $imageUrl = $this->resolvePhotoUrl($photo);
 
         \Log::channel('daily')->info('[GEMINI DEBUG] resolvePhotoUrl result', [
-            'photo_id'       => $photo->id,
-            'gemini_path'    => $photo->gemini_path,
+            'photo_id' => $photo->id,
+            'gemini_path' => $photo->gemini_path,
             'optimized_path' => $photo->optimized_path,
-            'resolved_url'   => $imageUrl ? substr($imageUrl, 0, 120).'...' : null,
+            'resolved_url' => $imageUrl ? substr($imageUrl, 0, 120).'...' : null,
         ]);
 
         if (! $imageUrl) {
@@ -51,13 +52,13 @@ class GeminiService
         $imageResponse = Http::timeout(20)->get($imageUrl);
 
         \Log::channel('daily')->info('[GEMINI DEBUG] Image download', [
-            'status'       => $imageResponse->status(),
+            'status' => $imageResponse->status(),
             'content_type' => $imageResponse->header('Content-Type'),
-            'bytes'        => strlen($imageResponse->body()),
+            'bytes' => strlen($imageResponse->body()),
         ]);
 
         if (! $imageResponse->successful()) {
-            throw new \RuntimeException('No se pudo descargar la imagen para anÃ¡lisis.');
+            throw new \RuntimeException('No se pudo descargar la imagen para análisis.');
         }
 
         $base64 = base64_encode($imageResponse->body());
@@ -65,8 +66,8 @@ class GeminiService
         $mimeType = explode(';', $mimeType)[0];
 
         \Log::channel('daily')->info('[GEMINI DEBUG] Sending to Gemini API', [
-            'model'     => $modelToUse,
-            'mimeType'  => $mimeType,
+            'model' => $modelToUse,
+            'mimeType' => $mimeType,
             'base64_kb' => round(strlen($base64) / 1024, 1),
         ]);
 
@@ -102,15 +103,18 @@ class GeminiService
 
         $data = $response->json();
         $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
-        $tokens = $data['usageMetadata']['totalTokenCount'] ?? null;
+        $usage = $data['usageMetadata'] ?? [];
+        $tokens = $usage['totalTokenCount'] ?? null;
+        $promptTokens = $usage['promptTokenCount'] ?? null;
+        $candidateTokens = $usage['candidatesTokenCount'] ?? null;
+        $requestId = $response->header('x-request-id')
+            ?: $response->header('x-google-request-id')
+            ?: (string) Str::uuid();
 
-        // Gemini sometimes wraps JSON in prose or code blocks â€” extract it
         $parsed = json_decode($text, true);
         if (! is_array($parsed)) {
-            // Try ```json ... ``` or ``` ... ``` code blocks first
             if (preg_match('/```(?:json)?\s*(\{.*?\})\s*```/s', $text, $m)) {
                 $parsed = json_decode($m[1], true) ?? [];
-            // Then try any bare JSON object in the text
             } elseif (preg_match('/\{.*\}/s', $text, $m)) {
                 $parsed = json_decode($m[0], true) ?? [];
             } else {
@@ -120,8 +124,11 @@ class GeminiService
 
         \Log::channel('daily')->info('[GEMINI DEBUG] Parsed result', [
             'raw_text' => $text,
-            'parsed'   => $parsed,
-            'tokens'   => $tokens,
+            'parsed' => $parsed,
+            'tokens' => $tokens,
+            'prompt_tokens' => $promptTokens,
+            'candidate_tokens' => $candidateTokens,
+            'request_id' => $requestId,
         ]);
 
         $marca = $this->cleanString($parsed['marca'] ?? null);
@@ -135,6 +142,10 @@ class GeminiService
             'contexto' => $contexto,
             'accion' => $accion,
             'tokens' => $tokens,
+            'prompt_tokens' => $promptTokens,
+            'candidate_tokens' => $candidateTokens,
+            'total_tokens' => $tokens,
+            'request_id' => $requestId,
             'model' => $modelToUse,
         ];
     }
@@ -178,18 +189,18 @@ class GeminiService
 
     private function resolvePhotoUrl(Photo $photo): ?string
     {
-        // Prefer dedicated Gemini version (small, no watermark, 800px)
         if ($photo->gemini_path) {
             try {
                 return Storage::disk('r2')->temporaryUrl($photo->gemini_path, now()->addMinutes(5));
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
         }
 
-        // Fallback to web-optimized version
         if ($photo->optimized_path) {
             try {
                 return Storage::disk('r2')->temporaryUrl($photo->optimized_path, now()->addMinutes(5));
-            } catch (\Throwable) {}
+            } catch (\Throwable) {
+            }
         }
 
         if ($photo->url) {

@@ -16,7 +16,7 @@ class Photo extends Model
         'mime_type', 'is_selected', 'show_on_website', 'download_count', 'order_index', 'category', 'tags', 'people_tags',
         'brand_tags', 'jersey_numbers', 'sponsor_tags', 'context_tags', 'action_tags', 'people_count', 'people_count_label', 'shot_type',
         'recognition_status', 'recognition_note', 'recognition_processed_at',
-        'gemini_tokens', 'gemini_request_id', 'gemini_batch_size',
+        'gemini_tokens', 'gemini_prompt_tokens', 'gemini_candidate_tokens', 'gemini_total_tokens', 'gemini_model', 'gemini_request_id', 'gemini_batch_size',
     ];
 
     protected $casts = [
@@ -35,6 +35,9 @@ class Photo extends Model
         'action_tags' => 'array',
         'people_count' => 'integer',
         'gemini_tokens' => 'integer',
+        'gemini_prompt_tokens' => 'integer',
+        'gemini_candidate_tokens' => 'integer',
+        'gemini_total_tokens' => 'integer',
         'gemini_batch_size' => 'integer',
         'recognition_processed_at' => 'datetime',
     ];

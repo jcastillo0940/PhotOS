@@ -6,6 +6,7 @@ use App\Models\SaasRegistration;
 use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
+use App\Models\GeminiUsageRecord;
 use App\Models\User;
 use App\Services\Billing\TenantBillingService;
 use App\Services\Saas\CloudflareCustomHostnameService;
@@ -277,6 +278,10 @@ class SaasTenantController extends Controller
             'type' => 'required|string|in:custom,subdomain',
         ]);
 
+        if ($validated['type'] === 'custom' && ! $tenant->featureLimit('custom_domain')) {
+            return redirect()->back()->with('error', 'El plan actual de este tenant no incluye dominio propio.');
+        }
+
         $domain = TenantDomain::create([
             'tenant_id' => $tenant->id,
             'hostname' => strtolower($validated['hostname']),
@@ -312,47 +317,92 @@ class SaasTenantController extends Controller
 
     public function geminiUsage()
     {
+        $storageByTenant = DB::table('photos')
+            ->select('tenant_id', DB::raw('COALESCE(SUM(original_bytes), 0) as original_storage_bytes'))
+            ->groupBy('tenant_id')
+            ->pluck('original_storage_bytes', 'tenant_id');
+
         $rows = Tenant::withoutGlobalScopes()
-            ->leftJoin('photos', 'photos.tenant_id', '=', 'tenants.id')
+            ->leftJoin('gemini_usage_records', 'gemini_usage_records.tenant_id', '=', 'tenants.id')
             ->select(
                 'tenants.id as tenant_id',
                 'tenants.name as tenant_name',
-                DB::raw("COUNT(CASE WHEN COALESCE(photos.gemini_tokens, 0) > 0 THEN 1 END) as photos_count"),
-                DB::raw('COALESCE(SUM(photos.gemini_tokens), 0) as total_tokens'),
-                DB::raw('COALESCE(AVG(NULLIF(photos.gemini_tokens, 0)), 0) as avg_tokens'),
-                DB::raw('COALESCE(MAX(photos.gemini_tokens), 0) as max_tokens'),
-                DB::raw('COALESCE(MIN(NULLIF(photos.gemini_tokens, 0)), 0) as min_tokens'),
-                DB::raw("COUNT(DISTINCT CASE WHEN photos.gemini_request_id IS NOT NULL AND photos.gemini_request_id <> '' THEN photos.gemini_request_id END) + SUM(CASE WHEN COALESCE(photos.gemini_tokens, 0) > 0 AND (photos.gemini_request_id IS NULL OR photos.gemini_request_id = '') THEN 1 ELSE 0 END) as gemini_requests_count"),
-                DB::raw('COALESCE(SUM(photos.original_bytes), 0) as original_storage_bytes')
+                DB::raw('COUNT(DISTINCT gemini_usage_records.id) as gemini_requests_count'),
+                DB::raw('COUNT(DISTINCT gemini_usage_records.photo_id) as photos_count'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.prompt_tokens), 0) as prompt_tokens'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.candidate_tokens), 0) as candidate_tokens'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.total_tokens), 0) as total_tokens'),
+                DB::raw('COALESCE(AVG(NULLIF(gemini_usage_records.total_tokens, 0)), 0) as avg_tokens'),
+                DB::raw('COALESCE(MAX(gemini_usage_records.total_tokens), 0) as max_tokens'),
+                DB::raw('COALESCE(MIN(NULLIF(gemini_usage_records.total_tokens, 0)), 0) as min_tokens'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.input_cost_usd), 0) as input_cost_usd'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.output_cost_usd), 0) as output_cost_usd'),
+                DB::raw('COALESCE(SUM(gemini_usage_records.total_cost_usd), 0) as total_cost_usd'),
+                DB::raw('COALESCE(SUM(CASE WHEN gemini_usage_records.is_estimated = 1 THEN gemini_usage_records.total_cost_usd ELSE 0 END), 0) as estimated_cost_usd'),
+                DB::raw('COALESCE(SUM(CASE WHEN gemini_usage_records.is_estimated = 0 THEN gemini_usage_records.total_cost_usd ELSE 0 END), 0) as exact_cost_usd'),
+                DB::raw('COALESCE(SUM(CASE WHEN gemini_usage_records.is_estimated = 1 THEN 1 ELSE 0 END), 0) as estimated_requests_count'),
+                DB::raw('COALESCE(SUM(CASE WHEN gemini_usage_records.is_estimated = 0 THEN 1 ELSE 0 END), 0) as exact_requests_count')
             )
             ->groupBy('tenants.id', 'tenants.name')
             ->orderByDesc('total_tokens')
             ->get();
 
+        $modelsByTenant = GeminiUsageRecord::query()
+            ->select('tenant_id', 'model', DB::raw('COUNT(*) as requests'))
+            ->groupBy('tenant_id', 'model')
+            ->get()
+            ->groupBy('tenant_id');
+
         $totals = [
             'photos_count' => (int) $rows->sum('photos_count'),
+            'prompt_tokens' => (int) $rows->sum('prompt_tokens'),
+            'candidate_tokens' => (int) $rows->sum('candidate_tokens'),
             'total_tokens' => (int) $rows->sum('total_tokens'),
             'gemini_requests_count' => (int) $rows->sum('gemini_requests_count'),
-            'original_storage_bytes' => (int) $rows->sum('original_storage_bytes'),
+            'original_storage_bytes' => (int) $storageByTenant->sum(),
+            'input_cost_usd' => (float) $rows->sum('input_cost_usd'),
+            'output_cost_usd' => (float) $rows->sum('output_cost_usd'),
+            'total_cost_usd' => (float) $rows->sum('total_cost_usd'),
+            'estimated_cost_usd' => (float) $rows->sum('estimated_cost_usd'),
+            'exact_cost_usd' => (float) $rows->sum('exact_cost_usd'),
+            'estimated_requests_count' => (int) $rows->sum('estimated_requests_count'),
+            'exact_requests_count' => (int) $rows->sum('exact_requests_count'),
         ];
 
         $data = $rows
-            ->filter(fn ($row) => (int) $row->photos_count > 0 || (int) $row->original_storage_bytes > 0)
-            ->map(function ($row) {
+            ->filter(fn ($row) => (int) $row->photos_count > 0 || (int) ($storageByTenant[$row->tenant_id] ?? 0) > 0)
+            ->map(function ($row) use ($modelsByTenant, $storageByTenant) {
                 $photosCount = (int) $row->photos_count;
                 $requestsCount = max(0, (int) $row->gemini_requests_count);
+                $originalStorageBytes = (int) ($storageByTenant[$row->tenant_id] ?? 0);
 
                 return [
                     'tenant_id' => $row->tenant_id,
                     'tenant_name' => $row->tenant_name ?? "Tenant #{$row->tenant_id}",
                     'photos_count' => $photosCount,
+                    'prompt_tokens' => (int) $row->prompt_tokens,
+                    'candidate_tokens' => (int) $row->candidate_tokens,
                     'total_tokens' => (int) $row->total_tokens,
                     'avg_tokens' => (int) round((float) $row->avg_tokens),
                     'max_tokens' => (int) $row->max_tokens,
                     'min_tokens' => (int) $row->min_tokens,
                     'gemini_requests_count' => $requestsCount,
                     'photos_per_request' => $requestsCount > 0 ? round($photosCount / $requestsCount, 2) : 0,
-                    'original_storage_bytes' => (int) $row->original_storage_bytes,
+                    'original_storage_bytes' => $originalStorageBytes,
+                    'input_cost_usd' => (float) $row->input_cost_usd,
+                    'output_cost_usd' => (float) $row->output_cost_usd,
+                    'total_cost_usd' => (float) $row->total_cost_usd,
+                    'estimated_cost_usd' => (float) $row->estimated_cost_usd,
+                    'exact_cost_usd' => (float) $row->exact_cost_usd,
+                    'estimated_requests_count' => (int) $row->estimated_requests_count,
+                    'exact_requests_count' => (int) $row->exact_requests_count,
+                    'models' => collect($modelsByTenant->get($row->tenant_id, []))
+                        ->map(fn ($modelRow) => [
+                            'model' => $modelRow->model ?: 'desconocido',
+                            'requests' => (int) $modelRow->requests,
+                        ])
+                        ->values()
+                        ->all(),
                 ];
             })
             ->values();

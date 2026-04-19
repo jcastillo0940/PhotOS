@@ -105,7 +105,7 @@ class ProjectController extends Controller
         $tenant = app(TenantContext::class)->tenant();
         $projectLimit = $tenant?->featureLimit('projects_limit');
         if ($projectLimit !== null && Project::count() >= (int) $projectLimit) {
-            return redirect()->back()->with('error', 'Has alcanzado el limite de proyectos de tu plan Starter (Limite: 1).');
+            return redirect()->back()->with('error', $this->projectLimitMessage($tenant, (int) $projectLimit));
         }
 
         $client = Client::firstOrCreate(
@@ -156,7 +156,7 @@ class ProjectController extends Controller
         $tenant = app(TenantContext::class)->tenant();
         $projectLimit = $tenant?->featureLimit('projects_limit');
         if ($projectLimit !== null && Project::count() >= (int) $projectLimit) {
-            return redirect()->back()->with('error', 'Has alcanzado el limite de proyectos de tu plan Starter (Limite: 1).');
+            return redirect()->back()->with('error', $this->projectLimitMessage($tenant, (int) $projectLimit));
         }
 
         $plan = InstallationPlan::current();
@@ -369,6 +369,13 @@ class ProjectController extends Controller
         return (int) round($gigabytes * 1024 * 1024 * 1024);
     }
 
+    private function projectLimitMessage($tenant, int $projectLimit): string
+    {
+        $planName = $tenant?->planDefinition()['name'] ?? 'actual';
+
+        return "Has alcanzado el limite de proyectos de tu plan {$planName} (Limite: {$projectLimit}).";
+    }
+
     private function serializePhotoForAdmin($photo): array
     {
         $resolvedUrl = $photo->optimized_path
@@ -458,6 +465,7 @@ class ProjectController extends Controller
                     'sponsor_selection_limit' => $project->sponsorSelectionLimit(),
                     'requires_explicit_sponsors' => $project->requiresExplicitSponsors(),
                     'photos_per_month_limit' => $project->tenant?->photosPerMonthLimit(),
+                    'ai_scans_monthly_limit' => $project->tenant?->aiScansMonthlyLimit(),
                     'remaining_photo_quota' => $project->tenant?->remainingPhotoProcessingQuota(),
                 ],
                 'permissions' => [
@@ -703,4 +711,3 @@ class ProjectController extends Controller
         ];
     }
 }
-

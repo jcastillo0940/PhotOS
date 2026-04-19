@@ -15,7 +15,7 @@ return new class extends Migration
             $table->string('name');
             $table->string('slug')->unique();
             $table->string('status')->default('active');
-            $table->string('plan_code')->default('starter');
+            $table->string('plan_code')->default('basic');
             $table->string('billing_email')->nullable();
             $table->unsignedBigInteger('storage_limit_bytes')->default(0);
             $table->boolean('ai_enabled')->default(false);
@@ -46,11 +46,11 @@ return new class extends Migration
             'name' => $appName,
             'slug' => $slug,
             'status' => 'active',
-            'plan_code' => 'studio',
+            'plan_code' => 'basic',
             'billing_email' => null,
             'storage_limit_bytes' => 0,
-            'ai_enabled' => true,
-            'custom_domain_enabled' => true,
+            'ai_enabled' => false,
+            'custom_domain_enabled' => false,
             'metadata' => json_encode([
                 'seeded_by_migration' => true,
                 'mode' => 'legacy-installation',

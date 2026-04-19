@@ -14,7 +14,8 @@ class SaasPlanCatalog
                 'price_monthly' => 0,
                 'price_yearly' => 0,
                 'features' => [
-                    'storage_gb' => 300,
+                    'projects_limit' => 3,
+                    'storage_gb' => 30,
                     'photos_per_month' => 0,
                     'ai_scans_monthly' => 0,
                     'staff_limit' => 1,
@@ -36,6 +37,7 @@ class SaasPlanCatalog
                 'price_monthly' => 29,
                 'price_yearly' => 290,
                 'features' => [
+                    'projects_limit' => 25,
                     'storage_gb' => 500,
                     'photos_per_month' => 2000,
                     'ai_scans_monthly' => 2000,
@@ -58,6 +60,7 @@ class SaasPlanCatalog
                 'price_monthly' => 79,
                 'price_yearly' => 790,
                 'features' => [
+                    'projects_limit' => 100,
                     'storage_gb' => 1000,
                     'photos_per_month' => 6000,
                     'ai_scans_monthly' => 6000,
@@ -80,6 +83,7 @@ class SaasPlanCatalog
                 'price_monthly' => 149,
                 'price_yearly' => 1490,
                 'features' => [
+                    'projects_limit' => 300,
                     'storage_gb' => 2500,
                     'photos_per_month' => 20000,
                     'ai_scans_monthly' => 20000,
@@ -99,9 +103,10 @@ class SaasPlanCatalog
                 'code' => 'enterprise',
                 'name' => 'Enterprise',
                 'segment' => 'b2b',
-                'price_monthly' => 299,
-                'price_yearly' => 2990,
+                'price_monthly' => 699,
+                'price_yearly' => 8388,
                 'features' => [
+                    'projects_limit' => null,
                     'storage_gb' => 10000,
                     'photos_per_month' => 75000,
                     'ai_scans_monthly' => 75000,

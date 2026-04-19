@@ -18,7 +18,7 @@ class LimitsController extends Controller
         $tenant?->syncUsageLimits();
         $currentPlan = $tenant?->planDefinition() ?? [];
         $features = $currentPlan['features'] ?? [];
-        $photosLimit = $features['photos_per_month'] ?? $features['ai_scans_monthly'] ?? null;
+        $photosLimit = $tenant?->aiScansMonthlyLimit();
         $aiUsed = (int) ($tenant?->ai_scans_monthly_count ?? 0);
         $aiRemaining = $photosLimit === null ? null : max(0, (int) $photosLimit - $aiUsed);
         $storageUsedBytes = $tenant?->calculateCurrentStorageUsage() ?? 0;

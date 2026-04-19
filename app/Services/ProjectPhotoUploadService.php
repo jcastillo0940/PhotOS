@@ -50,7 +50,7 @@ class ProjectPhotoUploadService
 
         if ($tenant && ! $tenant->canUseFeature('photo_uploads', $incomingFiles)) {
             Log::channel('single')->error("[UPLOAD:{$uploadId}] Limite de plan alcanzado", ['incoming' => $incomingFiles]);
-            throw new \RuntimeException('Tu plan actual no permite subir esa cantidad de fotos este mes.');
+            throw new \RuntimeException($this->uploadPlanLimitMessage($tenant));
         }
 
         $incomingOriginalBytes = collect($request->file('photos'))->sum(fn ($file) => $file->getSize() ?: 0);
@@ -66,6 +66,15 @@ class ProjectPhotoUploadService
         if ($maxOriginalsBytes > 0 && ($currentOriginalBytes + $incomingOriginalBytes) > $maxOriginalsBytes) {
             Log::channel('single')->error("[UPLOAD:{$uploadId}] Sin espacio suficiente");
             throw new \RuntimeException('Espacio insuficiente para este evento.');
+        }
+
+        if ($tenant && ! $tenant->hasStorageCapacityFor($incomingOriginalBytes)) {
+            Log::channel('single')->error("[UPLOAD:{$uploadId}] Sin capacidad global SaaS", [
+                'incoming_bytes' => $incomingOriginalBytes,
+                'tenant_storage_used_bytes' => $tenant->calculateCurrentStorageUsage(),
+                'tenant_storage_limit_bytes' => $tenant->storageLimitBytes(),
+            ]);
+            throw new \RuntimeException('Tu cuenta ya no tiene capacidad de almacenamiento disponible en el plan actual.');
         }
 
         $orderIndex = $project->photos()->max('order_index') ?? 0;
@@ -484,6 +493,15 @@ class ProjectPhotoUploadService
         return true;
     }
 
+    private function uploadPlanLimitMessage($tenant): string
+    {
+        $remaining = $tenant->remainingPhotoUploadQuota();
+
+        return $remaining > 0
+            ? "Tu plan actual solo permite subir {$remaining} foto(s) mas este mes."
+            : 'Tu plan actual ya alcanzo la cuota mensual de fotos.';
+    }
+
     private function hasConfiguredR2(): bool
     {
         return filled(config('filesystems.disks.r2.key'))
@@ -491,4 +509,13 @@ class ProjectPhotoUploadService
             && filled(config('filesystems.disks.r2.bucket'));
     }
 }
+
+
+
+
+
+
+
+
+
 

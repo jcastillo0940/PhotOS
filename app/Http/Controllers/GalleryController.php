@@ -7,6 +7,7 @@ use App\Models\FaceIdentity;
 use App\Models\GalleryEmailRegistration;
 use App\Models\GalleryFavorite;
 use App\Models\GalleryFavoriteLog;
+use App\Models\GeminiUsageRecord;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
@@ -14,6 +15,7 @@ use App\Services\CrmAutomationService;
 use App\Services\FaceRecognitionService;
 use App\Services\GeminiService;
 use App\Services\ProjectPhotoUploadService;
+use App\Support\GeminiPricing;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
@@ -427,8 +429,15 @@ class GalleryController extends Controller
         $tenant = $this->tenantContext->tenant();
         $photoCount = $project->photos->count();
 
-        if ($tenant && ! $tenant->canUseFeature('ai_scans', max(1, $photoCount))) {
-            return back(status: 303)->with('error', 'Tu plan actual no tiene capacidad suficiente para encolar este lote de analisis IA.');
+        if ($tenant) {
+            $required = max(1, $photoCount);
+            $remaining = $tenant->remainingPhotoProcessingQuota();
+
+            if ($remaining < $required) {
+                return back(status: 303)->with('error', $remaining > 0
+                    ? "Tu plan actual solo tiene capacidad para {$remaining} foto(s) adicionales de IA este mes."
+                    : 'Tu plan actual ya alcanzo el limite mensual de analisis IA.');
+            }
         }
 
         $queued = $this->faceRecognitionService->dispatchProjectRecognition($project);
@@ -579,6 +588,26 @@ class GalleryController extends Controller
             $update['gemini_tokens'] = ($photo->gemini_tokens ?? 0) + (int) $result['tokens'];
         }
 
+        if (array_key_exists('prompt_tokens', $result)) {
+            $update['gemini_prompt_tokens'] = $result['prompt_tokens'] !== null ? (int) $result['prompt_tokens'] : null;
+        }
+
+        if (array_key_exists('candidate_tokens', $result)) {
+            $update['gemini_candidate_tokens'] = $result['candidate_tokens'] !== null ? (int) $result['candidate_tokens'] : null;
+        }
+
+        if (array_key_exists('total_tokens', $result)) {
+            $update['gemini_total_tokens'] = $result['total_tokens'] !== null ? (int) $result['total_tokens'] : null;
+        }
+
+        if (filled($result['request_id'] ?? null)) {
+            $update['gemini_request_id'] = (string) $result['request_id'];
+        }
+
+        if (filled($result['model'] ?? null)) {
+            $update['gemini_model'] = (string) $result['model'];
+        }
+
         \Log::channel('daily')->info('[GEMINI DEBUG] DB update payload', [
             'update'   => $update,
             'is_empty' => empty($update),
@@ -586,6 +615,30 @@ class GalleryController extends Controller
 
         if (! empty($update)) {
             $photo->update($update);
+            $costs = GeminiPricing::calculate(
+                $update['gemini_model'] ?? $photo->gemini_model,
+                $update['gemini_prompt_tokens'] ?? null,
+                $update['gemini_candidate_tokens'] ?? null,
+            );
+
+            GeminiUsageRecord::create([
+                'tenant_id' => $photo->tenant_id,
+                'project_id' => $photo->project_id,
+                'photo_id' => $photo->id,
+                'request_id' => $update['gemini_request_id'] ?? null,
+                'model' => $update['gemini_model'] ?? null,
+                'prompt_tokens' => (int) ($update['gemini_prompt_tokens'] ?? 0),
+                'candidate_tokens' => (int) ($update['gemini_candidate_tokens'] ?? 0),
+                'total_tokens' => (int) ($update['gemini_total_tokens'] ?? 0),
+                'input_cost_usd' => $costs['input_cost_usd'] ?? 0,
+                'output_cost_usd' => $costs['output_cost_usd'] ?? 0,
+                'total_cost_usd' => $costs['total_cost_usd'] ?? 0,
+                'is_estimated' => false,
+                'metadata' => [
+                    'source' => 'gallery.analyzePhotoWithGemini',
+                ],
+            ]);
+
             \Log::channel('daily')->info('[GEMINI DEBUG] Photo updated successfully', ['photo_id' => $photo->id]);
         } else {
             \Log::channel('daily')->info('[GEMINI DEBUG] No fields to update — all values already present or null');
@@ -703,6 +756,7 @@ class GalleryController extends Controller
         ]);
 
         $photo->increment('download_count');
+        $project->increment('downloads_used_in_window');
 
         try {
             $ext = strtolower(pathinfo((string) $photo->original_path, PATHINFO_EXTENSION)) ?: 'jpg';
@@ -891,10 +945,6 @@ class GalleryController extends Controller
         ]);
     }
 }
-
-
-
-
 
 
 

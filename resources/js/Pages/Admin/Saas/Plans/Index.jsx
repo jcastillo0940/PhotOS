@@ -5,6 +5,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import { clsx } from 'clsx';
 
 const FEATURE_FIELDS = [
+    { key: 'projects_limit', label: 'Proyectos', icon: Upload },
     { key: 'storage_gb', label: 'Storage total (GB)', icon: Upload },
     { key: 'photos_per_month', label: 'Fotos por mes', icon: Upload },
     { key: 'ai_scans_monthly', label: 'Procesamientos IA por mes', icon: Wand2 },
@@ -23,6 +24,7 @@ function normalizePlan(plan) {
         name: plan?.name || '',
         is_active: plan?.is_active ?? true,
         features: {
+            projects_limit: plan?.features?.projects_limit ?? '',
             storage_gb: plan?.features?.storage_gb ?? '',
             photos_per_month: plan?.features?.photos_per_month ?? '',
             ai_scans_monthly: plan?.features?.ai_scans_monthly ?? '',
@@ -311,6 +313,7 @@ export default function Index({ plans }) {
 
                             <div className="mt-6 space-y-3">
                                 {[
+                                    ['projects_limit', 'Proyectos'],
                                     ['storage_gb', 'Storage GB'],
                                     ['photos_per_month', 'Fotos por mes'],
                                     ['staff_limit', 'Usuarios equipo'],
