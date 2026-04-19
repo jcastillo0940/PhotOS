@@ -37,14 +37,6 @@ async function resolveInertiaPage(name) {
 
     try {
         const page = await resolvePageComponent(pagePath, pages);
-
-        if (!page?.default) {
-            const error = new Error(`Invalid Inertia page module: ${name}`);
-            console.error(error, page);
-            window.location.href = pendingNavigationHref ?? window.location.href;
-            throw error;
-        }
-
         return page;
     } catch (error) {
         console.error(`Failed to resolve Inertia page: ${name}`, error);
