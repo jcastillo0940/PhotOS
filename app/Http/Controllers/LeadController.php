@@ -61,6 +61,7 @@ class LeadController extends Controller
                 'briefing_template' => $briefingTemplate,
                 'briefing_url' => $lead->briefing_token ? route('public.leads.briefing.show', $lead->briefing_token) : null,
                 'nps_url' => $lead->nps_token ? route('public.leads.nps.show', $lead->nps_token) : null,
+                'briefing_enabled' => (bool) $lead->briefing_sent_at || ! empty($lead->briefing_answers),
                 'project' => $project ? [
                     'id' => $project->id,
                     'name' => $project->name,
@@ -79,6 +80,7 @@ class LeadController extends Controller
                     ])->values() ?? [],
                 ],
             ]),
+            'eventTypes' => EventTypeSettings::get(),
         ]);
     }
 
@@ -148,6 +150,41 @@ class LeadController extends Controller
         return redirect()->back();
     }
 
+    public function update(Request $request, Lead $lead)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255',
+            'event_type' => 'required|string|max:120',
+            'tentative_date' => 'nullable|date',
+            'phone' => 'nullable|string|max:50',
+            'message' => 'nullable|string|max:2000',
+            'client_document' => 'nullable|string|max:255',
+        ]);
+
+        $lead->update([
+            'name' => $validated['name'],
+            'email' => $validated['email'],
+            'event_type' => $validated['event_type'],
+            'tentative_date' => $validated['tentative_date'] ?? null,
+            'responses' => array_merge($lead->responses ?? [], [
+                'phone' => $validated['phone'] ?? null,
+                'message' => $validated['message'] ?? null,
+                'client_document' => $validated['client_document'] ?? null,
+            ]),
+        ]);
+
+        if ($lead->client) {
+            $lead->client->update([
+                'full_name' => $validated['name'],
+                'email' => $validated['email'],
+                'phone' => $validated['phone'] ?? $lead->client->phone,
+            ]);
+        }
+
+        return redirect()->back()->with('success', 'Lead actualizado.');
+    }
+
     public function saveBriefing(Request $request, Lead $lead)
     {
         $validated = $request->validate([
@@ -179,6 +216,16 @@ class LeadController extends Controller
         }
 
         return redirect()->back()->with('success', 'Formulario de briefing enviado.');
+    }
+
+    public function disableBriefing(Lead $lead)
+    {
+        $lead->forceFill([
+            'briefing_sent_at' => null,
+            'briefing_token' => null,
+        ])->save();
+
+        return redirect()->back()->with('success', 'El briefing quedo como opcional y ya no se enviara automaticamente.');
     }
 
     public function sendNps(Lead $lead)

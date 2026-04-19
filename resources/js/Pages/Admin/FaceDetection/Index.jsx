@@ -7,6 +7,7 @@ import {
     Check, 
     FolderKanban, 
     HelpCircle, 
+    Info,
     ImagePlus, 
     ScanFace, 
     Shield, 
@@ -562,7 +563,7 @@ function CatalogSection({ meta, items = [] }) {
                          </div>
                          <button 
                              onClick={() => {
-                                 if (window.confirm('Eliminar?')) router.delete(`/admin/face-detection/catalog/${item.id}`, { preserveScroll: true });
+                                 if (window.confirm('Eliminar?')) router.delete(`/admin/face-detection/catalog/${type}/${item.id}`, { preserveScroll: true });
                              }}
                             className="opacity-0 group-hover:opacity-100 p-1.5 text-slate-300 hover:text-rose-500 transition-all"
                          >

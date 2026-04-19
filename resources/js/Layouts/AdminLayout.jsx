@@ -6,6 +6,7 @@ import {
     Building2,
     CalendarRange,
     Camera,
+    CreditCard,
     CirclePlus,
     FileText,
     FolderKanban,
@@ -84,6 +85,7 @@ function getSections(userRole) {
             items: [
                 { href: '/admin/automations', icon: Bot, label: 'Automatizaciones', match: ['/admin/automations'] },
                 { href: '/admin/limits', icon: Gauge, label: 'Limites', match: ['/admin/limits'] },
+                { href: '/admin/subscription', icon: CreditCard, label: 'Suscripcion', match: ['/admin/subscription'] },
                 { href: '/admin/settings', icon: Settings2, label: 'Branding', match: ['/admin/settings'] },
             ].filter((item) => isTenantAdmin || item.href !== '/admin/settings'),
         },
@@ -103,6 +105,7 @@ function getPageTitles(userRole) {
         { match: ['/admin/contracts'], title: 'Contratos', description: 'Control legal y firma de cada proyecto.' },
         { match: ['/admin/automations'], title: 'Automatizaciones', description: 'Reglas, tareas y recordatorios por tipo de evento.' },
         { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
+        { match: ['/admin/subscription'], title: 'Suscripcion y pagos', description: 'Plan activo, dias restantes, comprobantes y cambios de plan.' },
         { match: ['/admin/templates'], title: 'Planes y presets', description: 'Plantillas base, planes y configuracion avanzada del SaaS.' },
         { match: ['/admin/saas/tenants'], title: 'Tenants y dominios', description: 'Clientes, suscripciones, onboarding y dominios custom.' },
         { match: ['/admin/saas/users'], title: 'Usuarios del sistema', description: 'Gestiona fotÃ³grafos, dueÃ±os de estudio y administradores globales.' },

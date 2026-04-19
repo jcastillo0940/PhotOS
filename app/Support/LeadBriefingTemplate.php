@@ -7,6 +7,16 @@ class LeadBriefingTemplate
     public static function forEventType(?string $eventType): array
     {
         $normalized = strtolower(trim((string) $eventType));
+        $normalized = match (true) {
+            str_contains($normalized, 'boda') => 'wedding',
+            str_contains($normalized, 'wedding') => 'wedding',
+            str_contains($normalized, 'quin') => 'quince',
+            str_contains($normalized, 'portrait') => 'portrait',
+            str_contains($normalized, 'retrato') => 'portrait',
+            str_contains($normalized, 'comercial') => 'commercial',
+            str_contains($normalized, 'commercial') => 'commercial',
+            default => $normalized,
+        };
 
         return match ($normalized) {
             'wedding' => [
@@ -24,6 +34,14 @@ class LeadBriefingTemplate
                 ['key' => 'usage', 'label' => 'Como usaras las fotos', 'type' => 'select', 'required' => false, 'options' => ['Personal', 'Marca personal', 'Editorial', 'Corporativo']],
                 ['key' => 'hair_makeup', 'label' => 'Necesitas hair & makeup', 'type' => 'select', 'required' => false, 'options' => ['Si', 'No', 'Tal vez']],
                 ['key' => 'visual_references', 'label' => 'Referencias visuales o mood deseado', 'type' => 'textarea', 'required' => false],
+            ],
+            'quince' => [
+                ['key' => 'venue_name', 'label' => 'Lugar del evento', 'type' => 'text', 'required' => true],
+                ['key' => 'dress_style', 'label' => 'Vestido o concepto principal', 'type' => 'text', 'required' => false],
+                ['key' => 'ceremony_time', 'label' => 'Hora de la misa o acto formal', 'type' => 'text', 'required' => false],
+                ['key' => 'reception_time', 'label' => 'Hora de la recepcion', 'type' => 'text', 'required' => false],
+                ['key' => 'surprise_moments', 'label' => 'Momentos especiales o sorpresas planeadas', 'type' => 'textarea', 'required' => false],
+                ['key' => 'family_notes', 'label' => 'Familiares y amistades clave para retratar', 'type' => 'textarea', 'required' => false],
             ],
             'commercial' => [
                 ['key' => 'brand_name', 'label' => 'Marca o empresa', 'type' => 'text', 'required' => true],

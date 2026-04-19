@@ -27,6 +27,7 @@ use App\Http\Controllers\SaasTenantController;
 use App\Http\Controllers\SaasTenantWebsiteController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TemplateController;
+use App\Http\Controllers\TenantSubscriptionPortalController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
@@ -132,6 +133,9 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/contracts/{contract}/print', [ContractController::class, 'print'])->middleware('tenant.admin')->name('admin.contracts.print');
         Route::get('/contracts/{contract}', [ContractController::class, 'show'])->middleware('tenant.admin')->name('admin.contracts.show');
         Route::get('/limits', [LimitsController::class, 'index'])->middleware('tenant.admin')->name('admin.limits');
+        Route::get('/subscription', [TenantSubscriptionPortalController::class, 'show'])->middleware('tenant.admin')->name('admin.subscription');
+        Route::post('/subscription/offline-payment', [TenantSubscriptionPortalController::class, 'submitOfflinePayment'])->middleware('tenant.admin')->name('admin.subscription.offline-payment');
+        Route::post('/subscription/plan-change', [TenantSubscriptionPortalController::class, 'requestPlanChange'])->middleware('tenant.admin')->name('admin.subscription.plan-change');
         Route::get('/calendar', [EventController::class, 'index'])->middleware('tenant.admin')->name('admin.calendar');
         Route::post('/events', [EventController::class, 'store'])->middleware('tenant.admin')->name('admin.events.store');
         Route::delete('/events/{event}', [EventController::class, 'destroy'])->middleware('tenant.admin')->name('admin.events.delete');
@@ -139,10 +143,12 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/leads/create', [LeadController::class, 'create'])->middleware('tenant.admin')->name('admin.leads.create');
         Route::post('/leads', [LeadController::class, 'store'])->middleware('tenant.admin')->name('admin.leads.store');
         Route::get('/leads/{lead}', [LeadController::class, 'show'])->middleware('tenant.admin')->name('admin.leads.show');
+        Route::put('/leads/{lead}', [LeadController::class, 'update'])->middleware('tenant.admin')->name('admin.leads.update');
         Route::put('/leads/{lead}/status', [LeadController::class, 'updateStatus'])->middleware('tenant.admin')->name('admin.leads.status');
         Route::get('/leads/{lead}/accounting', [LeadController::class, 'accountRedirect'])->middleware('tenant.admin')->name('admin.leads.accounting');
         Route::put('/leads/{lead}/briefing', [LeadController::class, 'saveBriefing'])->middleware('tenant.admin')->name('admin.leads.briefing.update');
         Route::post('/leads/{lead}/briefing/send', [LeadController::class, 'sendBriefing'])->middleware('tenant.admin')->name('admin.leads.briefing.send');
+        Route::post('/leads/{lead}/briefing/disable', [LeadController::class, 'disableBriefing'])->middleware('tenant.admin')->name('admin.leads.briefing.disable');
         Route::post('/leads/{lead}/nps/send', [LeadController::class, 'sendNps'])->middleware('tenant.admin')->name('admin.leads.nps.send');
         Route::get('/clients/{client}/accounting', [ClientAccountingController::class, 'show'])->middleware('tenant.admin')->name('admin.clients.accounting');
         Route::post('/leads/{lead}/convert', [ProjectController::class, 'convert'])->middleware('tenant.admin')->name('admin.leads.convert');

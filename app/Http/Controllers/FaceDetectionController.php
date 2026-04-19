@@ -62,6 +62,7 @@ class FaceDetectionController extends Controller
             ->withCount('photos')
             ->latest()
             ->get();
+        $photos = $projects->flatMap->photos;
 
         $identities = FaceIdentity::withoutGlobalScope('tenant')
             ->with('project:id,name')
@@ -97,7 +98,6 @@ class FaceDetectionController extends Controller
             'workspace_url' => "/admin/projects/{$project->id}/ai",
         ])->values();
 
-        $photos = $projects->flatMap->photos;
         $catalogs = collect(self::CATALOG_TYPES)->mapWithKeys(fn (array $config, string $type) => [
             $type => [
                 'label' => $config['label'],

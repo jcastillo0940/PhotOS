@@ -98,9 +98,11 @@ class Tenant extends Model
     public function syncUsageLimits(): void
     {
         if (! $this->ai_scans_reset_at || $this->ai_scans_reset_at->isPast()) {
+            $nextReset = now()->startOfMonth()->addMonth();
+
             $this->update([
                 'ai_scans_monthly_count' => 0,
-                'ai_scans_reset_at' => now()->addDays(30),
+                'ai_scans_reset_at' => $nextReset,
             ]);
         }
     }
