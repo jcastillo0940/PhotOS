@@ -35,6 +35,11 @@ return [
         ],
     ],
 
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model' => env('GEMINI_MODEL', 'gemini-2.5-flash'),
+    ],
+
     'face_ai' => [
         'redis_url' => env('FACE_AI_REDIS_URL', env('REDIS_URL')),
         'redis_connection' => env('FACE_AI_REDIS_CONNECTION', 'default'),

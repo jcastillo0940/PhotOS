@@ -211,6 +211,37 @@ class FaceDetectionController extends Controller
         return back(status: 303)->with('success', 'Rostro registrado. El motor IA lo procesara en segundo plano.');
     }
 
+    public function storeIdentityPhoto(Request $request, FaceIdentity $faceIdentity)
+    {
+        abort_unless((int) $faceIdentity->tenant_id === (int) $this->tenantContext->id(), 404);
+
+        $request->validate([
+            'reference_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:10000',
+        ]);
+
+        $project = $faceIdentity->project_id ? $faceIdentity->project : null;
+        $directory = $project
+            ? 'projects/'.$project->id.'/face-identities'
+            : 'face-identities/global';
+
+        $file = $request->file('reference_image');
+        $storedPath = $file->storeAs(
+            $directory,
+            uniqid('identity_', true).'.'.strtolower($file->getClientOriginalExtension() ?: 'jpg'),
+            $this->libraryStorageDisk()
+        );
+
+        $faceIdentity->update([
+            'path_reference' => $this->storeReference($this->libraryStorageDisk(), $storedPath),
+            'processing_status' => 'pending',
+            'processing_note' => 'Nueva muestra de rostro enviada para procesar.',
+        ]);
+
+        $this->faceRecognitionService->dispatchTenantIdentityExtraction($faceIdentity);
+
+        return back(status: 303)->with('success', "Nueva muestra de {$faceIdentity->name} enviada. El motor IA la procesará en segundo plano.");
+    }
+
     public function storeCatalogItem(Request $request)
     {
         $validated = $request->validate([

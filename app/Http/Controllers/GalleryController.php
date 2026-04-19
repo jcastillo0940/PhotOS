@@ -12,6 +12,7 @@ use App\Models\Project;
 use App\Models\Setting;
 use App\Services\CrmAutomationService;
 use App\Services\FaceRecognitionService;
+use App\Services\GeminiService;
 use App\Services\ProjectPhotoUploadService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -25,6 +26,7 @@ class GalleryController extends Controller
     public function __construct(
         private readonly CrmAutomationService $automationService,
         private readonly FaceRecognitionService $faceRecognitionService,
+        private readonly GeminiService $geminiService,
         private readonly ProjectPhotoUploadService $projectPhotoUploadService,
         private readonly TenantContext $tenantContext,
     ) {}
@@ -500,6 +502,127 @@ class GalleryController extends Controller
         return back(status: 303)->with('success', "Personas detectadas limpiadas para la foto #{$photo->id}.");
     }
 
+    public function analyzePhotoWithGemini(Project $project, Photo $photo)
+    {
+        abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
+        abort_unless($photo->project_id === $project->id, 404);
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] analyzePhotoWithGemini start', [
+            'photo_id'       => $photo->id,
+            'project_id'     => $project->id,
+            'gemini_path'    => $photo->gemini_path,
+            'optimized_path' => $photo->optimized_path,
+            'url'            => $photo->url,
+        ]);
+
+        if (! $this->geminiService->enabled()) {
+            \Log::channel('daily')->warning('[GEMINI DEBUG] Service disabled — no API key');
+            return back(status: 303)->with('error', 'Configura GEMINI_API_KEY para usar el análisis automático.');
+        }
+
+        // Resolve the model from the tenant's plan — falls back to service default
+        $tenant = $this->tenantContext->tenant();
+        $planFeatures = $tenant?->plan?->resolvedFeatures() ?? [];
+        $geminiModel = filled($planFeatures['gemini_model'] ?? null) ? (string) $planFeatures['gemini_model'] : null;
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] Calling analyzePhoto', [
+            'model_override' => $geminiModel,
+        ]);
+
+        try {
+            $result = $this->geminiService->analyzePhoto($photo, $geminiModel);
+        } catch (\Throwable $e) {
+            \Log::channel('daily')->error('[GEMINI DEBUG] analyzePhoto threw exception', [
+                'message' => $e->getMessage(),
+                'trace'   => $e->getTraceAsString(),
+            ]);
+            return back(status: 303)->with('error', 'Error al analizar con Gemini: '.$e->getMessage());
+        }
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] analyzePhoto result', $result);
+
+        $update = [];
+
+        // marca → brand_tags
+        if (filled($result['marca'])) {
+            $existing = collect($photo->brand_tags ?? []);
+            if (! $existing->contains($result['marca'])) {
+                $update['brand_tags'] = $existing->push($result['marca'])->unique()->values()->all();
+            }
+        }
+
+        // dorsal → jersey_numbers
+        if (filled($result['dorsal'])) {
+            $existing = collect($photo->jersey_numbers ?? []);
+            if (! $existing->contains($result['dorsal'])) {
+                $update['jersey_numbers'] = $existing->push($result['dorsal'])->unique()->values()->all();
+            }
+        }
+
+        // contexto → context_tags
+        if (filled($result['contexto'])) {
+            $existing = collect($photo->context_tags ?? []);
+            if (! $existing->contains($result['contexto'])) {
+                $update['context_tags'] = $existing->prepend($result['contexto'])->values()->all();
+            }
+        }
+
+        // accion → action_tags
+        if (filled($result['accion'])) {
+            $existing = collect($photo->action_tags ?? []);
+            if (! $existing->contains($result['accion'])) {
+                $update['action_tags'] = $existing->push($result['accion'])->unique()->values()->all();
+            }
+        }
+
+        if (filled($result['tokens'])) {
+            $update['gemini_tokens'] = ($photo->gemini_tokens ?? 0) + (int) $result['tokens'];
+        }
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] DB update payload', [
+            'update'   => $update,
+            'is_empty' => empty($update),
+        ]);
+
+        if (! empty($update)) {
+            $photo->update($update);
+            \Log::channel('daily')->info('[GEMINI DEBUG] Photo updated successfully', ['photo_id' => $photo->id]);
+        } else {
+            \Log::channel('daily')->info('[GEMINI DEBUG] No fields to update — all values already present or null');
+        }
+
+        return back(status: 303)->with('success', 'Análisis Gemini completado ('.$result['model'].').');
+    }
+
+    public function storeManualFaceTag(Request $request, Project $project, Photo $photo)
+    {
+        abort_unless($project->userCan($request->user(), 'manage_gallery'), 403);
+        abort_unless($photo->project_id === $project->id, 404);
+
+        $validated = $request->validate([
+            'bbox' => 'required|array|size:4',
+            'bbox.*' => 'required|numeric|min:0|max:1',
+            'name' => 'required_without:identity_id|nullable|string|max:255',
+            'identity_id' => 'required_without:name|nullable|integer|exists:face_identities,id',
+        ]);
+
+        if (! empty($validated['identity_id'])) {
+            $identity = FaceIdentity::findOrFail($validated['identity_id']);
+            $name = $identity->name;
+        } else {
+            $name = trim((string) ($validated['name'] ?? ''));
+        }
+
+        if (filled($name)) {
+            $tags = collect($photo->people_tags ?? []);
+            if (! $tags->contains($name)) {
+                $photo->update(['people_tags' => $tags->push($name)->values()->all()]);
+            }
+        }
+
+        return back(status: 303)->with('success', "Persona \"{$name}\" marcada en la foto.");
+    }
+
     public function clearProjectRecognition(Project $project)
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
@@ -582,7 +705,13 @@ class GalleryController extends Controller
         $photo->increment('download_count');
 
         try {
-            $temporaryUrl = Storage::disk('r2')->temporaryUrl($photo->original_path, now()->addMinutes(5));
+            $ext = strtolower(pathinfo((string) $photo->original_path, PATHINFO_EXTENSION)) ?: 'jpg';
+            $filename = 'photo-' . $photo->id . '.' . $ext;
+            $temporaryUrl = Storage::disk('r2')->temporaryUrl(
+                $photo->original_path,
+                now()->addMinutes(5),
+                ['ResponseContentDisposition' => 'attachment; filename="' . $filename . '"'],
+            );
 
             return redirect()->away($temporaryUrl);
         } catch (\Throwable $e) {

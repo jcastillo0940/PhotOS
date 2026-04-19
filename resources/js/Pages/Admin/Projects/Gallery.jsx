@@ -2,13 +2,86 @@ import React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { Bot, ChevronLeft, CheckCircle2, Globe2, Sparkles, Trash2, UploadCloud, UserRound, X, XCircle } from 'lucide-react';
+import { Bot, ChevronLeft, ChevronRight, CheckCircle2, Crosshair, Globe2, Loader2, Sparkles, Trash2, UploadCloud, UserRound, X, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePhotoUploader } from '@/hooks/usePhotoUploader';
 
+const PEOPLE_COUNT_OPTIONS = ['0 personas', '1 persona', '2 personas', '3 personas', '4 o mas personas'];
+
+const TagFields = React.memo(function TagFields({
+    photoId, dark = false, photoValues, savePhoto,
+    sportsModeEnabled, supportsSponsorDetection,
+    isAnalyzing, analyzeWithGemini, canManageGallery,
+}) {
+    const inputCls = dark
+        ? 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 focus:bg-white/10'
+        : 'w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white';
+    const labelCls = `text-[11px] font-semibold uppercase tracking-[0.16em] ${dark ? 'text-slate-400' : 'text-slate-400'}`;
+    return (
+        <div className="grid gap-3">
+            {sportsModeEnabled && canManageGallery && (
+                <button
+                    type="button"
+                    onClick={() => analyzeWithGemini(photoId)}
+                    disabled={isAnalyzing}
+                    className={clsx(
+                        'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition',
+                        dark
+                            ? 'border border-white/10 bg-white/5 text-amber-300 hover:bg-white/10 disabled:opacity-40'
+                            : 'border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 disabled:opacity-40',
+                    )}
+                >
+                    {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    {isAnalyzing ? 'Analizando...' : 'Analizar con Gemini'}
+                </button>
+            )}
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Etiquetas</label>
+                <input value={photoValues?.tags || ''} onChange={(e) => savePhoto(photoId, { tags: e.target.value })} placeholder="Boda, Pareja, Fiesta..." className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>{sportsModeEnabled ? 'Jugador / Persona' : 'Persona'}</label>
+                <input value={photoValues?.people_tags || ''} onChange={(e) => savePhoto(photoId, { people_tags: e.target.value })} placeholder={sportsModeEnabled ? 'Jeremy, Maria...' : 'Maria, Carlos...'} className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Cantidad de personas</label>
+                <select value={photoValues?.people_count_label || ''} onChange={(e) => savePhoto(photoId, { people_count_label: e.target.value })} className={inputCls}>
+                    <option value="">Sin definir</option>
+                    {PEOPLE_COUNT_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Marca</label>
+                <input value={photoValues?.brand_tags || ''} onChange={(e) => savePhoto(photoId, { brand_tags: e.target.value })} placeholder="Nike, Adidas..." className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Dorsal</label>
+                <input value={photoValues?.jersey_numbers || ''} onChange={(e) => savePhoto(photoId, { jersey_numbers: e.target.value })} placeholder="10, 7, 21..." className={inputCls} />
+            </div>
+            {supportsSponsorDetection && (
+                <div className="flex flex-col gap-2">
+                    <label className={labelCls}>Sponsor</label>
+                    <input value={photoValues?.sponsor_tags || ''} onChange={(e) => savePhoto(photoId, { sponsor_tags: e.target.value })} placeholder="Patrocinador..." className={inputCls} />
+                </div>
+            )}
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Contexto</label>
+                <input value={photoValues?.context_tags || ''} onChange={(e) => savePhoto(photoId, { context_tags: e.target.value })} placeholder="Balon, porteria..." className={inputCls} />
+            </div>
+            <div className="flex flex-col gap-2">
+                <label className={labelCls}>Acciones</label>
+                <input value={photoValues?.action_tags || ''} onChange={(e) => savePhoto(photoId, { action_tags: e.target.value })} placeholder="Gol, remate..." className={inputCls} />
+            </div>
+            <label className={`flex cursor-pointer items-center justify-between rounded-xl border px-3 py-2.5 transition ${dark ? 'border-white/10 bg-white/5 hover:bg-white/10' : 'border-[#e6e0d5] bg-slate-50 hover:bg-slate-100'}`}>
+                <span className={`inline-flex items-center gap-2 text-xs font-semibold ${dark ? 'text-slate-300' : 'text-slate-700'}`}><Globe2 className="h-3.5 w-3.5" />Mostrar en Web</span>
+                <input type="checkbox" checked={!!photoValues?.show_on_website} onChange={(e) => savePhoto(photoId, { show_on_website: e.target.checked })} className="h-4 w-4 rounded border-slate-300" />
+            </label>
+        </div>
+    );
+});
+
 export default function Gallery({ project, faceRecognition }) {
-    const peopleCountOptions = ['0 personas', '1 persona', '2 personas', '3 personas', '4 o mas personas'];
     const { flash } = usePage().props;
     const fileInputRef = React.useRef(null);
     const { state: upload, upload: startUpload } = usePhotoUploader({
@@ -44,53 +117,239 @@ export default function Gallery({ project, faceRecognition }) {
             },
         ]))
     ), []);
-    
+
     const [photoState, setPhotoState] = React.useState(buildPhotoState(project.photos || []));
+    const pendingEditsRef = React.useRef({});
+    const saveTimersRef = React.useRef({});
 
     React.useEffect(() => {
-        setPhotoState(buildPhotoState(project.photos || []));
+        setPhotoState((current) => {
+            const base = buildPhotoState(project.photos || []);
+            const pending = pendingEditsRef.current;
+            if (Object.keys(pending).length === 0) return base;
+            return { ...base, ...pending };
+        });
     }, [project.photos, buildPhotoState]);
 
-    const savePhoto = (photoId, nextState) => {
+    const savePhoto = React.useCallback((photoId, nextState) => {
         const next = { ...(photoState[photoId] || {}), ...nextState };
         setPhotoState((current) => ({ ...current, [photoId]: next }));
-        const tags = (next.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const peopleTags = (next.people_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const brandTags = (next.brand_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const jerseyNumbers = (next.jersey_numbers || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const sponsorTags = supportsSponsorDetection ? (next.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean) : [];
-        const contextTags = (next.context_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
-        const actionTags = (next.action_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+        pendingEditsRef.current[photoId] = next;
 
-        router.put(`/admin/projects/${project.id}/photos/${photoId}`, {
-            category: tags[0] || 'General',
-            tags,
-            people_tags: peopleTags,
-            brand_tags: brandTags,
-            jersey_numbers: jerseyNumbers,
-            sponsor_tags: sponsorTags,
-            context_tags: contextTags,
-            action_tags: actionTags,
-            people_count_label: next.people_count_label || null,
-            show_on_website: next.show_on_website,
-        }, { preserveScroll: true, preserveState: true });
-    };
+        if (saveTimersRef.current[photoId]) clearTimeout(saveTimersRef.current[photoId]);
 
+        saveTimersRef.current[photoId] = setTimeout(() => {
+            const state = pendingEditsRef.current[photoId];
+            if (!state) return;
+            delete pendingEditsRef.current[photoId];
+
+            const tags = (state.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const peopleTags = (state.people_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const brandTags = (state.brand_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const jerseyNumbers = (state.jersey_numbers || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const sponsorTags = supportsSponsorDetection ? (state.sponsor_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean) : [];
+            const contextTags = (state.context_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+            const actionTags = (state.action_tags || '').split(',').map((tag) => tag.trim()).filter(Boolean);
+
+            router.put(`/admin/projects/${project.id}/photos/${photoId}`, {
+                category: tags[0] || 'General',
+                tags,
+                people_tags: peopleTags,
+                brand_tags: brandTags,
+                jersey_numbers: jerseyNumbers,
+                sponsor_tags: sponsorTags,
+                context_tags: contextTags,
+                action_tags: actionTags,
+                people_count_label: state.people_count_label || null,
+                show_on_website: state.show_on_website,
+            }, { preserveScroll: true, preserveState: true });
+        }, 700);
+    }, [photoState, project.id, supportsSponsorDetection]);
+
+    // ── Face tagging state ────────────────────────────────────────────────────
     const [taggingFace, setTaggingFace] = React.useState(null); // { photoId, detectionId }
     const [tagName, setTagName] = React.useState('');
+    const [tagSearchOpen, setTagSearchOpen] = React.useState(false);
+    const [tagHighlight, setTagHighlight] = React.useState(0);
 
-    const handleTagFace = (detectionId, photoId) => {
-        const name = tagName.trim();
-        if (!name) return;
+    // ── Manual face draw state ────────────────────────────────────────────────
+    const [manualDrawMode, setManualDrawMode] = React.useState(false);
+    const [isDrawing, setIsDrawing] = React.useState(false);
+    const [drawStart, setDrawStart] = React.useState(null);
+    const [drawEnd, setDrawEnd] = React.useState(null);
+    const [manualBox, setManualBox] = React.useState(null);
+    const [manualTagName, setManualTagName] = React.useState('');
+    const [manualTagSearchOpen, setManualTagSearchOpen] = React.useState(false);
+    const [manualTagHighlight, setManualTagHighlight] = React.useState(0);
+    const imageContainerRef = React.useRef(null);
+    const drawStartRef = React.useRef(null);
+
+    const identities = faceRecognition?.identities || [];
+
+    const tagMatches = React.useMemo(() => {
+        const q = tagName.trim().toLowerCase();
+        const filtered = q ? identities.filter((i) => i.name.toLowerCase().includes(q)) : identities;
+        const limited = filtered.slice(0, 8);
+        // disambiguate duplicate names by appending short ID suffix
+        const nameCounts = {};
+        limited.forEach((i) => { nameCounts[i.name] = (nameCounts[i.name] || 0) + 1; });
+        return limited.map((i) => ({
+            ...i,
+            displayName: nameCounts[i.name] > 1 ? `${i.name} · #${String(i.id).slice(-4)}` : i.name,
+        }));
+    }, [tagName, identities]);
+
+    const tagExactMatch = tagName.trim() && identities.some((i) => i.name.toLowerCase() === tagName.trim().toLowerCase());
+
+    const applyTag = (name, photoId, detectionId, identityId) => {
         const current = photoState[photoId]?.people_tags || '';
         const names = current.split(',').map((t) => t.trim()).filter(Boolean);
         if (!names.includes(name)) names.push(name);
         setPhotoState((prev) => ({ ...prev, [photoId]: { ...prev[photoId], people_tags: names.join(', ') } }));
         setTaggingFace(null);
         setTagName('');
-        router.post(`/admin/face-detection/unknowns/${detectionId}/name`, { name }, { preserveScroll: true });
+        setTagSearchOpen(false);
+        if (identityId) {
+            router.post(`/admin/face-detection/unknowns/${detectionId}/confirm`, { face_identity_id: identityId }, { preserveScroll: true });
+        } else {
+            router.post(`/admin/face-detection/unknowns/${detectionId}/name`, { name }, { preserveScroll: true });
+        }
     };
 
+    const handleTagFace = (detectionId, photoId) => {
+        const name = tagName.trim();
+        if (!name) return;
+        const exact = identities.find((i) => i.name.toLowerCase() === name.toLowerCase());
+        applyTag(exact?.name || name, photoId, detectionId, exact?.id || null);
+    };
+
+    const handleTagKeyDown = (e, detectionId, photoId) => {
+        const options = [...tagMatches, ...(tagName.trim() && !tagExactMatch ? ['__new__'] : [])];
+        if (e.key === 'ArrowDown') { e.preventDefault(); setTagHighlight((h) => Math.min(h + 1, options.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setTagHighlight((h) => Math.max(h - 1, 0)); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            const sel = options[tagHighlight];
+            if (!sel) { handleTagFace(detectionId, photoId); return; }
+            if (sel === '__new__') { handleTagFace(detectionId, photoId); }
+            else { applyTag(sel.name, photoId, detectionId, sel.id); }
+        } else if (e.key === 'Escape') { setTaggingFace(null); setTagName(''); setTagSearchOpen(false); }
+    };
+
+    // ── Manual face draw handlers ─────────────────────────────────────────────
+    const handleDrawStart = (e) => {
+        if (e.button !== 0 || !imageContainerRef.current) return;
+        e.preventDefault();
+        const rect = imageContainerRef.current.getBoundingClientRect();
+        const pos = {
+            x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+            y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+        };
+        drawStartRef.current = pos;
+        setDrawStart(pos);
+        setDrawEnd(pos);
+        setIsDrawing(true);
+        setManualBox(null);
+        setManualTagName('');
+        setManualTagSearchOpen(false);
+    };
+
+    React.useEffect(() => {
+        if (!isDrawing || !imageContainerRef.current) return;
+        const move = (e) => {
+            if (!imageContainerRef.current) return;
+            const rect = imageContainerRef.current.getBoundingClientRect();
+            setDrawEnd({
+                x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+                y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+            });
+        };
+        const up = (e) => {
+            if (!imageContainerRef.current) return;
+            const rect = imageContainerRef.current.getBoundingClientRect();
+            const end = {
+                x: Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)),
+                y: Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height)),
+            };
+            const start = drawStartRef.current;
+            setIsDrawing(false);
+            setDrawStart(null);
+            setDrawEnd(null);
+            if (start) {
+                const x1 = Math.min(start.x, end.x);
+                const y1 = Math.min(start.y, end.y);
+                const x2 = Math.max(start.x, end.x);
+                const y2 = Math.max(start.y, end.y);
+                if ((x2 - x1) > 0.02 && (y2 - y1) > 0.02) {
+                    setManualBox({ x1, y1, x2, y2 });
+                }
+            }
+        };
+        window.addEventListener('mousemove', move);
+        window.addEventListener('mouseup', up);
+        return () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); };
+    }, [isDrawing]);
+
+    const submitManualFace = (name, identityId) => {
+        if (!manualBox || !lightboxPhoto) return;
+        const bbox = [manualBox.x1, manualBox.y1, manualBox.x2, manualBox.y2];
+        const displayName = identityId ? identities.find((i) => i.id === identityId)?.name || name : name;
+        const current = photoState[lightboxPhoto.id]?.people_tags || '';
+        const names = current.split(',').map((t) => t.trim()).filter(Boolean);
+        if (!names.includes(displayName)) names.push(displayName);
+        setPhotoState((prev) => ({ ...prev, [lightboxPhoto.id]: { ...prev[lightboxPhoto.id], people_tags: names.join(', ') } }));
+        setManualBox(null);
+        setManualDrawMode(false);
+        setManualTagName('');
+        setManualTagSearchOpen(false);
+        router.post(`/admin/projects/${project.id}/photos/${lightboxPhoto.id}/manual-face`, {
+            bbox,
+            ...(identityId ? { identity_id: identityId } : { name: displayName }),
+        }, { preserveScroll: true });
+    };
+
+    // ── Lightbox ──────────────────────────────────────────────────────────────
+    const photos = project.photos || [];
+    const [lightboxId, setLightboxId] = React.useState(null);
+    const lightboxIdx = lightboxId != null ? photos.findIndex((p) => p.id === lightboxId) : -1;
+    const lightboxPhoto = lightboxIdx >= 0 ? photos[lightboxIdx] : null;
+
+    const openLightbox = (photoId) => {
+        setTaggingFace(null);
+        setTagName('');
+        setTagSearchOpen(false);
+        setLightboxId(photoId);
+    };
+    const closeLightbox = () => {
+        setLightboxId(null);
+        setTaggingFace(null);
+        setTagName('');
+        setTagSearchOpen(false);
+        setManualDrawMode(false);
+        setManualBox(null);
+        setIsDrawing(false);
+        setManualTagName('');
+        setManualTagSearchOpen(false);
+    };
+    const lightboxPrev = () => {
+        if (lightboxIdx > 0) { setLightboxId(photos[lightboxIdx - 1].id); setTaggingFace(null); setTagName(''); setTagSearchOpen(false); }
+    };
+    const lightboxNext = () => {
+        if (lightboxIdx < photos.length - 1) { setLightboxId(photos[lightboxIdx + 1].id); setTaggingFace(null); setTagName(''); setTagSearchOpen(false); }
+    };
+
+    React.useEffect(() => {
+        if (!lightboxPhoto) return;
+        const onKey = (e) => {
+            if (e.key === 'Escape') { if (taggingFace) { setTaggingFace(null); setTagName(''); setTagSearchOpen(false); } else closeLightbox(); }
+            if (e.key === 'ArrowLeft' && !taggingFace) lightboxPrev();
+            if (e.key === 'ArrowRight' && !taggingFace) lightboxNext();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [lightboxPhoto, lightboxIdx, taggingFace]);
+
+    // ── Drag & drop ───────────────────────────────────────────────────────────
     const [isDragging, setIsDragging] = React.useState(false);
     const dragCounter = React.useRef(0);
 
@@ -118,6 +377,76 @@ export default function Gallery({ project, faceRecognition }) {
         if (!canUpload) return;
         const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'));
         if (files.length) uploadPhotos(files);
+    };
+
+    // ── Shared face-tag input (used in both grid and lightbox) ────────────────
+    const FaceTagInput = ({ photoId, detectionId }) => (
+        <div className="flex gap-2">
+            <div className="relative flex-1">
+                <input
+                    autoFocus
+                    value={tagName}
+                    onChange={(e) => { setTagName(e.target.value); setTagSearchOpen(true); setTagHighlight(0); }}
+                    onFocus={() => setTagSearchOpen(true)}
+                    onKeyDown={(e) => handleTagKeyDown(e, detectionId, photoId)}
+                    placeholder={sportsModeEnabled ? 'Buscar jugador...' : 'Buscar persona...'}
+                    className="w-full rounded-lg border border-[#e6e0d5] bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-amber-400"
+                />
+                {tagSearchOpen && (tagMatches.length > 0 || (tagName.trim() && !tagExactMatch)) && (
+                    <ul className="absolute bottom-full left-0 right-0 mb-1 max-h-44 overflow-y-auto rounded-lg border border-[#e6e0d5] bg-white shadow-lg z-10">
+                        {tagMatches.map((identity, idx) => (
+                            <li key={identity.id}>
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); applyTag(identity.name, photoId, detectionId, identity.id); }}
+                                    className={`w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-amber-50 ${tagHighlight === idx ? 'bg-amber-50' : ''}`}
+                                >
+                                    {identity.displayName}
+                                </button>
+                            </li>
+                        ))}
+                        {tagName.trim() && !tagExactMatch && (
+                            <li>
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); handleTagFace(detectionId, photoId); }}
+                                    className={`w-full px-3 py-2 text-left text-xs font-semibold text-amber-700 hover:bg-amber-50 ${tagHighlight === tagMatches.length ? 'bg-amber-50' : ''}`}
+                                >
+                                    + Crear &ldquo;{tagName.trim()}&rdquo;
+                                </button>
+                            </li>
+                        )}
+                    </ul>
+                )}
+            </div>
+            <button
+                type="button"
+                onClick={() => handleTagFace(detectionId, photoId)}
+                disabled={!tagName.trim()}
+                className="rounded-lg bg-[#171411] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            >
+                OK
+            </button>
+            <button
+                type="button"
+                onClick={() => { setTaggingFace(null); setTagName(''); setTagSearchOpen(false); }}
+                className="flex items-center justify-center rounded-lg border border-[#e6e0d5] px-2 text-slate-400 hover:text-slate-700"
+            >
+                <X className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+
+    // ── Gemini per-photo analysis ─────────────────────────────────────────────
+    const [geminiLoading, setGeminiLoading] = React.useState({});
+    const geminiEnabled = !!faceRecognition?.gemini_enabled;
+
+    const analyzeWithGemini = (photoId) => {
+        setGeminiLoading((prev) => ({ ...prev, [photoId]: true }));
+        router.post(`/admin/projects/${project.id}/photos/${photoId}/gemini`, {}, {
+            preserveScroll: true,
+            onFinish: () => setGeminiLoading((prev) => ({ ...prev, [photoId]: false })),
+        });
     };
 
     return (
@@ -213,7 +542,7 @@ export default function Gallery({ project, faceRecognition }) {
                                     <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Sin procesar</p>
                                     <p className={`mt-1 text-2xl font-semibold ${(recognitionSummary.photos_queued_or_stuck || 0) > 0 ? 'text-amber-700' : 'text-slate-900'}`}>{recognitionSummary.photos_pending || 0}</p>
                                     {(recognitionSummary.photos_queued_or_stuck || 0) > 0 && (
-                                        <p className="mt-1 text-[11px] text-amber-600">{recognitionSummary.photos_queued_or_stuck} en cola â€” vuelve a procesar si no avanza</p>
+                                        <p className="mt-1 text-[11px] text-amber-600">{recognitionSummary.photos_queued_or_stuck} en cola — vuelve a procesar si no avanza</p>
                                     )}
                                 </div>
                             </div>
@@ -241,12 +570,16 @@ export default function Gallery({ project, faceRecognition }) {
 
                     <div className="mt-8">
                         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                            {(project.photos || []).length > 0 ? project.photos.map((photo) => (
+                            {photos.length > 0 ? photos.map((photo) => (
                                 <article key={photo.id} className="overflow-hidden rounded-[1.5rem] border border-[#ece5d8] bg-white shadow-sm transition hover:shadow-md">
                                     <div className="relative group">
-                                        <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" />
+                                        {/* thumbnail — click opens lightbox */}
+                                        <button type="button" className="block w-full" onClick={() => openLightbox(photo.id)}>
+                                            <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" />
+                                        </button>
 
-                                        {canManageGallery && (photo.face_detections || []).map((det) => {
+                                        {/* face detection boxes in grid (hidden when lightbox open) */}
+                                        {canManageGallery && !lightboxPhoto && (photo.face_detections || []).map((det) => {
                                             if (!det.bbox) return null;
                                             const [x1, y1, x2, y2] = det.bbox;
                                             const isActive = taggingFace?.detectionId === det.id;
@@ -254,7 +587,7 @@ export default function Gallery({ project, faceRecognition }) {
                                                 <button
                                                     key={det.id}
                                                     type="button"
-                                                    onClick={(e) => { e.stopPropagation(); setTaggingFace({ photoId: photo.id, detectionId: det.id }); setTagName(''); }}
+                                                    onClick={(e) => { e.stopPropagation(); setTaggingFace({ photoId: photo.id, detectionId: det.id }); setTagName(''); setTagSearchOpen(false); }}
                                                     style={{ left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${(x2 - x1) * 100}%`, height: `${(y2 - y1) * 100}%` }}
                                                     className={clsx('absolute border-2 transition-colors', isActive ? 'border-amber-400' : 'border-amber-300 hover:border-amber-400')}
                                                     title="Etiquetar persona"
@@ -266,34 +599,11 @@ export default function Gallery({ project, faceRecognition }) {
                                             );
                                         })}
 
-                                        {taggingFace?.photoId === photo.id && (
+                                        {/* inline tag input in grid (only when lightbox is closed) */}
+                                        {!lightboxPhoto && taggingFace?.photoId === photo.id && (
                                             <div className="absolute inset-x-0 bottom-0 z-10 bg-white/97 backdrop-blur-sm p-3 shadow-lg">
                                                 <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-600">Etiquetar rostro</p>
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        autoFocus
-                                                        value={tagName}
-                                                        onChange={(e) => setTagName(e.target.value)}
-                                                        onKeyDown={(e) => { if (e.key === 'Enter') handleTagFace(taggingFace.detectionId, photo.id); if (e.key === 'Escape') { setTaggingFace(null); setTagName(''); } }}
-                                                        placeholder={sportsModeEnabled ? 'Jugador...' : 'Nombre...'}
-                                                        className="flex-1 rounded-lg border border-[#e6e0d5] bg-white px-2.5 py-1.5 text-xs text-slate-700 outline-none focus:border-amber-400"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleTagFace(taggingFace.detectionId, photo.id)}
-                                                        disabled={!tagName.trim()}
-                                                        className="rounded-lg bg-[#171411] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
-                                                    >
-                                                        OK
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => { setTaggingFace(null); setTagName(''); }}
-                                                        className="flex items-center justify-center rounded-lg border border-[#e6e0d5] px-2 text-slate-400 hover:text-slate-700"
-                                                    >
-                                                        <X className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
+                                                <FaceTagInput photoId={photo.id} detectionId={taggingFace.detectionId} />
                                             </div>
                                         )}
 
@@ -307,95 +617,18 @@ export default function Gallery({ project, faceRecognition }) {
                                         </button>}
                                     </div>
                                     <div className="p-4 space-y-4">
-                                        {canManageGallery && <div className="flex flex-col gap-2">
-                                            <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Etiquetas (Opcional)</label>
-                                            <input value={photoState[photo.id]?.tags || ''} onChange={(event) => savePhoto(photo.id, { tags: event.target.value })} placeholder="Boda, Pareja, Fiesta..." className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white" />
-                                        </div>}
                                         {canManageGallery && (
-                                            <div className="grid gap-3">
-                                                <div className="flex flex-col gap-2">
-                                                    <div className="flex items-center justify-between">
-                                                        <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{sportsModeEnabled ? 'Jugador / Persona' : 'Persona'}</label>
-                                                        {(photo.face_detections || []).length > 0 && (
-                                                            <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-700">
-                                                                <UserRound className="h-2.5 w-2.5" />
-                                                                {(photo.face_detections || []).length} rostro{(photo.face_detections || []).length > 1 ? 's' : ''}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <input
-                                                        value={photoState[photo.id]?.people_tags || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { people_tags: event.target.value })}
-                                                        placeholder={sportsModeEnabled ? 'Jeremy, Maria, Carlos...' : 'Maria, Carlos, Sofia...'}
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Cantidad de personas</label>
-                                                    <select
-                                                        value={photoState[photo.id]?.people_count_label || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { people_count_label: event.target.value })}
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    >
-                                                        <option value="">Sin definir</option>
-                                                        {peopleCountOptions.map((option) => (
-                                                            <option key={option} value={option}>{option}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Marca</label>
-                                                    <input
-                                                        value={photoState[photo.id]?.brand_tags || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { brand_tags: event.target.value })}
-                                                        placeholder="Nike, Adidas, Puma..."
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Dorsal</label>
-                                                    <input
-                                                        value={photoState[photo.id]?.jersey_numbers || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { jersey_numbers: event.target.value })}
-                                                        placeholder="10, 7, 21..."
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
-                                                {supportsSponsorDetection && (
-                                                    <div className="flex flex-col gap-2">
-                                                        <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sponsor</label>
-                                                        <input
-                                                            value={photoState[photo.id]?.sponsor_tags || ''}
-                                                            onChange={(event) => savePhoto(photo.id, { sponsor_tags: event.target.value })}
-                                                            placeholder="Patrocinador principal..."
-                                                            className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                        />
-                                                    </div>
-                                                )}
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Contexto</label>
-                                                    <input
-                                                        value={photoState[photo.id]?.context_tags || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { context_tags: event.target.value })}
-                                                        placeholder="Balon, porteria, arbitro..."
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col gap-2">
-                                                    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Acciones</label>
-                                                    <input
-                                                        value={photoState[photo.id]?.action_tags || ''}
-                                                        onChange={(event) => savePhoto(photo.id, { action_tags: event.target.value })}
-                                                        placeholder="Gol, remate, celebracion..."
-                                                        className="w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white"
-                                                    />
-                                                </div>
-                                            </div>
+                                            <TagFields
+                                                photoId={photo.id}
+                                                photoValues={photoState[photo.id]}
+                                                savePhoto={savePhoto}
+                                                sportsModeEnabled={sportsModeEnabled}
+                                                supportsSponsorDetection={supportsSponsorDetection}
+                                                isAnalyzing={!!geminiLoading[photo.id]}
+                                                analyzeWithGemini={analyzeWithGemini}
+                                                canManageGallery={canManageGallery}
+                                            />
                                         )}
-                                        {canManageGallery && <label className="flex cursor-pointer items-center justify-between rounded-xl border border-[#e6e0d5] bg-slate-50 px-3 py-2.5 hover:bg-slate-100 transition">
-                                            <span className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700"><Globe2 className="h-3.5 w-3.5 text-primary-500" />Mostrar en Web</span>
-                                            <input type="checkbox" checked={!!photoState[photo.id]?.show_on_website} onChange={(event) => savePhoto(photo.id, { show_on_website: event.target.checked })} className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500" />
-                                        </label>}
                                     </div>
                                 </article>
                             )) : (
@@ -413,6 +646,190 @@ export default function Gallery({ project, faceRecognition }) {
                 </section>
             </div>
 
+            {/* ── Lightbox ─────────────────────────────────────────────────────── */}
+            <AnimatePresence>
+                {lightboxPhoto && (
+                    <motion.div
+                        key="lightbox"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.18 }}
+                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/92 p-4"
+                        onClick={(e) => { if (e.target === e.currentTarget) closeLightbox(); }}
+                    >
+                        <div className="relative flex max-h-[95vh] w-full max-w-7xl overflow-hidden rounded-2xl bg-[#141210] shadow-2xl" style={{ minHeight: 0 }}>
+
+                            {/* header */}
+                            <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={lightboxPrev}
+                                        disabled={lightboxIdx === 0}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 transition"
+                                    >
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </button>
+                                    <span className="text-xs font-semibold text-white/70">{lightboxIdx + 1} / {photos.length}</span>
+                                    <button
+                                        type="button"
+                                        onClick={lightboxNext}
+                                        disabled={lightboxIdx === photos.length - 1}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 disabled:opacity-30 transition"
+                                    >
+                                        <ChevronRight className="h-4 w-4" />
+                                    </button>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {canManageGallery && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setManualDrawMode((v) => !v); setManualBox(null); setManualTagName(''); setManualTagSearchOpen(false); setTaggingFace(null); }}
+                                            title="Marcar persona manualmente"
+                                            className={clsx('flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition', manualDrawMode ? 'bg-blue-500 text-white' : 'bg-white/10 text-white hover:bg-white/20')}
+                                        >
+                                            <Crosshair className="h-3.5 w-3.5" />
+                                            {manualDrawMode ? 'Cancelar' : 'Marcar persona'}
+                                        </button>
+                                    )}
+                                    <button
+                                        type="button"
+                                        onClick={closeLightbox}
+                                        className="flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition"
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* photo + face boxes */}
+                            <div className="relative flex flex-1 items-center justify-center overflow-hidden p-4 pt-14 min-w-0">
+                                <div
+                                    ref={imageContainerRef}
+                                    className="relative inline-flex max-h-full max-w-full"
+                                    style={{ cursor: manualDrawMode ? 'crosshair' : undefined }}
+                                    onMouseDown={manualDrawMode ? handleDrawStart : undefined}
+                                >
+                                    <img
+                                        src={lightboxPhoto.url || lightboxPhoto.thumbnail_url}
+                                        alt=""
+                                        className="max-h-[80vh] max-w-full rounded-lg object-contain shadow-xl"
+                                        style={{ display: 'block', userSelect: 'none', pointerEvents: manualDrawMode ? 'none' : undefined }}
+                                        draggable={false}
+                                    />
+
+                                    {/* face detection boxes (hidden in draw mode) */}
+                                    {!manualDrawMode && canManageGallery && (lightboxPhoto.face_detections || []).map((det) => {
+                                        if (!det.bbox) return null;
+                                        const [x1, y1, x2, y2] = det.bbox;
+                                        const isActive = taggingFace?.detectionId === det.id;
+                                        return (
+                                            <button
+                                                key={det.id}
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); setTaggingFace({ photoId: lightboxPhoto.id, detectionId: det.id }); setTagName(''); setTagSearchOpen(false); }}
+                                                style={{ left: `${x1 * 100}%`, top: `${y1 * 100}%`, width: `${(x2 - x1) * 100}%`, height: `${(y2 - y1) * 100}%`, position: 'absolute' }}
+                                                className={clsx('border-2 transition-colors', isActive ? 'border-amber-400' : 'border-amber-300 hover:border-amber-400')}
+                                                title="Etiquetar persona"
+                                            >
+                                                <span className="absolute -top-6 left-0 flex items-center gap-0.5 rounded bg-amber-400 px-1.5 py-1 text-[11px] font-semibold text-white shadow">
+                                                    <UserRound className="h-3 w-3" />?
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+
+                                    {/* live draw rectangle */}
+                                    {manualDrawMode && isDrawing && drawStart && drawEnd && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${Math.min(drawStart.x, drawEnd.x) * 100}%`,
+                                                top: `${Math.min(drawStart.y, drawEnd.y) * 100}%`,
+                                                width: `${Math.abs(drawEnd.x - drawStart.x) * 100}%`,
+                                                height: `${Math.abs(drawEnd.y - drawStart.y) * 100}%`,
+                                                border: '2px solid #3b82f6',
+                                                backgroundColor: 'rgba(59,130,246,0.1)',
+                                                pointerEvents: 'none',
+                                            }}
+                                        />
+                                    )}
+
+                                    {/* finalized manual box */}
+                                    {manualDrawMode && manualBox && !isDrawing && (
+                                        <div
+                                            style={{
+                                                position: 'absolute',
+                                                left: `${manualBox.x1 * 100}%`,
+                                                top: `${manualBox.y1 * 100}%`,
+                                                width: `${(manualBox.x2 - manualBox.x1) * 100}%`,
+                                                height: `${(manualBox.y2 - manualBox.y1) * 100}%`,
+                                                border: '2px solid #3b82f6',
+                                                backgroundColor: 'rgba(59,130,246,0.08)',
+                                                pointerEvents: 'none',
+                                            }}
+                                        />
+                                    )}
+                                </div>
+
+                                {/* hint when draw mode active but no box yet */}
+                                {manualDrawMode && !manualBox && !isDrawing && (
+                                    <div className="absolute inset-x-4 bottom-4 z-10 rounded-xl bg-[#1e1b18]/90 backdrop-blur-sm px-4 py-3 text-center text-xs text-blue-300 border border-blue-500/30">
+                                        Haz clic y arrastra sobre la imagen para marcar un rostro
+                                    </div>
+                                )}
+
+                                {/* manual face tag input */}
+                                {manualDrawMode && manualBox && !isDrawing && (
+                                    <div className="absolute inset-x-4 bottom-4 z-10 rounded-xl bg-[#1e1b18]/95 backdrop-blur-sm p-3 shadow-lg border border-blue-400/30">
+                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-blue-400">Marcar persona en area seleccionada</p>
+                                        <ManualFaceTagInput
+                                            identities={identities}
+                                            tagName={manualTagName}
+                                            setTagName={setManualTagName}
+                                            tagSearchOpen={manualTagSearchOpen}
+                                            setTagSearchOpen={setManualTagSearchOpen}
+                                            tagHighlight={manualTagHighlight}
+                                            setTagHighlight={setManualTagHighlight}
+                                            sportsModeEnabled={sportsModeEnabled}
+                                            onSubmit={submitManualFace}
+                                            onCancel={() => { setManualBox(null); setManualTagName(''); setManualTagSearchOpen(false); }}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* tag input panel inside lightbox (auto-detected faces) */}
+                                {!manualDrawMode && taggingFace?.photoId === lightboxPhoto.id && (
+                                    <div className="absolute inset-x-4 bottom-4 z-10 rounded-xl bg-[#1e1b18]/95 backdrop-blur-sm p-3 shadow-lg border border-white/10">
+                                        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-400">Etiquetar rostro</p>
+                                        <FaceTagInput photoId={lightboxPhoto.id} detectionId={taggingFace.detectionId} />
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* side panel with tag fields */}
+                            {canManageGallery && (
+                                <div className="w-72 shrink-0 overflow-y-auto border-l border-white/10 bg-[#1a1714] p-4 pt-14">
+                                    <TagFields
+                                        photoId={lightboxPhoto.id}
+                                        dark
+                                        photoValues={photoState[lightboxPhoto.id]}
+                                        savePhoto={savePhoto}
+                                        sportsModeEnabled={sportsModeEnabled}
+                                        supportsSponsorDetection={supportsSponsorDetection}
+                                        isAnalyzing={!!geminiLoading[lightboxPhoto.id]}
+                                        analyzeWithGemini={analyzeWithGemini}
+                                        canManageGallery={canManageGallery}
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* ── Upload progress modal ─────────────────────────────────────────── */}
             <AnimatePresence>
                 {(upload.isUploading || upload.isDone) && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
@@ -481,4 +898,83 @@ export default function Gallery({ project, faceRecognition }) {
     );
 }
 
+function ManualFaceTagInput({ identities, tagName, setTagName, tagSearchOpen, setTagSearchOpen, tagHighlight, setTagHighlight, sportsModeEnabled, onSubmit, onCancel }) {
+    const matches = React.useMemo(() => {
+        const q = tagName.trim().toLowerCase();
+        const filtered = q ? identities.filter((i) => i.name.toLowerCase().includes(q)) : identities;
+        return filtered.slice(0, 8);
+    }, [tagName, identities]);
 
+    const exactMatch = tagName.trim() && identities.some((i) => i.name.toLowerCase() === tagName.trim().toLowerCase());
+
+    const submit = (name, identityId) => onSubmit(name, identityId);
+
+    const handleKeyDown = (e) => {
+        const options = [...matches, ...(tagName.trim() && !exactMatch ? ['__new__'] : [])];
+        if (e.key === 'ArrowDown') { e.preventDefault(); setTagHighlight((h) => Math.min(h + 1, options.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setTagHighlight((h) => Math.max(h - 1, 0)); }
+        else if (e.key === 'Enter') {
+            e.preventDefault();
+            const sel = options[tagHighlight];
+            if (!sel || sel === '__new__') { if (tagName.trim()) submit(tagName.trim(), null); }
+            else { submit(sel.name, sel.id); }
+        } else if (e.key === 'Escape') onCancel();
+    };
+
+    return (
+        <div className="flex gap-2">
+            <div className="relative flex-1">
+                <input
+                    autoFocus
+                    value={tagName}
+                    onChange={(e) => { setTagName(e.target.value); setTagSearchOpen(true); setTagHighlight(0); }}
+                    onFocus={() => setTagSearchOpen(true)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={sportsModeEnabled ? 'Buscar jugador...' : 'Buscar persona...'}
+                    className="w-full rounded-lg border border-blue-400/30 bg-white/5 px-2.5 py-1.5 text-xs text-slate-200 outline-none focus:border-blue-400"
+                />
+                {tagSearchOpen && (matches.length > 0 || (tagName.trim() && !exactMatch)) && (
+                    <ul className="absolute bottom-full left-0 right-0 mb-1 max-h-44 overflow-y-auto rounded-lg border border-[#e6e0d5] bg-white shadow-lg z-10">
+                        {matches.map((identity, idx) => (
+                            <li key={identity.id}>
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); submit(identity.name, identity.id); }}
+                                    className={`w-full px-3 py-2 text-left text-xs text-slate-700 hover:bg-blue-50 ${tagHighlight === idx ? 'bg-blue-50' : ''}`}
+                                >
+                                    {identity.name}
+                                </button>
+                            </li>
+                        ))}
+                        {tagName.trim() && !exactMatch && (
+                            <li>
+                                <button
+                                    type="button"
+                                    onMouseDown={(e) => { e.preventDefault(); submit(tagName.trim(), null); }}
+                                    className={`w-full px-3 py-2 text-left text-xs font-semibold text-blue-700 hover:bg-blue-50 ${tagHighlight === matches.length ? 'bg-blue-50' : ''}`}
+                                >
+                                    + Crear &ldquo;{tagName.trim()}&rdquo;
+                                </button>
+                            </li>
+                        )}
+                    </ul>
+                )}
+            </div>
+            <button
+                type="button"
+                onClick={() => { if (tagName.trim()) submit(tagName.trim(), null); }}
+                disabled={!tagName.trim()}
+                className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40"
+            >
+                OK
+            </button>
+            <button
+                type="button"
+                onClick={onCancel}
+                className="flex items-center justify-center rounded-lg border border-white/10 px-2 text-slate-400 hover:text-slate-200"
+            >
+                <X className="h-3.5 w-3.5" />
+            </button>
+        </div>
+    );
+}

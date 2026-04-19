@@ -1,0 +1,205 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\Photo;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+
+class GeminiService
+{
+    private string $apiKey;
+    private string $defaultModel;
+
+    private const SYSTEM_INSTRUCTION = 'Analiza la imagen deportiva. Responde únicamente en formato JSON siguiendo estrictamente estas reglas de brevedad para ahorrar tokens: marca: Solo el nombre de la marca de la camiseta (Ej: "Nike"). Si no hay, "N/A". dorsal: Solo el número visible como string. Si no hay, "0". contexto: Descripción técnica en máximo 60 caracteres (Ej: "Delantero rematando de cabeza en área pequeña"). accion: Una sola palabra de esta lista: [Gol, Falta, Penal, Tiro_libre, Disputa, Celebración, Atajada, Otro]. Restricción: No incluyas prosas, saludos ni explicaciones. Solo el objeto JSON.';
+
+    private const VALID_ACTIONS = [
+        'Gol', 'Falta', 'Penal', 'Tiro_libre', 'Disputa', 'Celebración', 'Atajada', 'Otro',
+    ];
+
+    public function __construct()
+    {
+        $this->apiKey = (string) config('services.gemini.api_key', '');
+        $this->defaultModel = (string) config('services.gemini.model', 'gemini-2.5-flash');
+    }
+
+    public function enabled(): bool
+    {
+        return filled($this->apiKey);
+    }
+
+    public function analyzePhoto(Photo $photo, ?string $model = null): array
+    {
+        if (! $this->enabled()) {
+            throw new \RuntimeException('GEMINI_API_KEY no está configurada.');
+        }
+
+        $modelToUse = filled($model) ? $model : $this->defaultModel;
+        $imageUrl = $this->resolvePhotoUrl($photo);
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] resolvePhotoUrl result', [
+            'photo_id'       => $photo->id,
+            'gemini_path'    => $photo->gemini_path,
+            'optimized_path' => $photo->optimized_path,
+            'resolved_url'   => $imageUrl ? substr($imageUrl, 0, 120).'...' : null,
+        ]);
+
+        if (! $imageUrl) {
+            throw new \RuntimeException('No se pudo obtener la URL de la foto.');
+        }
+
+        $imageResponse = Http::timeout(20)->get($imageUrl);
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] Image download', [
+            'status'       => $imageResponse->status(),
+            'content_type' => $imageResponse->header('Content-Type'),
+            'bytes'        => strlen($imageResponse->body()),
+        ]);
+
+        if (! $imageResponse->successful()) {
+            throw new \RuntimeException('No se pudo descargar la imagen para análisis.');
+        }
+
+        $base64 = base64_encode($imageResponse->body());
+        $mimeType = $imageResponse->header('Content-Type') ?: 'image/jpeg';
+        $mimeType = explode(';', $mimeType)[0];
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] Sending to Gemini API', [
+            'model'     => $modelToUse,
+            'mimeType'  => $mimeType,
+            'base64_kb' => round(strlen($base64) / 1024, 1),
+        ]);
+
+        $response = Http::timeout(30)->post(
+            "https://generativelanguage.googleapis.com/v1beta/models/{$modelToUse}:generateContent?key={$this->apiKey}",
+            [
+                'system_instruction' => [
+                    'parts' => [['text' => self::SYSTEM_INSTRUCTION]],
+                ],
+                'contents' => [[
+                    'parts' => [
+                        ['inlineData' => ['mimeType' => $mimeType, 'data' => $base64]],
+                    ],
+                ]],
+                'generationConfig' => [
+                    'responseMimeType' => 'application/json',
+                    'maxOutputTokens' => 2048,
+                    'temperature' => 0.1,
+                ],
+            ]
+        );
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] Gemini API response', [
+            'http_status' => $response->status(),
+            'body_snippet' => substr($response->body(), 0, 500),
+        ]);
+
+        if (! $response->successful()) {
+            $body = $response->body();
+            $detail = json_decode($body, true)['error']['message'] ?? $body;
+            throw new \RuntimeException("Error Gemini API {$response->status()} [{$modelToUse}]: {$detail}");
+        }
+
+        $data = $response->json();
+        $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
+        $tokens = $data['usageMetadata']['totalTokenCount'] ?? null;
+
+        // Gemini sometimes wraps JSON in prose or code blocks — extract it
+        $parsed = json_decode($text, true);
+        if (! is_array($parsed)) {
+            // Try ```json ... ``` or ``` ... ``` code blocks first
+            if (preg_match('/```(?:json)?\s*(\{.*?\})\s*```/s', $text, $m)) {
+                $parsed = json_decode($m[1], true) ?? [];
+            // Then try any bare JSON object in the text
+            } elseif (preg_match('/\{.*\}/s', $text, $m)) {
+                $parsed = json_decode($m[0], true) ?? [];
+            } else {
+                $parsed = [];
+            }
+        }
+
+        \Log::channel('daily')->info('[GEMINI DEBUG] Parsed result', [
+            'raw_text' => $text,
+            'parsed'   => $parsed,
+            'tokens'   => $tokens,
+        ]);
+
+        $marca = $this->cleanString($parsed['marca'] ?? null);
+        $dorsal = $this->cleanDorsal($parsed['dorsal'] ?? null);
+        $contexto = $this->cleanString($parsed['contexto'] ?? null, 120);
+        $accion = $this->cleanAction($parsed['accion'] ?? null);
+
+        return [
+            'marca' => ($marca && strtolower($marca) !== 'n/a') ? $marca : null,
+            'dorsal' => $dorsal,
+            'contexto' => $contexto,
+            'accion' => $accion,
+            'tokens' => $tokens,
+            'model' => $modelToUse,
+        ];
+    }
+
+    private function cleanString(?string $value, int $maxLen = 80): ?string
+    {
+        if (! is_string($value) || blank($value)) {
+            return null;
+        }
+
+        return mb_substr(trim($value), 0, $maxLen) ?: null;
+    }
+
+    private function cleanDorsal(mixed $value): ?string
+    {
+        if ($value === null || $value === '' || $value === '0' || $value === 0) {
+            return null;
+        }
+
+        $digits = preg_replace('/\D+/', '', (string) $value);
+
+        return filled($digits) ? $digits : null;
+    }
+
+    private function cleanAction(?string $value): ?string
+    {
+        if (blank($value)) {
+            return null;
+        }
+
+        $normalized = str_replace(' ', '_', trim($value));
+
+        foreach (self::VALID_ACTIONS as $valid) {
+            if (strcasecmp($normalized, $valid) === 0 || strcasecmp(trim($value), $valid) === 0) {
+                return $valid === 'Tiro_libre' ? 'Tiro libre' : $valid;
+            }
+        }
+
+        return null;
+    }
+
+    private function resolvePhotoUrl(Photo $photo): ?string
+    {
+        // Prefer dedicated Gemini version (small, no watermark, 800px)
+        if ($photo->gemini_path) {
+            try {
+                return Storage::disk('r2')->temporaryUrl($photo->gemini_path, now()->addMinutes(5));
+            } catch (\Throwable) {}
+        }
+
+        // Fallback to web-optimized version
+        if ($photo->optimized_path) {
+            try {
+                return Storage::disk('r2')->temporaryUrl($photo->optimized_path, now()->addMinutes(5));
+            } catch (\Throwable) {}
+        }
+
+        if ($photo->url) {
+            try {
+                return Storage::disk('r2')->temporaryUrl($photo->url, now()->addMinutes(5));
+            } catch (\Throwable) {
+                return filter_var($photo->url, FILTER_VALIDATE_URL) ? $photo->url : null;
+            }
+        }
+
+        return null;
+    }
+}

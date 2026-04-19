@@ -12,7 +12,7 @@ class Photo extends Model
     use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'tenant_id', 'project_id', 'url', 'thumbnail_url', 'optimized_path', 'original_path', 'optimized_bytes', 'original_bytes',
+        'tenant_id', 'project_id', 'url', 'thumbnail_url', 'optimized_path', 'original_path', 'gemini_path', 'optimized_bytes', 'original_bytes',
         'mime_type', 'is_selected', 'show_on_website', 'download_count', 'order_index', 'category', 'tags', 'people_tags',
         'brand_tags', 'jersey_numbers', 'sponsor_tags', 'context_tags', 'action_tags', 'people_count', 'people_count_label', 'shot_type',
         'recognition_status', 'recognition_note', 'recognition_processed_at',

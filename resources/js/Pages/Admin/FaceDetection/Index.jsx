@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
-import { Bot, Camera, Check, FolderKanban, HelpCircle, ScanFace, Shield, Tags, Ticket, Trash2, UserPlus, UserRound, WandSparkles, X } from 'lucide-react';
+import { Bot, Camera, Check, FolderKanban, HelpCircle, ImagePlus, ScanFace, Shield, Tags, Ticket, Trash2, UserPlus, UserRound, WandSparkles, X } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const CATALOG_META = {
@@ -312,47 +312,25 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                 </section>
 
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Rostros registrados</p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
+                        {sportsModeEnabled ? 'Jugadores registrados' : 'Personas registradas'}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-500">
+                        {sportsModeEnabled
+                            ? 'Cada jugador puede tener múltiples fotos de referencia. Más muestras = mejor reconocimiento.'
+                            : 'Personas registradas para reconocimiento facial en el tenant.'}
+                    </p>
                     <div className="mt-5 grid gap-4 lg:grid-cols-2">
                         {identities.length > 0 ? identities.map((identity) => (
-                            <article key={identity.id} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div className="min-w-0 flex items-center gap-4">
-                                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[#e6e0d5] bg-white">
-                                            {identity.preview_url ? (
-                                                <img src={identity.preview_url} alt={identity.name} className="h-full w-full object-cover" />
-                                            ) : (
-                                                <UserRound className="h-5 w-5 text-slate-400" />
-                                            )}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <p className="truncate text-lg font-semibold text-slate-900">{identity.name}</p>
-                                                {identity.vectors_count > 1 && (
-                                                    <span className="shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                                        {identity.vectors_count} muestras
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
-                                                {identity.scope === 'global' ? 'Global' : identity.project_name || 'Galeria local'}
-                                            </p>
-                                            <p className={`mt-1 text-sm ${identity.processing_status === 'error' ? 'text-rose-500' : 'text-slate-500'}`}>
-                                                {identity.processing_status === 'ready' ? 'Entrenado' : identity.processing_status === 'queued' ? 'Procesando...' : identity.processing_status === 'error' ? 'Error al entrenar' : 'Pendiente'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <DeleteButton onClick={() => {
-                                        if (window.confirm(`Eliminar a ${identity.name} del tenant?`)) {
-                                            router.delete(`/admin/face-detection/identities/${identity.id}`, { preserveScroll: true });
-                                        }
-                                    }} />
-                                </div>
-                                {identity.processing_note && <p className="mt-4 text-sm text-slate-500">{identity.processing_note}</p>}
-                            </article>
+                            <PlayerIdentityCard
+                                key={identity.id}
+                                identity={identity}
+                                serviceConfigured={serviceConfigured}
+                                sportsModeEnabled={sportsModeEnabled}
+                            />
                         )) : (
                             <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] px-6 py-14 text-center text-sm text-slate-400 lg:col-span-2">
-                                Todavia no hay rostros registrados para este tenant.
+                                {sportsModeEnabled ? 'Todavía no hay jugadores registrados para este tenant.' : 'Todavía no hay personas registradas para este tenant.'}
                             </div>
                         )}
                     </div>
@@ -416,6 +394,90 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                 </section>
             </div>
         </AdminLayout>
+    );
+}
+
+function PlayerIdentityCard({ identity, serviceConfigured, sportsModeEnabled }) {
+    const [addingPhoto, setAddingPhoto] = useState(false);
+    const fileInputRef = useRef(null);
+    const [uploading, setUploading] = useState(false);
+
+    const handleFileChange = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setUploading(true);
+        const formData = new FormData();
+        formData.append('reference_image', file);
+        router.post(`/admin/face-detection/identities/${identity.id}/photos`, formData, {
+            forceFormData: true,
+            preserveScroll: true,
+            onFinish: () => { setUploading(false); setAddingPhoto(false); },
+        });
+    };
+
+    return (
+        <article className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
+            <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex items-center gap-4">
+                    <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[#e6e0d5] bg-white">
+                        {identity.preview_url ? (
+                            <img src={identity.preview_url} alt={identity.name} className="h-full w-full object-cover" />
+                        ) : (
+                            <UserRound className="h-5 w-5 text-slate-400" />
+                        )}
+                    </div>
+                    <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="truncate text-lg font-semibold text-slate-900">{identity.name}</p>
+                            <span className={clsx('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold', identity.vectors_count >= 3 ? 'bg-emerald-100 text-emerald-700' : identity.vectors_count >= 1 ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-500')}>
+                                {identity.vectors_count === 0 ? 'Sin muestras' : `${identity.vectors_count} ${identity.vectors_count === 1 ? 'muestra' : 'muestras'}`}
+                            </span>
+                            {identity.scope === 'global' && (
+                                <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">Global</span>
+                            )}
+                        </div>
+                        <p className={clsx('mt-1 text-sm', identity.processing_status === 'error' ? 'text-rose-500' : 'text-slate-500')}>
+                            {identity.processing_status === 'ready' ? 'Entrenado' : identity.processing_status === 'queued' ? 'Procesando...' : identity.processing_status === 'error' ? 'Error al entrenar' : 'Pendiente'}
+                        </p>
+                    </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                    {serviceConfigured && (
+                        <button
+                            type="button"
+                            title="Agregar foto de referencia"
+                            onClick={() => { setAddingPhoto((v) => !v); }}
+                            className="rounded-full border border-[#e6e0d5] bg-white p-2 text-slate-500 transition hover:bg-amber-50 hover:text-amber-600"
+                        >
+                            <ImagePlus className="h-4 w-4" />
+                        </button>
+                    )}
+                    <DeleteButton onClick={() => {
+                        if (window.confirm(`Eliminar a ${identity.name} del tenant?`)) {
+                            router.delete(`/admin/face-detection/identities/${identity.id}`, { preserveScroll: true });
+                        }
+                    }} />
+                </div>
+            </div>
+            {identity.processing_note && <p className="mt-3 text-sm text-slate-500">{identity.processing_note}</p>}
+            {addingPhoto && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-700">
+                        Agregar muestra de {identity.name}
+                    </p>
+                    <p className="mb-3 text-xs text-amber-700">Sube otra foto del jugador para enriquecer su reconocimiento.</p>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        disabled={uploading}
+                        className="w-full rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none disabled:opacity-60"
+                    />
+                    {uploading && <p className="mt-2 text-xs text-amber-600">Subiendo y procesando...</p>}
+                </div>
+            )}
+        </article>
     );
 }
 

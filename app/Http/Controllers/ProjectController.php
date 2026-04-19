@@ -488,6 +488,7 @@ class ProjectController extends Controller
             'faceRecognition' => [
                 'enabled' => $project->face_recognition_enabled,
                 'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
+                'gemini_enabled' => filled(config('services.gemini.api_key')),
                 'tenant_scope_enabled' => Setting::get('face_detection_scope', 'project_only') === 'all_galleries',
                 'service_configured' => filled(config('services.face_ai.identity_task_queue')) && filled(config('services.face_ai.recognize_task_queue')) && filled(config('services.face_ai.result_queue')),
                 'database_ready' => FaceIdentity::withoutGlobalScope('tenant')
@@ -525,18 +526,19 @@ class ProjectController extends Controller
                     'photos_without_match' => $project->photos->where('recognition_status', 'no_match')->count(),
                     'photos_with_errors' => $project->photos->where('recognition_status', 'error')->count(),
                 ],
-                'identities' => $project->faceIdentities()
+                'identities' => FaceIdentity::withoutGlobalScope('tenant')
+                    ->where('tenant_id', $project->tenant_id)
+                    ->where(function ($q) use ($project) {
+                        $q->whereNull('project_id')->orWhere('project_id', $project->id);
+                    })
                     ->withCount('vectors')
                     ->latest()
                     ->get()
                     ->map(fn (FaceIdentity $identity) => [
                         'id' => $identity->id,
                         'name' => $identity->name,
-                        'path_reference' => $identity->path_reference,
+                        'scope' => $identity->project_id ? 'project' : 'global',
                         'processing_status' => $identity->processing_status,
-                        'processing_note' => $identity->processing_note,
-                        'processed_at' => optional($identity->processed_at)?->toIso8601String(),
-                        'created_at' => optional($identity->created_at)?->toIso8601String(),
                         'vectors_count' => (int) ($identity->vectors_count ?? 0),
                     ])
                     ->values()

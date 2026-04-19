@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureStudioOperator;
 use App\Http\Middleware\EnsureTenantAdmin;
 use App\Http\Middleware\EnsureTenantFinance;
 use App\Http\Middleware\EnsureProjectAccess;
+use App\Http\Middleware\GeminiRateLimit;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenantFromHost;
 
@@ -27,6 +28,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             'tenant.finance' => EnsureTenantFinance::class,
             'project.access' => EnsureProjectAccess::class,
             'tenant.feature' => EnsureTenantFeatureAvailable::class,
+            'gemini.rate' => GeminiRateLimit::class,
         ]);
 
         $middleware->web(

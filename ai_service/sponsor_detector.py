@@ -69,6 +69,71 @@ def analyze_mosaic(image_path: Path, quadrant_ids: list[str], sponsor_keywords: 
     }
 
 
+def analyze_mosaic_full(image_path: Path, quadrant_ids: list[str], sponsor_keywords: list[str] | None = None) -> dict:
+    sponsor_keywords = [str(item).strip() for item in (sponsor_keywords or []) if str(item).strip()]
+    quadrants = ', '.join(quadrant_ids)
+    sponsor_csv = ', '.join(sponsor_keywords[:80]) if sponsor_keywords else '(ninguno)'
+
+    prompt = (
+        'Analiza este mosaico 2x2. Cada cuadrante tiene un ID rojo visible. '
+        f'Los IDs esperados son: {quadrants}. '
+        'Responde SOLO con JSON valido sin markdown.\n\n'
+        'Para cada cuadrante devuelve:\n'
+        '- faces: numero de caras humanas claras visibles\n'
+        f'- sponsors: arreglo de patrocinadores SOLO de esta lista: {sponsor_csv}\n'
+        '- brand: nombre de la marca de la camiseta (Nike, Adidas, etc.) o null si no hay\n'
+        '- dorsal: numero del dorsal como string o null si no hay\n'
+        '- action: UNA de [Gol, Falta, Penal, Tiro_libre, Disputa, Celebracion, Atajada, Otro] o null\n\n'
+        'Formato exacto (incluye todos los IDs dados):\n'
+        '{"quadrants":{"IMG-A":{"faces":0,"sponsors":[],"brand":null,"dorsal":null,"action":null}}}'
+    )
+
+    response = _call_gemini(prompt, image_path)
+    parsed = _parse_json(response.get('text', '{}')) or {}
+    results = parsed.get('quadrants', {}) if isinstance(parsed, dict) else {}
+
+    normalized: dict[str, dict] = {}
+    for quadrant_id in quadrant_ids:
+        payload = results.get(quadrant_id, {}) if isinstance(results, dict) else {}
+        sponsors = payload.get('sponsors', []) if isinstance(payload, dict) else []
+        brand_raw = payload.get('brand') if isinstance(payload, dict) else None
+        dorsal_raw = payload.get('dorsal') if isinstance(payload, dict) else None
+        action_raw = payload.get('action') if isinstance(payload, dict) else None
+        normalized[quadrant_id] = {
+            'faces': int(payload.get('faces', 0)) if isinstance(payload, dict) else 0,
+            'sponsors': _match_catalog(_to_str_list(sponsors), sponsor_keywords),
+            'brand': str(brand_raw).strip() if brand_raw and str(brand_raw).strip().lower() not in ('null', 'n/a', '') else None,
+            'dorsal': _clean_dorsal(dorsal_raw),
+            'action': _clean_action(action_raw),
+        }
+
+    return {
+        'quadrants': normalized,
+        'tokens': response.get('tokens', 0),
+    }
+
+
+_ACTION_MAP: dict[str, str] = {
+    'gol': 'Gol', 'falta': 'Falta', 'penal': 'Penal',
+    'tiro_libre': 'Tiro libre', 'tiro libre': 'Tiro libre',
+    'disputa': 'Disputa', 'celebracion': 'Celebración', 'celebración': 'Celebración',
+    'atajada': 'Atajada', 'otro': 'Otro',
+}
+
+
+def _clean_dorsal(value: object) -> str | None:
+    if not value:
+        return None
+    digits = re.sub(r'\D+', '', str(value))
+    return digits if digits else None
+
+
+def _clean_action(value: object) -> str | None:
+    if not value:
+        return None
+    return _ACTION_MAP.get(str(value).strip().lower())
+
+
 def _call_gemini(prompt: str, image_path: Path, *, max_output_tokens: int = 512) -> dict:
     if not is_enabled():
         return {'text': '', 'tokens': 0}

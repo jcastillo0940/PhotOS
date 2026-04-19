@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import { CheckCircle2, Edit2, Plus, Tags, Upload, Users, Wand2, X } from 'lucide-react';
+import { CheckCircle2, Edit2, Plus, Tags, Upload, Users, Wand2, X, Zap } from 'lucide-react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { clsx } from 'clsx';
 
@@ -10,6 +10,11 @@ const FEATURE_FIELDS = [
     { key: 'ai_scans_monthly', label: 'Procesamientos IA por mes', icon: Wand2 },
     { key: 'staff_limit', label: 'Usuarios del equipo', icon: Users },
     { key: 'sponsor_selection_limit', label: 'Patrocinadores por evento', icon: Tags },
+];
+
+const GEMINI_MODELS = [
+    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash (recomendado)' },
+    { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro (máxima precisión)' },
 ];
 
 function normalizePlan(plan) {
@@ -32,6 +37,10 @@ function normalizePlan(plan) {
             price_yearly: plan?.price_yearly ?? plan?.features?.price_yearly ?? 0,
             price_monthly_promo: plan?.price_monthly_promo ?? plan?.features?.price_monthly_promo ?? '',
             price_yearly_promo: plan?.price_yearly_promo ?? plan?.features?.price_yearly_promo ?? '',
+            gemini_model: plan?.features?.gemini_model ?? 'gemini-2.5-flash',
+            gemini_rpm: plan?.features?.gemini_rpm ?? '',
+            gemini_rpd: plan?.features?.gemini_rpd ?? '',
+            gemini_paid_tier: plan?.features?.gemini_paid_tier ?? false,
         },
     };
 }
@@ -154,6 +163,70 @@ function PlanModal({ plan, onClose }) {
                         ))}
                     </div>
 
+                    {/* Gemini API configuration */}
+                    <div className="rounded-[1.75rem] border border-blue-100 bg-blue-50/60 p-5">
+                        <div className="mb-4 flex items-center gap-2">
+                            <Zap className="h-4 w-4 text-blue-600" />
+                            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-blue-600">Configuración Gemini IA</p>
+                        </div>
+                        <div className="grid gap-4 md:grid-cols-3">
+                            <label className="block space-y-2 md:col-span-3">
+                                <span className="text-xs font-semibold text-slate-600">Modelo asignado</span>
+                                <select
+                                    value={data.features.gemini_model ?? 'gemini-2.5-flash-lite'}
+                                    onChange={(e) => setTextFeature('gemini_model', e.target.value)}
+                                    className="w-full rounded-xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm outline-none"
+                                >
+                                    {GEMINI_MODELS.map((m) => (
+                                        <option key={m.value} value={m.value}>{m.label}</option>
+                                    ))}
+                                    <option value="">Personalizado (editar manualmente)</option>
+                                </select>
+                                {!GEMINI_MODELS.find((m) => m.value === data.features.gemini_model) && (
+                                    <input
+                                        type="text"
+                                        value={data.features.gemini_model ?? ''}
+                                        onChange={(e) => setTextFeature('gemini_model', e.target.value)}
+                                        placeholder="ej. gemini-2.5-flash-lite"
+                                        className="mt-2 w-full rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm outline-none"
+                                    />
+                                )}
+                            </label>
+                            <label className="block space-y-2">
+                                <span className="text-xs font-semibold text-slate-600">RPM — Límite por minuto</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={data.features.gemini_rpm ?? ''}
+                                    onChange={(e) => setFeature('gemini_rpm', e.target.value)}
+                                    className="w-full rounded-xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm outline-none"
+                                    placeholder="0 = sin límite"
+                                />
+                            </label>
+                            <label className="block space-y-2">
+                                <span className="text-xs font-semibold text-slate-600">RPD — Límite por día</span>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    value={data.features.gemini_rpd ?? ''}
+                                    onChange={(e) => setFeature('gemini_rpd', e.target.value)}
+                                    className="w-full rounded-xl border border-[#e6e0d5] bg-white px-3 py-2 text-sm outline-none"
+                                    placeholder="0 = sin límite"
+                                />
+                            </label>
+                            <label className="flex items-center gap-3 rounded-xl border border-blue-100 bg-white px-3 py-2.5">
+                                <input
+                                    type="checkbox"
+                                    checked={!!data.features.gemini_paid_tier}
+                                    onChange={(e) => setBooleanFeature('gemini_paid_tier', e.target.checked)}
+                                    className="h-4 w-4 rounded border-slate-300"
+                                />
+                                <span className="text-xs font-semibold text-slate-600">Pay-as-you-go (facturación activa)</span>
+                            </label>
+                        </div>
+                        <p className="mt-3 text-[11px] text-blue-500">RPM = 0 y RPD = 0 desactiva el control de cuota para este plan. Verifica los model IDs en la documentación oficial de Google AI.</p>
+                    </div>
+
                     <label className="flex cursor-pointer items-center gap-3">
                         <div className="relative">
                             <input type="checkbox" checked={data.is_active} onChange={(e) => setData('is_active', e.target.checked)} className="peer sr-only" />
@@ -249,6 +322,19 @@ export default function Index({ plans }) {
                                     </div>
                                 ))}
                             </div>
+
+                            {/* Gemini summary */}
+                            {plan.features?.gemini_rpm > 0 && (
+                                <div className="mt-4 flex items-center gap-2 rounded-2xl border border-blue-100 bg-blue-50 px-4 py-3">
+                                    <Zap className="h-3.5 w-3.5 shrink-0 text-blue-500" />
+                                    <span className="text-xs font-semibold text-blue-700">
+                                        {plan.features?.gemini_model || '—'} · {plan.features?.gemini_rpm} RPM · {(plan.features?.gemini_rpd || 0).toLocaleString()} RPD
+                                    </span>
+                                    {plan.features?.gemini_paid_tier && (
+                                        <span className="ml-auto rounded-full bg-blue-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-700">Pay-as-you-go</span>
+                                    )}
+                                </div>
+                            )}
 
                             <div className="mt-8 flex items-center justify-between border-t border-[#f3eee6] pt-6">
                                 <span className={clsx('rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest', plan.is_active ? 'bg-green-50 text-green-600' : 'bg-rose-50 text-rose-600')}>

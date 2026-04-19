@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Head, router, useForm, usePage } from '@inertiajs/react';
 import {
+    Check,
+    Download,
     Heart,
     Maximize2,
     X,
@@ -89,7 +91,7 @@ const TEMPLATE_STYLES = {
     },
 };
 
-const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome, allowSelection }) => (
+const PhotoCard = ({ photo, isSelected, onClick, onToggleHeart, cardClass, showDarkChrome, allowSelection }) => (
     <motion.div
         layout
         initial={{ opacity: 0, y: 20 }}
@@ -108,7 +110,7 @@ const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome, a
                 onContextMenu={(e) => e.preventDefault()}
             />
         </div>
-        
+
         <div className={clsx(
             'absolute inset-0 opacity-0 group-hover:opacity-100 transition-all duration-500 pointer-events-none',
             showDarkChrome ? 'bg-black/20' : 'bg-black/5'
@@ -120,23 +122,31 @@ const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome, a
         )}>
             <div className="flex items-center space-x-3 pointer-events-auto">
                 {allowSelection && (
-                    <button
+                    <motion.button
                         onClick={(e) => { e.stopPropagation(); onToggleHeart(photo); }}
+                        whileTap={{ scale: 0.82 }}
+                        animate={isSelected ? { scale: [1, 1.25, 1] } : { scale: 1 }}
+                        transition={{ duration: 0.3 }}
                         className={clsx(
-                            'p-4 rounded-full backdrop-blur-xl transition-all duration-300 transform active:scale-95',
-                            photo.is_selected
-                                ? 'bg-accent text-white shadow-lg shadow-accent/40'
+                            'p-4 rounded-full backdrop-blur-xl transition-colors duration-300',
+                            isSelected
+                                ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/40'
                                 : 'bg-white/10 text-white hover:bg-white/20 border border-white/10'
                         )}
+                        title={isSelected ? 'Quitar de la selección' : 'Agregar a la selección'}
                     >
-                        <Heart className={clsx('w-4.5 h-4.5', photo.is_selected && 'fill-current')} />
-                    </button>
+                        {isSelected
+                            ? <Check className="w-[18px] h-[18px]" strokeWidth={3} />
+                            : <Heart className="w-[18px] h-[18px]" />
+                        }
+                    </motion.button>
                 )}
-                <button 
+                <button
                     onClick={onClick}
                     className="p-4 rounded-full backdrop-blur-xl bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-all transform active:scale-95"
+                    title="Ver en grande"
                 >
-                    <Maximize2 className="w-4.5 h-4.5" />
+                    <Maximize2 className="w-[18px] h-[18px]" />
                 </button>
             </div>
             <div className="text-right pointer-events-none">
@@ -145,11 +155,21 @@ const PhotoCard = ({ photo, onClick, onToggleHeart, cardClass, showDarkChrome, a
             </div>
         </div>
 
-        {allowSelection && photo.is_selected && (
-            <div className="absolute top-6 left-6 p-2.5 bg-accent shadow-2xl shadow-accent/40 rounded-full text-white z-20">
-                <Heart className="w-5 h-5 fill-current" />
-            </div>
-        )}
+        {/* Selected badge — always visible, not just on hover */}
+        <AnimatePresence>
+            {allowSelection && isSelected && (
+                <motion.div
+                    key="selected-badge"
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                    className="absolute top-5 left-5 flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-500/50 text-white z-20"
+                >
+                    <Check className="w-5 h-5" strokeWidth={3} />
+                </motion.div>
+            )}
+        </AnimatePresence>
     </motion.div>
 );
 
@@ -323,7 +343,13 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
 
 export default function Gallery({ project, photos, galleryTemplate, access, pagination, galleryTitle }) {
     const { flash, errors, branding } = usePage().props;
-    const [selectedPhoto, setSelectedPhoto] = useState(null);
+    // Use ID as source of truth so the derived object always reflects fresh server data
+    const [selectedPhotoId, setSelectedPhotoId] = useState(null);
+    const selectedPhoto = selectedPhotoId != null ? (photos.find((p) => p.id === selectedPhotoId) ?? null) : null;
+    // Optimistic toggle: pendingToggles flips the server-side is_selected until the response arrives
+    const [pendingToggles, setPendingToggles] = useState(new Set());
+    const isPhotoSelected = (photo) => pendingToggles.has(photo.id) ? !photo.is_selected : photo.is_selected;
+    const selectedCount = photos.reduce((n, p) => n + (isPhotoSelected(p) ? 1 : 0), 0);
     const [filter, setFilter] = useState('All');
     const [peopleFilter, setPeopleFilter] = useState('All');
     const [brandFilter, setBrandFilter] = useState('All');
@@ -386,9 +412,14 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
 
     const toggleHeart = (photo) => {
         if (!access?.can_select_favorites) return;
-
+        setPendingToggles((prev) => {
+            const next = new Set(prev);
+            next.has(photo.id) ? next.delete(photo.id) : next.add(photo.id);
+            return next;
+        });
         router.post(`/gallery/photo/${photo.id}/toggle`, {}, {
             preserveScroll: true,
+            onFinish: () => setPendingToggles((prev) => { const next = new Set(prev); next.delete(photo.id); return next; }),
         });
     };
 
@@ -450,13 +481,15 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
             && (!sponsorDiscoveryEnabled || actionMatch);
     });
     const nextPhoto = () => {
-        const index = photos.findIndex(p => p.id === selectedPhoto.id);
-        if (index < photos.length - 1) setSelectedPhoto(photos[index + 1]);
+        if (!selectedPhoto) return;
+        const index = photos.findIndex((p) => p.id === selectedPhoto.id);
+        if (index < photos.length - 1) setSelectedPhotoId(photos[index + 1].id);
     };
 
     const prevPhoto = () => {
-        const index = photos.findIndex(p => p.id === selectedPhoto.id);
-        if (index > 0) setSelectedPhoto(photos[index - 1]);
+        if (!selectedPhoto) return;
+        const index = photos.findIndex((p) => p.id === selectedPhoto.id);
+        if (index > 0) setSelectedPhotoId(photos[index - 1].id);
     };
 
     return (
@@ -756,7 +789,8 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                                 >
                                     <PhotoCard
                                         photo={photo}
-                                        onClick={() => setSelectedPhoto(photo)}
+                                        isSelected={isPhotoSelected(photo)}
+                                        onClick={() => setSelectedPhotoId(photo.id)}
                                         onToggleHeart={toggleHeart}
                                         cardClass={styles.card}
                                         showDarkChrome={isDarkChrome}
@@ -834,7 +868,7 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                         className="fixed inset-0 z-50 bg-[#000]/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8"
                     >
                         <button
-                            onClick={() => setSelectedPhoto(null)}
+                            onClick={() => setSelectedPhotoId(null)}
                             className="absolute top-8 right-8 p-4 bg-white/5 hover:bg-white/10 rounded-full text-white transition-all group"
                         >
                             <X className="w-6 h-6 group-hover:rotate-90 transition-transform" />
@@ -869,42 +903,73 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
                             </div>
                             <div className="w-[1px] h-10 bg-white/10" />
                             <div className="flex items-center space-x-4">
-                                <button
-                                    onClick={() => toggleHeart(selectedPhoto)}
-                                    disabled={!access?.can_select_favorites}
-                                    className={clsx(
-                                        'px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest',
-                                        !access?.can_select_favorites
-                                            ? 'bg-white/5 text-[#666] border border-white/10 cursor-not-allowed'
-                                            : selectedPhoto.is_selected
-                                                ? 'bg-accent text-white shadow-xl shadow-accent/20'
-                                                : 'bg-white/5 text-white border border-white/10 hover:bg-white/10'
-                                    )}
-                                >
-                                    <Heart className={clsx('w-4 h-4 mr-2', selectedPhoto.is_selected && 'fill-current')} />
-                                    {access?.can_select_favorites
-                                        ? (selectedPhoto.is_selected ? 'In Selection' : 'Add to Selection')
-                                        : 'Seleccion solo cliente'}
-                                </button>
-                                {selectedPhoto.high_res_available && access?.can_download_originals && (
-                                    <a
-                                        href={`/gallery/photo/${selectedPhoto.id}/download`}
-                                        className="px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest bg-white text-black hover:bg-[#f3f3f3]"
+                                {/* Selection button — clearly differentiated from download */}
+                                {access?.can_select_favorites ? (
+                                    <motion.button
+                                        onClick={() => toggleHeart(selectedPhoto)}
+                                        whileTap={{ scale: 0.9 }}
+                                        animate={isPhotoSelected(selectedPhoto) ? { scale: [1, 1.12, 1] } : { scale: 1 }}
+                                        transition={{ duration: 0.25 }}
+                                        className={clsx(
+                                            'px-8 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest transition-colors',
+                                            isPhotoSelected(selectedPhoto)
+                                                ? 'bg-emerald-500 text-white shadow-xl shadow-emerald-500/30'
+                                                : 'bg-white/5 text-white border border-white/15 hover:bg-white/10'
+                                        )}
                                     >
-                                        Descargar original
-                                    </a>
-                                )}
-                                {!access?.can_download_originals && (
-                                    <div className="px-8 py-3 rounded-full flex items-center transition-all font-black text-xs uppercase tracking-widest bg-white/5 text-[#666] border border-white/10">
-                                        Descargas solo para cliente
+                                        {isPhotoSelected(selectedPhoto)
+                                            ? <><Check className="w-4 h-4" strokeWidth={3} /> En selección</>
+                                            : <><Heart className="w-4 h-4" /> Agregar a selección</>
+                                        }
+                                    </motion.button>
+                                ) : (
+                                    <div className="px-8 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest bg-white/5 text-[#555] border border-white/10 cursor-not-allowed">
+                                        <Heart className="w-4 h-4" /> Selección solo cliente
                                     </div>
                                 )}
+
+                                {/* Download button — visually distinct (white pill) */}
+                                {selectedPhoto.high_res_available && access?.can_download_originals ? (
+                                    <a
+                                        href={`/gallery/photo/${selectedPhoto.id}/download`}
+                                        className="px-8 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest bg-white text-black hover:bg-[#f0f0f0] transition-colors"
+                                    >
+                                        <Download className="w-4 h-4" /> Descargar original
+                                    </a>
+                                ) : !access?.can_download_originals ? (
+                                    <div className="px-8 py-3 rounded-full flex items-center gap-2 font-black text-xs uppercase tracking-widest bg-white/5 text-[#555] border border-white/10 cursor-not-allowed">
+                                        <Download className="w-4 h-4" /> Solo clientes
+                                    </div>
+                                ) : null}
                             </div>
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
                 </>
+
+            {/* Floating selection counter */}
+            <AnimatePresence>
+                {access?.can_select_favorites && selectedCount > 0 && (
+                    <motion.div
+                        initial={{ y: 80, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        exit={{ y: 80, opacity: 0 }}
+                        transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+                        className="fixed bottom-8 left-1/2 z-40 -translate-x-1/2"
+                    >
+                        <div className="flex items-center gap-4 rounded-full bg-emerald-500 px-6 py-3 shadow-2xl shadow-emerald-500/40">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-sm font-black text-white">
+                                {selectedCount}
+                            </div>
+                            <span className="text-xs font-black uppercase tracking-widest text-white">
+                                {selectedCount === 1 ? 'foto seleccionada' : 'fotos seleccionadas'}
+                            </span>
+                            <Check className="h-4 w-4 text-white/80" strokeWidth={3} />
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <AnimatePresence>
                 {showClientAccess && !isClientView && (

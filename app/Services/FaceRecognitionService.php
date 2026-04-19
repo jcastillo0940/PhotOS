@@ -131,6 +131,9 @@ class FaceRecognitionService
 
         $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
         $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
+        $aiImageUrl = $photo->gemini_path
+            ? ($this->temporaryUrlForR2Path($photo->gemini_path) ?? $imageUrl)
+            : $imageUrl;
 
         $photo->update([
             'recognition_status' => 'pending',
@@ -148,12 +151,13 @@ class FaceRecognitionService
             'project_id' => $project?->id,
             'photo_id' => $photo->id,
             'image_url' => $imageUrl,
-            'ai_image_url' => $imageUrl,
+            'ai_image_url' => $aiImageUrl,
             'filename' => basename($optimizedPath),
             'tolerance' => (float) config('services.face_ai.tolerance', 0.6),
             'database' => $identities->map(fn (FaceIdentity $identity) => $this->buildIdentityPayload($identity))->values()->all(),
             'sponsor_keywords' => $this->selectedSponsors($project),
             'supports_sponsors' => $project->supportsSponsorDetection(),
+            'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
         ], $this->recognizeTaskQueueName());
     }
 
@@ -192,6 +196,9 @@ class FaceRecognitionService
         $payloadPhotos = $photos->map(function (Photo $photo) use ($project) {
             $optimizedPath = $this->ensureOptimizedPhotoPath($project, $photo);
             $imageUrl = $this->temporaryUrlForR2Path($optimizedPath);
+            $aiImageUrl = $photo->gemini_path
+                ? ($this->temporaryUrlForR2Path($photo->gemini_path) ?? $imageUrl)
+                : $imageUrl;
 
             $photo->update([
                 'recognition_status' => 'pending',
@@ -202,7 +209,7 @@ class FaceRecognitionService
             return [
                 'photo_id' => $photo->id,
                 'image_url' => $imageUrl,
-                'ai_image_url' => $imageUrl,
+                'ai_image_url' => $aiImageUrl,
                 'filename' => basename($optimizedPath),
             ];
         })->values()->all();
@@ -220,6 +227,7 @@ class FaceRecognitionService
             'database' => $identities->map(fn (FaceIdentity $identity) => $this->buildIdentityPayload($identity))->values()->all(),
             'sponsor_keywords' => $this->selectedSponsors($project),
             'supports_sponsors' => $project->supportsSponsorDetection(),
+            'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
         ], $this->recognizeTaskQueueName());
     }
 

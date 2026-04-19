@@ -105,8 +105,8 @@ class ProjectPhotoUploadService
                 mkdir(dirname($absoluteOptimizedPath), 0755, true);
             }
 
-            // Optimizar a webp
-            Log::channel('single')->info("{$fileLabel} Iniciando optimizaciÃ³n WebP", [
+            // ── Versión web (con watermark, max 2000px) ──────────────────────
+            Log::channel('single')->info("{$fileLabel} Iniciando optimización WebP web", [
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
 
@@ -115,19 +115,44 @@ class ProjectPhotoUploadService
             $optimizedExists = file_exists($absoluteOptimizedPath);
             $optimizedSize = $optimizedExists ? filesize($absoluteOptimizedPath) : 0;
 
-            Log::channel('single')->info("{$fileLabel} OptimizaciÃ³n completada", [
+            Log::channel('single')->info("{$fileLabel} Optimización web completada", [
                 'exists' => $optimizedExists,
                 'optimized_size_bytes' => $optimizedSize,
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
 
             if (! $optimizedExists || $optimizedSize === 0) {
-                Log::channel('single')->error("{$fileLabel} Archivo optimizado vacÃ­o o inexistente");
-                throw new \RuntimeException("La optimizaciÃ³n fallÃ³ para: {$originalFileName}");
+                Log::channel('single')->error("{$fileLabel} Archivo optimizado web vacío o inexistente");
+                throw new \RuntimeException("La optimización web falló para: {$originalFileName}");
             }
+
+            // ── Versión Gemini (sin watermark, max 800px, 70% calidad) ───────
+            $geminiLocalRelativePath = "{$tempMasterDirectory}/ai/{$optimizedFileName}";
+            $absoluteGeminiPath = Storage::disk('local')->path($geminiLocalRelativePath);
+
+            if (! file_exists(dirname($absoluteGeminiPath))) {
+                mkdir(dirname($absoluteGeminiPath), 0755, true);
+            }
+
+            Log::channel('single')->info("{$fileLabel} Iniciando versión Gemini AI", [
+                'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
+            ]);
+
+            $this->createGeminiWebp($absoluteOriginalPath, $absoluteGeminiPath, $fileLabel);
+
+            $geminiExists = file_exists($absoluteGeminiPath);
+            $geminiSize = $geminiExists ? filesize($absoluteGeminiPath) : 0;
+
+            Log::channel('single')->info("{$fileLabel} Versión Gemini completada", [
+                'exists' => $geminiExists,
+                'size_bytes' => $geminiSize,
+            ]);
 
             $originalR2Path = $project->originalsBucketPrefix()."/{$originalFileName}";
             $optimizedR2Path = $project->webBucketPrefix()."/{$optimizedFileName}";
+            $geminiR2Path = $geminiExists && $geminiSize > 0
+                ? $project->geminiBucketPrefix()."/{$optimizedFileName}"
+                : null;
 
             // Subir original a R2
             Log::channel('single')->info("{$fileLabel} Subiendo original a R2", ['r2_path' => $originalR2Path]);
@@ -142,19 +167,35 @@ class ProjectPhotoUploadService
                 throw $e;
             }
 
-            // Subir optimizado a R2
-            Log::channel('single')->info("{$fileLabel} Subiendo optimizado a R2", ['r2_path' => $optimizedR2Path]);
+            // Subir versión web a R2
+            Log::channel('single')->info("{$fileLabel} Subiendo web a R2", ['r2_path' => $optimizedR2Path]);
             try {
                 Storage::disk('r2')->put($optimizedR2Path, fopen($absoluteOptimizedPath, 'r'), [
                     'ContentType' => 'image/webp',
                 ]);
-                Log::channel('single')->info("{$fileLabel} Optimizado subido a R2 OK");
+                Log::channel('single')->info("{$fileLabel} Web subido a R2 OK");
             } catch (\Throwable $e) {
-                Log::channel('single')->error("{$fileLabel} FALLO subida optimizado R2", [
+                Log::channel('single')->error("{$fileLabel} FALLO subida web R2", [
                     'error' => $e->getMessage(),
                     'trace' => $e->getTraceAsString(),
                 ]);
                 throw $e;
+            }
+
+            // Subir versión Gemini a R2
+            if ($geminiR2Path) {
+                Log::channel('single')->info("{$fileLabel} Subiendo Gemini AI a R2", ['r2_path' => $geminiR2Path]);
+                try {
+                    Storage::disk('r2')->put($geminiR2Path, fopen($absoluteGeminiPath, 'r'), [
+                        'ContentType' => 'image/webp',
+                    ]);
+                    Log::channel('single')->info("{$fileLabel} Gemini AI subido a R2 OK");
+                } catch (\Throwable $e) {
+                    Log::channel('single')->warning("{$fileLabel} FALLO subida Gemini R2 (no crítico)", [
+                        'error' => $e->getMessage(),
+                    ]);
+                    $geminiR2Path = null;
+                }
             }
 
             $photo = Photo::create([
@@ -163,6 +204,7 @@ class ProjectPhotoUploadService
                 'thumbnail_url' => $optimizedR2Path,
                 'optimized_path' => $optimizedR2Path,
                 'original_path' => $originalR2Path,
+                'gemini_path' => $geminiR2Path,
                 'optimized_bytes' => @filesize($absoluteOptimizedPath) ?: null,
                 'original_bytes' => @filesize($absoluteOriginalPath) ?: null,
                 'mime_type' => $file->getMimeType(),
@@ -189,6 +231,66 @@ class ProjectPhotoUploadService
         ]);
 
         $this->automationService->runImmediate('gallery_published', $project->load('lead', 'client'));
+    }
+
+    private function createGeminiWebp(string $originalPath, string $outputPath, string $logLabel = ''): void
+    {
+        $label = $logLabel ?: '[createGeminiWebp]';
+        $imageInfo = @getimagesize($originalPath);
+
+        if (! $imageInfo) {
+            Log::channel('single')->warning("{$label} Gemini: getimagesize falló — copiando");
+            copy($originalPath, $outputPath);
+            return;
+        }
+
+        $image = null;
+        try {
+            if ($imageInfo['mime'] === 'image/jpeg') {
+                $image = @imagecreatefromjpeg($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/png') {
+                $image = @imagecreatefrompng($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/webp') {
+                $image = @imagecreatefromwebp($originalPath);
+            }
+        } catch (\Throwable) {
+            $image = null;
+        }
+
+        if (! $image) {
+            Log::channel('single')->warning("{$label} Gemini: GD falló — copiando");
+            copy($originalPath, $outputPath);
+            return;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxDimension = 800;
+
+        if ($width > $maxDimension || $height > $maxDimension) {
+            $ratio = min($maxDimension / $width, $maxDimension / $height);
+            $newWidth = max(1, (int) round($width * $ratio));
+            $newHeight = max(1, (int) round($height * $ratio));
+
+            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($image);
+            $image = $resized;
+        }
+
+        // Sin watermark — Gemini necesita ver la imagen limpia
+        $result = @imagewebp($image, $outputPath, 70);
+        imagedestroy($image);
+
+        if (! $result) {
+            Log::channel('single')->warning("{$label} Gemini: imagewebp falló");
+        } else {
+            Log::channel('single')->info("{$label} Gemini: WebP generado", [
+                'size_kb' => round(@filesize($outputPath) / 1024, 1),
+            ]);
+        }
     }
 
     private function createOptimizedWebp(string $originalPath, string $optimizedPath, Project $project, string $logLabel = ''): void

@@ -213,6 +213,8 @@ def process_recognize_batch(task: dict[str, Any]) -> dict[str, Any]:
     local_results: list[dict[str, Any]] = []
     sponsor_keywords = [str(item).strip() for item in task.get('sponsor_keywords', []) if str(item).strip()]
     supports_sponsors = bool(task.get('supports_sponsors')) and bool(sponsor_keywords) and sponsor_detector.is_enabled()
+    sports_mode = bool(task.get('sports_mode_enabled')) and sponsor_detector.is_enabled()
+    needs_gemini = supports_sponsors or sports_mode
 
     try:
         for photo_payload in task.get('photos', []):
@@ -225,12 +227,12 @@ def process_recognize_batch(task: dict[str, Any]) -> dict[str, Any]:
             }, image_path, known_people)
             local_results.append(local_result)
 
-            if supports_sponsors and image_path.exists():
+            if needs_gemini and image_path.exists():
                 ai_variants[photo_payload['photo_id']] = create_ai_variant(image_path)
                 temp_files.append(ai_variants[photo_payload['photo_id']])
 
-        if supports_sponsors:
-            apply_gemini_pipeline(local_results, ai_variants, sponsor_keywords)
+        if needs_gemini:
+            apply_gemini_pipeline(local_results, ai_variants, sponsor_keywords, sports_mode=sports_mode)
 
         return {
             'task_type': 'recognize_batch',
@@ -354,6 +356,7 @@ def apply_gemini_pipeline(
     local_results: list[dict[str, Any]],
     ai_variants: dict[int, Path],
     sponsor_keywords: list[str],
+    sports_mode: bool = False,
 ) -> None:
     eligible: list[tuple[str, dict[str, Any], Path, int]] = []
 
@@ -376,7 +379,7 @@ def apply_gemini_pipeline(
 
     mosaic_path = create_mosaic([(quadrant_id, path) for quadrant_id, _, path, _ in eligible])
     try:
-        mosaic = sponsor_detector.analyze_mosaic(
+        mosaic = sponsor_detector.analyze_mosaic_full(
             mosaic_path,
             [quadrant_id for quadrant_id, _, _, _ in eligible],
             sponsor_keywords,
@@ -391,11 +394,26 @@ def apply_gemini_pipeline(
 
     for offset, (quadrant_id, result, _, triage_tokens) in enumerate(eligible):
         quadrant_payload = quadrant_results.get(quadrant_id, {}) if isinstance(quadrant_results, dict) else {}
-        result['sponsors'] = quadrant_payload.get('sponsors', []) if isinstance(quadrant_payload, dict) else []
+        if not isinstance(quadrant_payload, dict):
+            quadrant_payload = {}
+
+        result['sponsors'] = quadrant_payload.get('sponsors', [])
         result['faces_detected'] = max(
-            int(quadrant_payload.get('faces', 0)) if isinstance(quadrant_payload, dict) else 0,
+            int(quadrant_payload.get('faces', 0)),
             int(result.get('faces_detected', 0)),
         )
+
+        if sports_mode:
+            brand = quadrant_payload.get('brand')
+            dorsal = quadrant_payload.get('dorsal')
+            action = quadrant_payload.get('action')
+            if brand:
+                result['brands'] = [brand]
+            if dorsal:
+                result['jersey_numbers'] = [dorsal]
+            if action:
+                result['action_tags'] = [action]
+
         result['gemini_tokens'] = triage_tokens + per_photo_tokens[offset]
         result['gemini_request_id'] = request_id
         result['gemini_batch_size'] = len(eligible)

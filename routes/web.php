@@ -119,6 +119,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/face-detection', [FaceDetectionController::class, 'index'])->middleware('tenant.admin')->name('admin.face-detection');
         Route::post('/face-detection/mode', [FaceDetectionController::class, 'updateMode'])->middleware('tenant.admin')->name('admin.face-detection.mode');
         Route::post('/face-detection/identities', [FaceDetectionController::class, 'storeIdentity'])->middleware(['tenant.admin', 'tenant.feature:ai_scans'])->name('admin.face-detection.identities.store');
+        Route::post('/face-detection/identities/{faceIdentity}/photos', [FaceDetectionController::class, 'storeIdentityPhoto'])->middleware(['tenant.admin', 'tenant.feature:ai_scans'])->name('admin.face-detection.identities.photos.store');
         Route::delete('/face-detection/identities/{faceIdentity}', [FaceDetectionController::class, 'destroyIdentity'])->middleware('tenant.admin')->name('admin.face-detection.identities.delete');
         Route::post('/face-detection/catalog', [FaceDetectionController::class, 'storeCatalogItem'])->middleware('tenant.admin')->name('admin.face-detection.catalog.store');
         Route::delete('/face-detection/catalog/{type}/{itemId}', [FaceDetectionController::class, 'destroyCatalogItem'])->middleware('tenant.admin')->name('admin.face-detection.catalog.delete');
@@ -166,6 +167,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::post('/projects/{project}/recognition/test', [GalleryController::class, 'testRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.recognition.test');
         Route::post('/projects/{project}/recognition/run', [GalleryController::class, 'recognizeProject'])->middleware(['project.access:manage_gallery', 'tenant.feature:ai_scans'])->name('admin.projects.recognition.run');
         Route::delete('/projects/{project}/recognition', [GalleryController::class, 'clearProjectRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.recognition.clear');
+        Route::post('/projects/{project}/photos/{photo}/gemini', [GalleryController::class, 'analyzePhotoWithGemini'])->middleware(['project.access:manage_gallery', 'gemini.rate'])->name('admin.projects.photos.gemini');
+        Route::post('/projects/{project}/photos/{photo}/manual-face', [GalleryController::class, 'storeManualFaceTag'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.manual-face');
         Route::post('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'recognizePhoto'])->middleware(['project.access:manage_gallery', 'tenant.feature:ai_scans'])->name('admin.projects.photos.recognition');
         Route::delete('/projects/{project}/photos/{photo}/recognition', [GalleryController::class, 'clearPhotoRecognition'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.recognition.clear');
         Route::post('/projects/{project}/contract', [ProjectController::class, 'generateContract'])->middleware('tenant.finance')->name('admin.projects.contract.create');
