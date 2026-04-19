@@ -181,7 +181,6 @@ export function Badge({ children, variant = 'slate', className }) {
     );
 }
 
-import React, { lazy, Suspense } from 'react';
 const ReactApexChart = lazy(() => import('react-apexcharts'));
 
 export function Chart({ options, series, type = 'area', height = 350 }) {

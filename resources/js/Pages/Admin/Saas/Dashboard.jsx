@@ -175,5 +175,3 @@ export default function Dashboard({ stats, system, tenants, users, plans, regist
         </AdminLayout>
     );
 }
-
-}

@@ -229,5 +229,3 @@ export default function Index({ tenants, registrations = [], users = [], plans =
         </AdminLayout>
     );
 }
-
-}
