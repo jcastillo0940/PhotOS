@@ -22,6 +22,37 @@ window.addEventListener('vite:preloadError', (event) => {
     window.location.href = pendingNavigationHref ?? window.location.href;
 });
 
+const pages = import.meta.glob('./Pages/**/*.jsx');
+
+async function resolveInertiaPage(name) {
+    const pagePath = `./Pages/${name}.jsx`;
+    const importPage = pages[pagePath];
+
+    if (!importPage) {
+        const error = new Error(`Missing Inertia page component: ${name}`);
+        console.error(error);
+        window.location.href = pendingNavigationHref ?? window.location.href;
+        throw error;
+    }
+
+    try {
+        const page = await resolvePageComponent(pagePath, pages);
+
+        if (!page?.default) {
+            const error = new Error(`Invalid Inertia page module: ${name}`);
+            console.error(error, page);
+            window.location.href = pendingNavigationHref ?? window.location.href;
+            throw error;
+        }
+
+        return page;
+    } catch (error) {
+        console.error(`Failed to resolve Inertia page: ${name}`, error);
+        window.location.href = pendingNavigationHref ?? window.location.href;
+        throw error;
+    }
+}
+
 createInertiaApp({
     title: (title) => {
         const appName = window?.Laravel?.branding?.app_name
@@ -30,7 +61,7 @@ createInertiaApp({
 
         return `${title} - ${appName}`;
     },
-    resolve: (name) => resolvePageComponent(`./Pages/${name}.jsx`, import.meta.glob('./Pages/**/*.jsx')),
+    resolve: resolveInertiaPage,
     setup({ el, App, props }) {
         const root = createRoot(el);
         root.render(<App {...props} />);
