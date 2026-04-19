@@ -84,7 +84,7 @@ class FaceDetectionController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'scope' => 'required|string|in:global,project',
-            'project_id' => 'nullable|integer|exists:projects,id',
+            'project_id' => 'nullable|required_if:scope,project|integer|exists:projects,id',
             'reference_image' => 'required|image|mimes:jpeg,jpg,png,webp|max:10000',
         ]);
 

@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { 
@@ -75,6 +75,7 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
     const { flash } = usePage().props;
     const [isAddIdentityDrawerOpen, setIsAddIdentityDrawerOpen] = useState(false);
     const [isAddCatalogDrawerOpen, setIsAddCatalogDrawerOpen] = useState(false);
+    const [identityPreviewUrl, setIdentityPreviewUrl] = useState(null);
     
     const modeForm = useForm({ mode: mode || 'project_only', enable_existing_projects: mode === 'all_galleries' });
     const identityForm = useForm({ name: '', scope: 'global', project_id: '', reference_image: null });
@@ -108,6 +109,18 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
             },
         });
     };
+
+    useEffect(() => {
+        if (!identityForm.data.reference_image) {
+            setIdentityPreviewUrl(null);
+            return;
+        }
+
+        const previewUrl = URL.createObjectURL(identityForm.data.reference_image);
+        setIdentityPreviewUrl(previewUrl);
+
+        return () => URL.revokeObjectURL(previewUrl);
+    }, [identityForm.data.reference_image]);
 
     const selectedCatalog = CATALOG_META[catalogForm.data.type] || CATALOG_META.brand;
 
@@ -335,11 +348,36 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                 subtitle="Agrega una nueva identidad a la red global o una galería"
             >
                 <form onSubmit={submitIdentity} className="space-y-6">
+                    {(flash?.success || flash?.error) && (
+                        <div className={clsx(
+                            'rounded-2xl border px-4 py-3 text-sm font-medium',
+                            flash?.success ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-rose-200 bg-rose-50 text-rose-700'
+                        )}>
+                            <div className="flex items-start gap-3">
+                                {flash?.success ? (
+                                    <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
+                                        <Check className="h-4 w-4" />
+                                    </div>
+                                ) : (
+                                    <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-rose-100 text-rose-600">
+                                        <X className="h-4 w-4" />
+                                    </div>
+                                )}
+                                <div>
+                                    <p className="text-[11px] font-black uppercase tracking-widest">
+                                        {flash?.success ? 'Registro enviado al motor IA' : 'No se pudo registrar'}
+                                    </p>
+                                    <p className="mt-1">{flash?.success || flash?.error}</p>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <Input 
                         label="Nombre Completo" 
                         placeholder={sportsModeEnabled ? "Ej. Jeremy, Atleta #10" : "Ej. Carlos Mendoza"}
                         value={identityForm.data.name}
                         onChange={v => identityForm.setData('name', v.target.value)}
+                        error={identityForm.errors.name}
                     />
                     
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -356,6 +394,7 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                 <option value="global">Ecosistema Global</option>
                                 <option value="project">Galería Específica</option>
                             </select>
+                            {identityForm.errors.scope && <p className="text-[11px] font-bold text-rose-500 ml-1">{identityForm.errors.scope}</p>}
                         </div>
                         <div className="space-y-1.5">
                             <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 ml-1">Galería</label>
@@ -368,22 +407,68 @@ export default function Index({ mode, sportsModeEnabled = false, serviceConfigur
                                 <option value="">Selecciona...</option>
                                 {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                             </select>
+                            {identityForm.errors.project_id && <p className="text-[11px] font-bold text-rose-500 ml-1">{identityForm.errors.project_id}</p>}
                         </div>
                     </div>
 
-                    <div className="p-8 border-2 border-dashed border-slate-200 rounded-[1.8rem] text-center hover:border-primary/50 transition-colors group relative cursor-pointer">
+                    <div className="p-6 border-2 border-dashed border-slate-200 rounded-[1.8rem] text-center hover:border-primary/50 transition-colors group relative cursor-pointer">
                         <input 
                             type="file" 
                             className="absolute inset-0 opacity-0 cursor-pointer" 
+                            accept="image/jpeg,image/png,image/webp"
                             onChange={e => identityForm.setData('reference_image', e.target.files?.[0])}
                         />
-                        <ImagePlus className="h-10 w-10 text-slate-300 group-hover:text-primary mx-auto mb-4 transition-colors" />
-                        <p className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">
-                            {identityForm.data.reference_image?.name || 'Subir Foto de Referencia'}
-                        </p>
+                        {identityPreviewUrl ? (
+                            <div className="space-y-4">
+                                <img src={identityPreviewUrl} alt="Vista previa de referencia" className="mx-auto h-36 w-36 rounded-[1.5rem] object-cover shadow-md" />
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-center gap-2 text-emerald-600">
+                                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100">
+                                            <Check className="h-3.5 w-3.5" />
+                                        </div>
+                                        <p className="text-xs font-black uppercase tracking-widest">Imagen cargada</p>
+                                    </div>
+                                    <p className="text-xs font-medium text-slate-500 break-all">{identityForm.data.reference_image?.name}</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                <ImagePlus className="h-10 w-10 text-slate-300 group-hover:text-primary mx-auto mb-4 transition-colors" />
+                                <p className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">
+                                    Subir Foto de Referencia
+                                </p>
+                                <p className="mt-2 text-[11px] text-slate-400">
+                                    JPG, PNG o WEBP. Usa una imagen clara del rostro.
+                                </p>
+                            </>
+                        )}
                     </div>
 
-                    <Button fullWidth type="submit" loading={identityForm.processing}>Registrar Identidad</Button>
+                    {identityForm.errors.reference_image && <p className="text-[11px] font-bold text-rose-500">{identityForm.errors.reference_image}</p>}
+
+                    {identityForm.progress && (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-widest text-primary">
+                                <span>Subiendo imagen</span>
+                                <span>{identityForm.progress.percentage}%</span>
+                            </div>
+                            <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+                                <div
+                                    className="h-full rounded-full bg-primary transition-all duration-300"
+                                    style={{ width: `${identityForm.progress.percentage}%` }}
+                                />
+                            </div>
+                        </div>
+                    )}
+
+                    <Button
+                        fullWidth
+                        type="submit"
+                        loading={identityForm.processing}
+                        disabled={!identityForm.data.name || !identityForm.data.reference_image || (identityForm.data.scope === 'project' && !identityForm.data.project_id)}
+                    >
+                        {identityForm.processing ? 'Registrando...' : 'Registrar Identidad'}
+                    </Button>
                 </form>
             </Drawer>
 
