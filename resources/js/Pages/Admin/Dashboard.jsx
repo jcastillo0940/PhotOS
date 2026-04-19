@@ -1,5 +1,6 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
+import { clsx } from 'clsx';
 import AdminLayout from '@/Layouts/AdminLayout';
 import {
     ArrowRight,

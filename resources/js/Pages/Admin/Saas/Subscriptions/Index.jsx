@@ -13,7 +13,8 @@ import {
     Clock,
     CheckCircle2,
     AlertCircle,
-    XCircle
+    XCircle,
+    Activity
 } from 'lucide-react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import { Card, StatsCard, Badge, Button, Input, Tabs } from '@/Components/UI';

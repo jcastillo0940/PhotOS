@@ -12,6 +12,7 @@ function copy(value) {
 export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const domainForm = useForm({ hostname: '', type: 'custom' });
     const billingForm = useForm({ action: 'activate_manual', note: '', paid_until: '' });
+    const [activeTab, setActiveTab] = React.useState('overview');
     const tenantForm = useForm({
         name: tenant.name || '',
         status: tenant.status || 'active',
@@ -59,8 +60,15 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                     </div>
                 </section>
 
+                <section className="grid gap-4 md:grid-cols-4">
+                    <QuickStat title="Plan activo" value={tenant.plan_code || 'Sin plan'} helper="Plan base operativo del tenant." />
+                    <QuickStat title="Estado" value={tenant.status || 'Sin estado'} helper="Estado general para acceso y billing." />
+                    <QuickStat title="Usuarios" value={String(tenant.users?.length || 0)} helper="Accesos asociados a este tenant." />
+                    <QuickStat title="Dominios" value={String(tenant.domains?.length || 0)} helper="Hosts configurados y verificados." />
+                </section>
+
                 <div className="grid gap-6 xl:grid-cols-[420px,1fr]">
-                    <div className="space-y-6">
+                    <div className="space-y-6 xl:sticky xl:top-6 xl:self-start">
                         <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
                             <div className="flex items-center gap-3">
                                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#171411] text-white"><Palette className="h-5 w-5" /></div>
@@ -162,52 +170,69 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                     </div>
 
                     <section className="space-y-4">
-                        <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
-                            <div className="grid gap-4 lg:grid-cols-2">
-                                <InfoPanel title="Login URL" value={tenant.login_url} helper="Los accesos de este tenant solo deben usarse desde sus propios dominios." />
-                                <InfoPanel title="Suscripcion actual" value={tenant.subscription ? `${tenant.subscription.provider} · ${tenant.subscription.plan_code} · ${tenant.subscription.billing_cycle}` : 'Sin suscripcion'} helper={tenant.subscription?.paypal_subscription_id || tenant.billing?.banner || 'Aun no hay referencia de suscripcion externa.'} />
-                                <InfoPanel title="Vence en" value={tenant.subscription?.expires_at || 'Sin fecha'} helper="Cuando vence, el tenant entra en gracia y se bloquean nuevas subidas o procesamientos." />
-                                <InfoPanel title="Dominio custom" value={tenant.custom_domain || 'No configurado'} helper="Se usa como pista operativa adicional al resolver por host." />
+                        <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-4 shadow-sm">
+                            <div className="flex flex-wrap gap-2">
+                                <TabButton label="Resumen" active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} />
+                                <TabButton label="Accesos" active={activeTab === 'users'} onClick={() => setActiveTab('users')} />
+                                <TabButton label={`Dominios (${tenant.domains?.length || 0})`} active={activeTab === 'domains'} onClick={() => setActiveTab('domains')} />
                             </div>
-                            {tenant.subscription?.transactions?.length > 0 && (
-                                <div className="mt-5 grid gap-3">
-                                    {tenant.subscription.transactions.map((transaction) => (
-                                        <div key={transaction.id} className="rounded-[1.4rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4 text-sm text-slate-700">
-                                            <div className="flex flex-wrap items-center justify-between gap-3">
-                                                <p className="font-semibold text-slate-900">{transaction.type}</p>
-                                                <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{transaction.status}</span>
+                        </article>
+
+                        {activeTab === 'overview' && (
+                            <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                                <div className="grid gap-4 lg:grid-cols-2">
+                                    <InfoPanel title="Login URL" value={tenant.login_url} helper="Los accesos de este tenant solo deben usarse desde sus propios dominios." />
+                                    <InfoPanel title="Suscripcion actual" value={tenant.subscription ? `${tenant.subscription.provider} · ${tenant.subscription.plan_code} · ${tenant.subscription.billing_cycle}` : 'Sin suscripcion'} helper={tenant.subscription?.paypal_subscription_id || tenant.billing?.banner || 'Aun no hay referencia de suscripcion externa.'} />
+                                    <InfoPanel title="Vence en" value={tenant.subscription?.expires_at || 'Sin fecha'} helper="Cuando vence, el tenant entra en gracia y se bloquean nuevas subidas o procesamientos." />
+                                    <InfoPanel title="Dominio custom" value={tenant.custom_domain || 'No configurado'} helper="Se usa como pista operativa adicional al resolver por host." />
+                                </div>
+                                {tenant.subscription?.transactions?.length > 0 && (
+                                    <div className="mt-5 grid gap-3">
+                                        {tenant.subscription.transactions.map((transaction) => (
+                                            <div key={transaction.id} className="rounded-[1.4rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4 text-sm text-slate-700">
+                                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                                    <p className="font-semibold text-slate-900">{transaction.type}</p>
+                                                    <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{transaction.status}</span>
+                                                </div>
+                                                <p className="mt-2 text-xs text-slate-500">{transaction.reference || 'Sin referencia'} · {transaction.amount ? `$${transaction.amount} ${transaction.currency}` : 'Monto no reportado'}</p>
                                             </div>
-                                            <p className="mt-2 text-xs text-slate-500">{transaction.reference || 'Sin referencia'} · {transaction.amount ? `$${transaction.amount} ${transaction.currency}` : 'Monto no reportado'}</p>
+                                        ))}
+                                    </div>
+                                )}
+                            </article>
+                        )}
+
+                        {activeTab === 'users' && (
+                            <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div>
+                                        <p className="text-lg font-semibold text-slate-900">Accesos del tenant</p>
+                                        <p className="mt-1 text-sm text-slate-500">Estos usuarios solo pueden iniciar sesion en este dominio o en los dominios asociados a este tenant.</p>
+                                    </div>
+                                </div>
+                                <div className="mt-5 space-y-3">
+                                    {tenant.users?.map((user) => (
+                                        <div key={user.id} className="flex items-center justify-between gap-3 rounded-[1.4rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-700"><UserRound className="h-4 w-4" /></div>
+                                                <div>
+                                                    <p className="font-semibold text-slate-900">{user.name}</p>
+                                                    <p className="text-sm text-slate-500">{user.email}</p>
+                                                </div>
+                                            </div>
+                                            <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{user.role}</span>
                                         </div>
                                     ))}
-                                </div>
-                            )}
-                        </article>
-
-                        <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                                <div>
-                                    <p className="text-lg font-semibold text-slate-900">Accesos del tenant</p>
-                                    <p className="mt-1 text-sm text-slate-500">Estos usuarios solo pueden iniciar sesion en este dominio o en los dominios asociados a este tenant.</p>
-                                </div>
-                            </div>
-                            <div className="mt-5 space-y-3">
-                                {tenant.users?.map((user) => (
-                                    <div key={user.id} className="flex items-center justify-between gap-3 rounded-[1.4rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-slate-700"><UserRound className="h-4 w-4" /></div>
-                                            <div>
-                                                <p className="font-semibold text-slate-900">{user.name}</p>
-                                                <p className="text-sm text-slate-500">{user.email}</p>
-                                            </div>
+                                    {tenant.users?.length === 0 && (
+                                        <div className="rounded-[1.4rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-5 text-sm text-slate-500">
+                                            Este tenant aun no tiene usuarios asociados.
                                         </div>
-                                        <span className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-600">{user.role}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </article>
+                                    )}
+                                </div>
+                            </article>
+                        )}
 
-                        {tenant.domains.map((domain) => (
+                        {activeTab === 'domains' && tenant.domains.map((domain) => (
                             <article key={domain.id} className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
@@ -236,6 +261,12 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                 </div>
                             </article>
                         ))}
+
+                        {activeTab === 'domains' && tenant.domains.length === 0 && (
+                            <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-8 text-sm text-slate-500 shadow-sm">
+                                Este tenant aun no tiene dominios configurados.
+                            </article>
+                        )}
                     </section>
                 </div>
             </div>
@@ -245,6 +276,12 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
 
 function Field({ label, error, children }) {
     return <label className="block space-y-2"><span className="text-sm font-medium text-slate-700">{label}</span>{children}{error && <p className="text-xs text-rose-500">{error}</p>}</label>;
+}
+function QuickStat({ title, value, helper }) {
+    return <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-white p-4 shadow-sm"><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{title}</p><p className="mt-2 text-lg font-semibold text-slate-900">{value}</p><p className="mt-1 text-xs leading-5 text-slate-500">{helper}</p></div>;
+}
+function TabButton({ label, active, onClick }) {
+    return <button type="button" onClick={onClick} className={`rounded-2xl px-4 py-2 text-sm font-semibold transition ${active ? 'bg-[#171411] text-white' : 'bg-[#fbf9f6] text-slate-600 hover:bg-[#f3eee6]'}`}>{label}</button>;
 }
 function InfoBox({ title, value, helper }) {
     return <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4"><p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{title}</p><p className="mt-2 text-sm font-semibold text-slate-900">{value}</p><p className="mt-1 max-w-sm text-xs leading-5 text-slate-500">{helper}</p></div>;

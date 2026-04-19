@@ -56,6 +56,27 @@ export default function Billing({ settings }) {
 
                 <SettingsNavigation />
 
+                <section className="grid gap-4 lg:grid-cols-3">
+                    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Que controla esta pantalla</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                            Aqui defines reglas globales del sistema, no cobros individuales de clientes.
+                        </p>
+                    </div>
+                    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Afecta</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                            Facturas nuevas, activacion de factura electronica y disponibilidad del formulario de leads.
+                        </p>
+                    </div>
+                    <div className="rounded-[1.8rem] border border-slate-200 bg-white p-5 shadow-sm">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">No afecta</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-600">
+                            No cambia pagos ya registrados ni suscripciones SaaS existentes de tenants.
+                        </p>
+                    </div>
+                </section>
+
                 <div className="grid gap-6 xl:grid-cols-3">
                     <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
                         <div className="mb-6 flex items-center gap-3">
@@ -84,6 +105,7 @@ export default function Billing({ settings }) {
                                     className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-primary-300 focus:ring-2 focus:ring-primary-500/20"
                                     placeholder="7"
                                 />
+                                <p className="text-xs text-slate-500">Porcentaje por defecto que se propone al crear nuevas facturas o cobros internos.</p>
                             </div>
                         </div>
                     </section>
@@ -101,7 +123,7 @@ export default function Billing({ settings }) {
 
                         <ToggleField
                             label="Alanube habilitado"
-                            description="Activa o desactiva el uso de facturacion electronica en facturas nuevas del sistema."
+                            description="Activa o desactiva el uso de factura electronica en nuevas facturas emitidas desde la plataforma."
                             checked={data.alanube_enabled}
                             onChange={(value) => setData('alanube_enabled', value)}
                         />
