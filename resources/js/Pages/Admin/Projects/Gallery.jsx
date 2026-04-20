@@ -487,7 +487,7 @@ export default function Gallery({ project, faceRecognition }) {
                         )}
                     </div>
 
-                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="hidden" />
+                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="sr-only" />
 
                     {canManageGallery && (
                         <div className="mt-8 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5 lg:p-6">

@@ -94,7 +94,7 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                         )}
                     </div>
 
-                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="hidden" />
+                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="sr-only" />
 
                     {!canUpload && (
                         <div className="mt-6 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
