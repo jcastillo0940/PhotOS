@@ -59,11 +59,7 @@ class ProjectInvitationController extends Controller
             'accepted_at' => now(),
         ]);
 
-        $request->session()->put($this->workspaceSessionKey($collaborator), [
-            'collaborator_id' => $collaborator->id,
-            'project_id' => $collaborator->project_id,
-            'granted_at' => now()->toIso8601String(),
-        ]);
+        $this->rememberWorkspaceAccess($request, $collaborator);
 
         return redirect()
             ->route('project.invitations.gallery', $token)
@@ -73,6 +69,7 @@ class ProjectInvitationController extends Controller
     public function gallery(Request $request, string $token)
     {
         $collaborator = $this->authorizedCollaborator($request, $token);
+        $this->rememberWorkspaceAccess($request, $collaborator);
         $project = $collaborator->project()->with('photos')->firstOrFail();
 
         return Inertia::render('Public/ProjectCollaboratorGallery', [
@@ -143,14 +140,59 @@ class ProjectInvitationController extends Controller
 
         $payload = $request->session()->get($this->workspaceSessionKey($collaborator));
 
-        return is_array($payload)
-            && (int) ($payload['collaborator_id'] ?? 0) === (int) $collaborator->id
-            && (int) ($payload['project_id'] ?? 0) === (int) $collaborator->project_id;
+        if ($this->workspaceAccessPayloadIsValid($payload, $collaborator)) {
+            return true;
+        }
+
+        $cookiePayload = json_decode((string) $request->cookie($this->workspaceCookieName($collaborator)), true);
+
+        if ($this->workspaceAccessPayloadIsValid($cookiePayload, $collaborator)) {
+            $request->session()->put($this->workspaceSessionKey($collaborator), $cookiePayload);
+
+            return true;
+        }
+
+        return false;
     }
 
     private function workspaceSessionKey(ProjectCollaborator $collaborator): string
     {
         return 'project_collaborator_access.'.$collaborator->id;
+    }
+
+    private function workspaceCookieName(ProjectCollaborator $collaborator): string
+    {
+        return 'project_collaborator_access_'.$collaborator->id;
+    }
+
+    private function rememberWorkspaceAccess(Request $request, ProjectCollaborator $collaborator): void
+    {
+        $payload = [
+            'collaborator_id' => $collaborator->id,
+            'project_id' => $collaborator->project_id,
+            'granted_at' => now()->toIso8601String(),
+        ];
+
+        $request->session()->put($this->workspaceSessionKey($collaborator), $payload);
+
+        cookie()->queue(cookie(
+            $this->workspaceCookieName($collaborator),
+            json_encode($payload),
+            60 * 24 * 30,
+            null,
+            null,
+            $request->isSecure(),
+            true,
+            false,
+            'lax',
+        ));
+    }
+
+    private function workspaceAccessPayloadIsValid(mixed $payload, ProjectCollaborator $collaborator): bool
+    {
+        return is_array($payload)
+            && (int) ($payload['collaborator_id'] ?? 0) === (int) $collaborator->id
+            && (int) ($payload['project_id'] ?? 0) === (int) $collaborator->project_id;
     }
 
     private function temporaryUrlOrFallback(string $path): string

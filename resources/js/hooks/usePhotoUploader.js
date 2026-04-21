@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 function getCsrfToken() {
     const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
@@ -30,10 +30,16 @@ function uploadBatch(url, files, onProgress, onServerProcessing) {
                 } catch (_) {
                     detail = xhr.responseText ? ': ' + xhr.responseText.substring(0, 200) : '';
                 }
-                reject(new Error(`Error ${xhr.status}${detail}`));
+                const error = new Error(`Error ${xhr.status}${detail}`);
+                error.status = xhr.status;
+                reject(error);
             }
         };
-        xhr.onerror = () => reject(new Error('Error de conexión'));
+        xhr.onerror = () => {
+            const error = new Error('Error de conexion');
+            error.status = 0;
+            reject(error);
+        };
         xhr.open('POST', url);
         xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         const token = getCsrfToken();
@@ -58,8 +64,39 @@ const INITIAL = {
 
 const CF_MAX_BYTES = 90 * 1024 * 1024; // 90 MB — Cloudflare rejects requests over 100 MB
 
+function delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForOnline() {
+    if (typeof navigator === 'undefined' || navigator.onLine !== false) return Promise.resolve();
+
+    return new Promise((resolve) => {
+        window.addEventListener('online', resolve, { once: true });
+    });
+}
+
+function shouldRetryUploadError(error) {
+    const status = Number(error?.status ?? 0);
+
+    return status === 0 || status === 408 || status === 429 || status >= 500;
+}
+
 export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }) {
     const [state, setState] = useState(INITIAL);
+
+    useEffect(() => {
+        if (!state.isUploading) return undefined;
+
+        const warnBeforeClose = (event) => {
+            event.preventDefault();
+            event.returnValue = '';
+        };
+
+        window.addEventListener('beforeunload', warnBeforeClose);
+
+        return () => window.removeEventListener('beforeunload', warnBeforeClose);
+    }, [state.isUploading]);
 
     const upload = useCallback(async (files) => {
         if (!files?.length) return;
@@ -108,25 +145,48 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                 statusMessage: `Subiendo ${range} de ${all.length}${loteInfo}`,
             }));
 
-            try {
-                await uploadBatch(
-                    uploadUrl,
-                    batch,
-                    (pct) => {
-                        setState((prev) => ({ ...prev, batchProgress: pct }));
-                    },
-                    () => {
-                        setState((prev) => ({
-                            ...prev,
-                            batchProgress: 100,
-                            statusMessage: `Procesando ${range} en servidor${loteInfo}...`,
-                        }));
-                    },
-                );
-                uploaded += batch.length;
-            } catch (err) {
-                failed += batch.length;
-                errors.push(`Lote ${i + 1}: ${err.message}`);
+            let attempts = 0;
+
+            while (true) {
+                try {
+                    await uploadBatch(
+                        uploadUrl,
+                        batch,
+                        (pct) => {
+                            setState((prev) => ({ ...prev, batchProgress: pct }));
+                        },
+                        () => {
+                            setState((prev) => ({
+                                ...prev,
+                                batchProgress: 100,
+                                statusMessage: `Procesando ${range} en servidor${loteInfo}...`,
+                            }));
+                        },
+                    );
+                    uploaded += batch.length;
+                    break;
+                } catch (err) {
+                    if (!shouldRetryUploadError(err)) {
+                        failed += batch.length;
+                        errors.push(`Lote ${i + 1}: ${err.message}`);
+                        break;
+                    }
+
+                    attempts += 1;
+                    const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+                    const retryDelay = offline ? 0 : Math.min(30000, 2000 * attempts);
+
+                    setState((prev) => ({
+                        ...prev,
+                        batchProgress: 0,
+                        statusMessage: offline
+                            ? `Conexion perdida. La subida continuara cuando vuelva internet (${range}).`
+                            : `Conexion inestable. Reintentando ${range} en ${Math.ceil(retryDelay / 1000)}s...`,
+                    }));
+
+                    await waitForOnline();
+                    if (retryDelay > 0) await delay(retryDelay);
+                }
             }
 
             setState((prev) => ({ ...prev, uploadedFiles: uploaded, failedFiles: failed, errors }));
