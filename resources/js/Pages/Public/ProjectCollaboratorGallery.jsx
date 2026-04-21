@@ -40,9 +40,10 @@ export default function ProjectCollaboratorGallery({ workspace }) {
             log('BLOCKED', { reason: !files?.length ? 'no files' : 'canUpload=false' });
             return;
         }
+        const selectedFiles = Array.from(files);
         if (fileInputRef.current) fileInputRef.current.value = '';
-        log('Calling startUpload', { filesCount: files.length });
-        startUpload(files);
+        log('Calling startUpload', { filesCount: selectedFiles.length });
+        startUpload(selectedFiles);
     };
 
     const handleDragEnter = (e) => {
@@ -116,7 +117,7 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                                     ref={fileInputRef}
                                     type="file"
                                     multiple
-                                    accept="image/*"
+                                    accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
                                     className="hidden"
                                     onClick={() => log('INPUT click event fired')}
                                     onChange={(e) => { log('INPUT onChange', { count: e.target.files?.length }); uploadPhotos(e.target.files); }}
@@ -150,7 +151,7 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                                 <p className="mt-2 text-sm text-slate-500">{isDragging ? 'Se subiran automaticamente al soltar' : 'Arrastra fotos aqui o busca en tu computadora.'}</p>
                                 {canUpload && !isDragging && (
                                     <label className="mt-6 inline-flex cursor-pointer rounded-2xl border border-[#ddd5c9] bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
-                                        <input type="file" multiple accept="image/*" onChange={(e) => uploadPhotos(e.target.files)} className="hidden" />
+                                        <input type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(e) => uploadPhotos(e.target.files)} className="hidden" />
                                         Subir primeras fotos
                                     </label>
                                 )}

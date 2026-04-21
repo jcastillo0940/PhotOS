@@ -355,8 +355,9 @@ export default function Gallery({ project, faceRecognition }) {
 
     const uploadPhotos = (files) => {
         if (!files?.length) return;
+        const selectedFiles = Array.from(files);
         if (fileInputRef.current) fileInputRef.current.value = '';
-        startUpload(files);
+        startUpload(selectedFiles);
     };
 
     const handleDragEnter = (e) => {
@@ -487,7 +488,7 @@ export default function Gallery({ project, faceRecognition }) {
                         )}
                     </div>
 
-                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="sr-only" />
+                    <input ref={fileInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp" onChange={(event) => uploadPhotos(event.target.files)} className="sr-only" />
 
                     {canManageGallery && (
                         <div className="mt-8 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5 lg:p-6">
