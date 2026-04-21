@@ -20,8 +20,9 @@ export default function ProjectCollaboratorGallery({ workspace }) {
 
     const uploadPhotos = (files) => {
         if (!files?.length || !canUpload) return;
+        const selectedFiles = Array.from(files);
         if (fileInputRef.current) fileInputRef.current.value = '';
-        startUpload(files);
+        startUpload(selectedFiles);
     };
 
     const handleDragEnter = (e) => {

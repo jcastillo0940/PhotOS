@@ -355,8 +355,9 @@ export default function Gallery({ project, faceRecognition }) {
 
     const uploadPhotos = (files) => {
         if (!files?.length) return;
+        const selectedFiles = Array.from(files);
         if (fileInputRef.current) fileInputRef.current.value = '';
-        startUpload(files);
+        startUpload(selectedFiles);
     };
 
     const handleDragEnter = (e) => {
