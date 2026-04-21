@@ -62,7 +62,7 @@ const INITIAL = {
     errors: [],
 };
 
-const CF_MAX_BYTES = 90 * 1024 * 1024; // 90 MB — Cloudflare rejects requests over 100 MB
+const CF_MAX_BYTES = 90 * 1024 * 1024; // 90 MB, Cloudflare rejects requests over 100 MB.
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -98,6 +98,28 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
         return () => window.removeEventListener('beforeunload', warnBeforeClose);
     }, [state.isUploading]);
 
+    useEffect(() => {
+        if (!state.isUploading || !navigator?.wakeLock?.request) return undefined;
+
+        let lock = null;
+        let cancelled = false;
+
+        navigator.wakeLock.request('screen')
+            .then((nextLock) => {
+                if (cancelled) {
+                    nextLock.release().catch(() => {});
+                    return;
+                }
+                lock = nextLock;
+            })
+            .catch(() => {});
+
+        return () => {
+            cancelled = true;
+            if (lock) lock.release().catch(() => {});
+        };
+    }, [state.isUploading]);
+
     const upload = useCallback(async (files) => {
         if (!files?.length) return;
 
@@ -110,20 +132,19 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                 ...INITIAL,
                 isDone: true,
                 failedFiles: oversized.length,
-                errors: [`Fotos demasiado grandes para subir (límite 90 MB): ${names}`],
-                statusMessage: `${oversized.length} foto${oversized.length !== 1 ? 's' : ''} superan el límite de 90 MB`,
+                errors: [`Fotos demasiado grandes para subir (limite 90 MB): ${names}`],
+                statusMessage: `${oversized.length} foto${oversized.length !== 1 ? 's' : ''} superan el limite de 90 MB`,
             });
             return;
         }
 
-        const batches = [];
-        for (let i = 0; i < all.length; i += batchSize) batches.push(all.slice(i, i + batchSize));
+        const uploadItems = all.map((file) => [file]);
 
         setState({
             ...INITIAL,
             isUploading: true,
             totalFiles: all.length,
-            totalBatches: batches.length,
+            totalBatches: uploadItems.length,
             statusMessage: `Preparando ${all.length} foto${all.length !== 1 ? 's' : ''}...`,
         });
 
@@ -131,18 +152,17 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
         let failed = 0;
         const errors = [];
 
-        for (let i = 0; i < batches.length; i++) {
-            const batch = batches[i];
-            const from = i * batchSize + 1;
-            const to = Math.min(from + batchSize - 1, all.length);
-            const range = from === to ? `foto ${from}` : `fotos ${from}–${to}`;
-            const loteInfo = batches.length > 1 ? ` · Lote ${i + 1} de ${batches.length}` : '';
+        for (let i = 0; i < uploadItems.length; i++) {
+            const batch = uploadItems[i];
+            const currentPhoto = i + 1;
+            const range = `foto ${currentPhoto}`;
+            const photoInfo = uploadItems.length > 1 ? ` · Foto ${currentPhoto} de ${uploadItems.length}` : '';
 
             setState((prev) => ({
                 ...prev,
-                currentBatch: i + 1,
+                currentBatch: currentPhoto,
                 batchProgress: 0,
-                statusMessage: `Subiendo ${range} de ${all.length}${loteInfo}`,
+                statusMessage: `Subiendo ${range} de ${all.length}${photoInfo}`,
             }));
 
             let attempts = 0;
@@ -159,7 +179,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                             setState((prev) => ({
                                 ...prev,
                                 batchProgress: 100,
-                                statusMessage: `Procesando ${range} en servidor${loteInfo}...`,
+                                statusMessage: `Procesando ${range} en servidor${photoInfo}...`,
                             }));
                         },
                     );
@@ -168,7 +188,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                 } catch (err) {
                     if (!shouldRetryUploadError(err)) {
                         failed += batch.length;
-                        errors.push(`Lote ${i + 1}: ${err.message}`);
+                        errors.push(`Foto ${currentPhoto}: ${err.message}`);
                         break;
                     }
 
@@ -180,8 +200,8 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                         ...prev,
                         batchProgress: 0,
                         statusMessage: offline
-                            ? `Conexion perdida. La subida continuara cuando vuelva internet (${range}).`
-                            : `Conexion inestable. Reintentando ${range} en ${Math.ceil(retryDelay / 1000)}s...`,
+                            ? `Conexion perdida. Continuara con la foto ${currentPhoto} cuando vuelva internet.`
+                            : `Conexion inestable. Reintentando foto ${currentPhoto} en ${Math.ceil(retryDelay / 1000)}s...`,
                     }));
 
                     await waitForOnline();
