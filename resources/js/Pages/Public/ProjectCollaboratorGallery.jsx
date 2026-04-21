@@ -16,11 +16,32 @@ export default function ProjectCollaboratorGallery({ workspace }) {
     });
 
     const [isDragging, setIsDragging] = React.useState(false);
+    const [debugLog, setDebugLog] = React.useState([]);
     const dragCounter = React.useRef(0);
 
+    const log = React.useCallback((msg, data = null) => {
+        const entry = `[${new Date().toISOString().slice(11,23)}] ${msg}${data ? ' ' + JSON.stringify(data) : ''}`;
+        console.log('[UPLOAD-DEBUG]', entry);
+        setDebugLog(prev => [...prev.slice(-19), entry]);
+    }, []);
+
+    React.useEffect(() => {
+        log('MOUNT', {
+            canUpload,
+            token: workspace?.token?.slice(0, 8) + '...',
+            can_upload_raw: workspace?.project?.can_upload,
+            photos: photos.length,
+        });
+    }, []);
+
     const uploadPhotos = (files) => {
-        if (!files?.length || !canUpload) return;
+        log('uploadPhotos called', { filesCount: files?.length, canUpload });
+        if (!files?.length || !canUpload) {
+            log('BLOCKED', { reason: !files?.length ? 'no files' : 'canUpload=false' });
+            return;
+        }
         if (fileInputRef.current) fileInputRef.current.value = '';
+        log('Calling startUpload', { filesCount: files.length });
         startUpload(files);
     };
 
@@ -87,14 +108,25 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                             <p className="mt-2 text-sm text-slate-500">Las fotos se envian al bucket y se generan versiones web automaticamente.</p>
                         </div>
                         {canUpload && (
-                            <button onClick={() => fileInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5">
+                            <label
+                                className="inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-[#171411] px-5 py-3.5 text-sm font-semibold text-white shadow-md transition hover:-translate-y-0.5"
+                                onClick={() => log('LABEL clicked')}
+                            >
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    multiple
+                                    accept="image/*"
+                                    className="hidden"
+                                    onClick={() => log('INPUT click event fired')}
+                                    onChange={(e) => { log('INPUT onChange', { count: e.target.files?.length }); uploadPhotos(e.target.files); }}
+                                />
                                 <ImagePlus className="h-4 w-4" />
                                 Seleccionar archivos
-                            </button>
+                            </label>
                         )}
                     </div>
 
-                    <input ref={fileInputRef} type="file" multiple accept="image/*" onChange={(event) => uploadPhotos(event.target.files)} className="sr-only" />
 
                     {!canUpload && (
                         <div className="mt-6 rounded-[1.5rem] border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
@@ -117,9 +149,10 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                                 <h3 className="text-xl font-semibold text-slate-900">{isDragging ? 'Suelta las fotos aqui' : 'Todavia no hay material cargado'}</h3>
                                 <p className="mt-2 text-sm text-slate-500">{isDragging ? 'Se subiran automaticamente al soltar' : 'Arrastra fotos aqui o busca en tu computadora.'}</p>
                                 {canUpload && !isDragging && (
-                                    <button onClick={() => fileInputRef.current?.click()} className="mt-6 rounded-2xl border border-[#ddd5c9] bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                                    <label className="mt-6 inline-flex cursor-pointer rounded-2xl border border-[#ddd5c9] bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
+                                        <input type="file" multiple accept="image/*" onChange={(e) => uploadPhotos(e.target.files)} className="hidden" />
                                         Subir primeras fotos
-                                    </button>
+                                    </label>
                                 )}
                             </div>
                         )}
@@ -131,6 +164,17 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                     <GuideCard icon={UploadCloud} title="Subida directa" description="El material se procesa y se publica al bucket del proyecto sin pasos adicionales." />
                     <GuideCard icon={Camera} title="Sin login" description="El fotografo no necesita iniciar sesion mientras conserve su enlace y codigo." />
                 </section>
+
+                {/* DEBUG PANEL — quitar despues */}
+                <div className="rounded-[1.4rem] border border-amber-300 bg-amber-50 p-4 font-mono text-xs text-amber-900">
+                    <p className="mb-2 font-bold">DEBUG PANEL</p>
+                    <p>canUpload: <strong>{String(canUpload)}</strong> | can_upload_raw: <strong>{String(workspace?.project?.can_upload)}</strong></p>
+                    <p>inputRef: <strong>{fileInputRef.current ? 'OK' : 'NULL'}</strong></p>
+                    <div className="mt-2 space-y-0.5">
+                        {debugLog.length === 0 && <p className="text-amber-500">Sin eventos aun. Haz clic en el boton.</p>}
+                        {debugLog.map((l, i) => <p key={i}>{l}</p>)}
+                    </div>
+                </div>
             </div>
 
             <AnimatePresence>
