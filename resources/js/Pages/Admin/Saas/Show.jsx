@@ -94,8 +94,8 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                     </div>
                 </section>
 
-                <div className="grid gap-6 xl:grid-cols-[320px,1fr]">
-                    <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+                    <aside className="w-full shrink-0 space-y-4 lg:sticky lg:top-6 lg:w-80">
                         <SummaryCard
                             title="Salud del tenant"
                             rows={[
@@ -128,7 +128,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                         </div>
                     </aside>
 
-                    <section className="space-y-5">
+                    <section className="min-w-0 flex-1 space-y-5">
                         {activeTab === 'overview' && (
                             <>
                                 <PanelCard title="Vista general" description="Aqui ves lo mas importante del tenant sin entrar todavia a editar formularios.">
@@ -431,9 +431,9 @@ function SummaryCard({ title, rows, accent = false }) {
             <p className={clsx('text-[11px] font-semibold uppercase tracking-[0.22em]', accent ? 'text-white/55' : 'text-slate-400')}>{title}</p>
             <div className="mt-4 space-y-3">
                 {rows.map(([label, value]) => (
-                    <div key={`${label}-${value}`} className="grid grid-cols-[minmax(0,0.8fr),minmax(0,1.2fr)] items-start gap-3">
+                    <div key={`${label}-${value}`} className="space-y-1">
                         <p className={clsx('text-xs', accent ? 'text-white/65' : 'text-slate-500')}>{label}</p>
-                        <p className={clsx('break-words text-right text-sm font-semibold', accent ? 'text-white' : 'text-slate-900')}>{value}</p>
+                        <p className={clsx('break-all text-sm font-semibold leading-5', accent ? 'text-white' : 'text-slate-900')}>{value}</p>
                     </div>
                 ))}
             </div>
