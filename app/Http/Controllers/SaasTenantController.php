@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DomainOrder;
 use App\Models\SaasRegistration;
 use App\Models\SaasPlan;
 use App\Models\Tenant;
@@ -10,6 +11,7 @@ use App\Models\GeminiUsageRecord;
 use App\Models\User;
 use App\Services\Billing\TenantBillingService;
 use App\Services\Saas\CloudflareCustomHostnameService;
+use App\Services\Saas\DomainProvisioningService;
 use App\Support\SaasPlanCatalog;
 use App\Support\TenantBrandPreset;
 use Illuminate\Http\Request;
@@ -23,6 +25,7 @@ class SaasTenantController extends Controller
     public function __construct(
         private readonly CloudflareCustomHostnameService $cloudflare,
         private readonly TenantBillingService $billing,
+        private readonly DomainProvisioningService $provisioning,
     ) {
     }
 
@@ -233,6 +236,24 @@ class SaasTenantController extends Controller
                         'metadata' => $domain->metadata,
                     ];
                 })->values(),
+                'domain_orders' => $tenant->domainOrders()
+                    ->latest('id')
+                    ->get()
+                    ->map(fn (DomainOrder $order) => [
+                        'id' => $order->id,
+                        'type' => $order->type,
+                        'provider' => $order->provider,
+                        'domain_name' => $order->domain_name,
+                        'status' => $order->status,
+                        'amount' => $order->amount !== null ? (float) $order->amount : null,
+                        'currency' => $order->currency,
+                        'error_message' => $order->error_message,
+                        'notes' => $order->notes,
+                        'manual_state' => $order->manual_state,
+                        'verification_attempts' => $order->verification_attempts,
+                        'next_check_at' => optional($order->next_check_at)?->toIso8601String(),
+                    ])
+                    ->values(),
             ],
             'planOptions' => SaasPlanCatalog::sortCollection(
                 SaasPlan::query()
@@ -314,6 +335,71 @@ class SaasTenantController extends Controller
             return redirect()->back()->with('success', 'Estado del dominio sincronizado con Cloudflare.');
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'No se pudo sincronizar el dominio: '.$e->getMessage());
+        }
+    }
+
+    public function overrideDomainOrder(Request $request, Tenant $tenant, DomainOrder $domainOrder)
+    {
+        abort_unless($domainOrder->tenant_id === $tenant->id, 404);
+
+        $validated = $request->validate([
+            'status' => 'required|string|in:awaiting_dns,verifying,active,failed,cancelled',
+            'note' => 'nullable|string|max:1500',
+        ]);
+
+        try {
+            $this->provisioning->overrideStatus($domainOrder, (string) $validated['status'], $validated['note'] ?? null);
+
+            return redirect()->back()->with('success', 'Pedido de dominio actualizado manualmente.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function retryDomainOrder(Tenant $tenant, DomainOrder $domainOrder)
+    {
+        abort_unless($domainOrder->tenant_id === $tenant->id, 404);
+
+        try {
+            $this->provisioning->retryOrder($domainOrder, 'Reintento manual desde el panel SaaS.');
+
+            return redirect()->back()->with('success', 'Pedido marcado para reintento manual.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function markDomainOrderDnsConfigured(Request $request, Tenant $tenant, DomainOrder $domainOrder)
+    {
+        abort_unless($domainOrder->tenant_id === $tenant->id, 404);
+
+        $validated = $request->validate([
+            'note' => 'nullable|string|max:1500',
+        ]);
+
+        try {
+            $this->provisioning->markDnsConfigured($domainOrder, $validated['note'] ?? 'Soporte marco el DNS como configurado desde el panel SaaS.');
+
+            return redirect()->back()->with('success', 'Pedido marcado como DNS configurado.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
+    public function cancelDomainOrder(Request $request, Tenant $tenant, DomainOrder $domainOrder)
+    {
+        abort_unless($domainOrder->tenant_id === $tenant->id, 404);
+
+        $validated = $request->validate([
+            'note' => 'nullable|string|max:1500',
+        ]);
+
+        try {
+            $this->provisioning->cancelOrder($domainOrder, $validated['note'] ?? 'Soporte cancelo el pedido desde el panel SaaS.');
+
+            return redirect()->back()->with('success', 'Pedido cancelado.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error', $e->getMessage());
         }
     }
 

@@ -108,8 +108,14 @@ export default function Integrations({ settings }) {
                                 onChange={(value) => updateValue(setting.key, value)}
                                 isSecret={setting.is_secret}
                                 placeholder={
-                                    setting.key === 'cloudflare_saas_zone_id'
+                                    setting.key === 'cloudflare_account_id'
+                                        ? '023e105f4ecef8ad9ca31a8372d0c353'
+                                        : setting.key === 'cloudflare_saas_zone_id'
                                         ? '4fc1e143561734ce06867d42b0658127'
+                                        : setting.key === 'cloudflare_registrar_api_token'
+                                            ? 'Token con permisos de Registrar'
+                                            : setting.key === 'cloudflare_dns_api_token'
+                                                ? 'Token con permisos de DNS'
                                         : setting.key === 'cloudflare_saas_cname_target'
                                             ? 'customers.photos.pixelprocr.com'
                                             : setting.key === 'cloudflare_saas_dcv_target'
@@ -119,7 +125,7 @@ export default function Integrations({ settings }) {
                             />
                         ))}
                         <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-4 text-xs leading-6 text-slate-500">
-                            `cloudflare_saas_cname_target` es el destino CNAME principal que el cliente debe apuntar en su DNS. `cloudflare_saas_dcv_target` es el destino de delegacion ACME para `_acme-challenge` cuando uses DCV Delegation.
+                            {'`cloudflare_saas_cname_target` es el destino CNAME principal que el cliente debe apuntar en su DNS. `cloudflare_saas_dcv_target` es el sufijo de delegacion ACME; el sistema construye automaticamente `_acme-challenge.<hostname> -> <hostname>.<cloudflare_saas_dcv_target>`.'}
                         </div>
                     </Section>
 

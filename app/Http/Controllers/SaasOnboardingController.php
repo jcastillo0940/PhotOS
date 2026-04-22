@@ -9,6 +9,7 @@ use App\Models\TenantDomain;
 use App\Models\User;
 use App\Services\Billing\PayPalApiService;
 use App\Services\Billing\TenantBillingService;
+use App\Services\Saas\CloudflareCustomHostnameService;
 use App\Support\SaasPlanCatalog;
 use App\Support\TenantBrandPreset;
 use Illuminate\Http\Request;
@@ -23,6 +24,7 @@ class SaasOnboardingController extends Controller
     public function __construct(
         private readonly TenantBillingService $billing,
         private readonly PayPalApiService $paypal,
+        private readonly CloudflareCustomHostnameService $cloudflare,
     ) {
     }
 
@@ -95,6 +97,29 @@ class SaasOnboardingController extends Controller
             'cf_status' => 'internal',
             'verified_at' => now(),
         ]);
+
+        if ($requestedDomain && (bool) ($features['custom_domain'] ?? false)) {
+            $customDomain = TenantDomain::create([
+                'tenant_id' => $tenant->id,
+                'hostname' => $requestedDomain,
+                'type' => 'custom',
+                'is_primary' => false,
+                'cf_status' => 'pending',
+                'metadata' => ['created_via' => 'public-saas-onboarding'],
+            ]);
+
+            if ($this->cloudflare->enabled()) {
+                try {
+                    $this->cloudflare->createCustomHostname($customDomain);
+                } catch (\Throwable $e) {
+                    $customDomain->forceFill([
+                        'metadata' => array_merge($customDomain->metadata ?? [], [
+                            'cloudflare_error' => $e->getMessage(),
+                        ]),
+                    ])->save();
+                }
+            }
+        }
 
         User::create([
             'tenant_id' => $tenant->id,

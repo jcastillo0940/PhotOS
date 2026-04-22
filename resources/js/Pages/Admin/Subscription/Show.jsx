@@ -8,13 +8,18 @@ import {
     Check,
     ChevronRight,
     CircleDollarSign,
+    Copy,
     CreditCard,
     FileUp,
     Gem,
+    Globe2,
     Landmark,
     Receipt,
     RefreshCcw,
+    RefreshCw,
+    Search,
     ShieldCheck,
+    ShoppingCart,
     Sparkles,
     TrendingUp,
     Wallet,
@@ -31,14 +36,24 @@ function statusTone(status) {
         case 'active':
         case 'paid':
         case 'completed':
+        case 'pending_deployment':
             return 'emerald';
         case 'pending_manual':
         case 'submitted':
         case 'requested':
+        case 'pending':
+        case 'registered':
+        case 'registering':
+        case 'creating_custom_hostname':
+        case 'awaiting_dns':
+        case 'verifying':
             return 'amber';
         case 'overdue':
         case 'past_due':
         case 'suspended':
+        case 'deleted':
+        case 'moved':
+        case 'failed':
             return 'rose';
         default:
             return 'slate';
@@ -84,7 +99,7 @@ function annualSavings(plan) {
     const yearly = Number(plan?.price_yearly || 0);
     const baseline = monthly * 12;
 
-    if (!baseline || !yearly || yearly >= baseline) return 0;
+    if (! baseline || ! yearly || yearly >= baseline) return 0;
 
     return baseline - yearly;
 }
@@ -203,7 +218,19 @@ function SectionCard({ children, className }) {
     );
 }
 
-export default function Show({ tenant, billing, subscription, transactions = [], plans = [] }) {
+export default function Show({
+    tenant,
+    billing,
+    subscription,
+    transactions = [],
+    plans = [],
+    domains = [],
+    cloudflare = {},
+    registrar = {},
+    domainOrders = [],
+    domainSearchResults = [],
+    domainSearchQuery = '',
+}) {
     const { props } = usePage();
     const flash = props.flash || {};
     const [activeTab, setActiveTab] = React.useState('overview');
@@ -222,16 +249,34 @@ export default function Show({ tenant, billing, subscription, transactions = [],
         billing_cycle: subscription?.billing_cycle || 'monthly',
     });
 
+    const domainForm = useForm({
+        hostname: tenant?.custom_domain || '',
+    });
+
+    const searchForm = useForm({
+        query: domainSearchQuery || '',
+    });
+
+    const purchaseForm = useForm({
+        domain_name: '',
+    });
+    const orderActionForm = useForm({
+        note: '',
+        status: 'verifying',
+    });
+
     const selectedPlan = currentPlan(plans, planForm.data.plan_code);
     const subscriptionTone = statusTone(subscription?.status || billing?.status || tenant?.status);
     const paymentTone = subscription?.payment_mode === 'offline' ? 'amber' : 'sky';
     const recommendedPlan = featuredUpgrade(plans, subscription?.plan_code || tenant?.plan_code);
     const selectedSavings = annualSavings(selectedPlan);
+    const customDomainAllowed = !! current?.custom_domain;
 
     const tabs = [
         { id: 'overview', label: 'Resumen', icon: ShieldCheck },
         { id: 'payments', label: 'Pagos', icon: FileUp },
         { id: 'plans', label: 'Planes', icon: Gem },
+        { id: 'domains', label: 'Dominios', icon: Globe2 },
         { id: 'history', label: 'Historial', icon: RefreshCcw },
     ];
 
@@ -243,6 +288,12 @@ export default function Show({ tenant, billing, subscription, transactions = [],
                 {flash?.success && (
                     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-700 shadow-sm">
                         {flash.success}
+                    </div>
+                )}
+
+                {flash?.error && (
+                    <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700 shadow-sm">
+                        {flash.error}
                     </div>
                 )}
 
@@ -294,7 +345,7 @@ export default function Show({ tenant, billing, subscription, transactions = [],
                 </section>
 
                 <div className="sticky top-0 z-20 rounded-2xl border border-slate-200 bg-white/90 p-2 shadow-sm backdrop-blur">
-                    <div className="grid gap-2 sm:grid-cols-4">
+                    <div className="grid gap-2 sm:grid-cols-5">
                         {tabs.map(({ id, label, icon: Icon }) => (
                             <button
                                 key={id}
@@ -507,6 +558,227 @@ export default function Show({ tenant, billing, subscription, transactions = [],
                     </section>
                 )}
 
+                {activeTab === 'domains' && (
+                    <section className="space-y-6">
+                        <SectionCard>
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+                                    <Globe2 className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-slate-900">Dominios del estudio</h2>
+                                    <p className="mt-1 text-sm text-slate-600">Compra dominios nuevos contigo o conecta dominios existentes dentro del SaaS.</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 grid gap-4 md:grid-cols-4">
+                                <MetricCard icon={Globe2} label="Disponibilidad" value={customDomainAllowed ? 'Incluido en tu plan' : 'No incluido'} helper={current?.name || 'Plan actual'} tone={customDomainAllowed ? 'emerald' : 'amber'} />
+                                <MetricCard icon={ShieldCheck} label="Cloudflare SaaS" value={cloudflare.enabled ? 'Activo' : 'Pendiente'} helper={cloudflare.managed_cname_target || 'Sin target configurado'} tone={cloudflare.enabled ? 'sky' : 'amber'} />
+                                <MetricCard icon={ShoppingCart} label="Registrar" value={registrar.enabled ? 'Activo' : 'Pendiente'} helper={registrar.enabled ? 'Compra directa disponible' : 'Falta configurar credenciales'} tone={registrar.enabled ? 'sky' : 'amber'} />
+                                <MetricCard icon={Sparkles} label="Dominio actual" value={tenant?.custom_domain || 'No configurado'} helper="Puedes usar un dominio comprado aqui o uno externo." tone="slate" />
+                            </div>
+
+                            <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-900 shadow-sm">
+                                            <ShoppingCart className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-semibold text-slate-900">Comprar dominio nuevo</p>
+                                            <p className="text-sm text-slate-500">Busca disponibilidad y compra directo desde Cloudflare Registrar.</p>
+                                        </div>
+                                    </div>
+
+                                    <form
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            searchForm.post('/admin/subscription/domain-search');
+                                        }}
+                                        className="mt-5 grid gap-4 lg:grid-cols-[1fr,auto]"
+                                    >
+                                        <FormInput label="Buscar dominio" placeholder="mimarca.com" value={searchForm.data.query} onChange={(event) => searchForm.setData('query', event.target.value.toLowerCase())} error={searchForm.errors.query} />
+                                        <div className="flex items-end">
+                                            <button type="submit" disabled={searchForm.processing || !customDomainAllowed || !registrar.enabled} className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:opacity-60">
+                                                <Search className="h-4 w-4" />
+                                                {searchForm.processing ? 'Buscando...' : 'Buscar'}
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    {domainSearchResults.length > 0 ? (
+                                        <div className="mt-5 space-y-3">
+                                            {domainSearchResults.map((result) => (
+                                                <div key={result.domain_name} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:flex-row md:items-center md:justify-between">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-slate-900">{result.domain_name}</p>
+                                                        <p className="mt-1 text-xs text-slate-500">
+                                                            {result.available ? 'Disponible' : 'No disponible'}
+                                                            {result.purchase_price !== null && ` · ${formatCurrency(result.purchase_price, result.currency)}`}
+                                                        </p>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            purchaseForm.setData('domain_name', result.domain_name);
+                                                            purchaseForm.post('/admin/subscription/domain-purchase');
+                                                        }}
+                                                        disabled={!result.available || purchaseForm.processing || !customDomainAllowed || !registrar.enabled}
+                                                        className="inline-flex items-center justify-center rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:opacity-50"
+                                                    >
+                                                        {purchaseForm.processing && purchaseForm.data.domain_name === result.domain_name ? 'Comprando...' : 'Comprar'}
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="mt-5 text-sm text-slate-500">Haz una busqueda y el sistema te mostrara disponibilidad y precio de compra.</p>
+                                    )}
+                                </div>
+
+                                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-slate-900 shadow-sm">
+                                            <Globe2 className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                            <p className="text-lg font-semibold text-slate-900">Conectar dominio existente</p>
+                                            <p className="text-sm text-slate-500">Si ya lo compraste afuera, el sistema crea el custom hostname y te muestra los DNS.</p>
+                                        </div>
+                                    </div>
+
+                                    <form
+                                        onSubmit={(event) => {
+                                            event.preventDefault();
+                                            domainForm.post('/admin/subscription/custom-domain');
+                                        }}
+                                        className="mt-5 grid gap-4 lg:grid-cols-[1fr,auto]"
+                                    >
+                                        <FormInput label="Dominio a conectar" placeholder="fotos.tudominio.com" value={domainForm.data.hostname} onChange={(event) => domainForm.setData('hostname', event.target.value.toLowerCase())} error={domainForm.errors.hostname} />
+                                        <div className="flex items-end">
+                                            <button type="submit" disabled={domainForm.processing || !customDomainAllowed} className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:opacity-60">
+                                                {domainForm.processing ? 'Guardando...' : 'Conectar'}
+                                            </button>
+                                        </div>
+                                    </form>
+
+                                    <p className="mt-5 text-sm text-slate-500">Para dominios externos, el sistema deja listo el alta en Cloudflare for SaaS y luego te permite verificar el estado.</p>
+                                </div>
+                            </div>
+
+                            {!customDomainAllowed && (
+                                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                                    Tu plan actual no incluye dominio propio. Primero solicita un cambio de plan desde la pestana de planes.
+                                </div>
+                            )}
+                        </SectionCard>
+
+                        <SectionCard>
+                            <div className="flex items-center gap-3">
+                                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-50 text-slate-700">
+                                    <RefreshCcw className="h-5 w-5" />
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-semibold text-slate-900">Pedidos y conexiones</h2>
+                                    <p className="mt-1 text-sm text-slate-600">Seguimiento rapido del proceso de compra o enlace de dominios.</p>
+                                </div>
+                            </div>
+
+                            {domainOrders.length > 0 ? (
+                                <div className="mt-6 space-y-3">
+                                    {domainOrders.map((order) => (
+                                        <div key={order.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                                            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                                                <div>
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-sm font-semibold text-slate-900">{order.domain_name}</p>
+                                                        <StatusPill label={toTitle(order.type)} tone="sky" />
+                                                        <StatusPill label={toTitle(order.status)} tone={statusTone(order.status)} />
+                                                    </div>
+                                                    <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
+                                                        {toTitle(order.provider)}{order.amount !== null ? ` · ${formatCurrency(order.amount, order.currency)}` : ''}
+                                                    </p>
+                                                    {order.error_message && <p className="mt-3 text-sm text-rose-600">{order.error_message}</p>}
+                                                </div>
+                                                <button type="button" onClick={() => purchaseForm.post(`/admin/subscription/domain-orders/${order.id}/sync`)} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-white">
+                                                    <RefreshCw className="h-4 w-4" />
+                                                    Sincronizar
+                                                </button>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button type="button" onClick={() => orderActionForm.post(`/admin/subscription/domain-orders/${order.id}/dns-configured`)} disabled={orderActionForm.processing || ['active', 'cancelled'].includes(order.status)} className="inline-flex items-center rounded-full border border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-white disabled:opacity-50">
+                                                    Ya configure DNS
+                                                </button>
+                                                <button type="button" onClick={() => orderActionForm.post(`/admin/subscription/domain-orders/${order.id}/retry`)} disabled={orderActionForm.processing || ['active', 'cancelled'].includes(order.status)} className="inline-flex items-center rounded-full border border-slate-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-white disabled:opacity-50">
+                                                    Reintentar
+                                                </button>
+                                                <button type="button" onClick={() => orderActionForm.post(`/admin/subscription/domain-orders/${order.id}/cancel`)} disabled={orderActionForm.processing || ['active', 'cancelled'].includes(order.status)} className="inline-flex items-center rounded-full border border-rose-200 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-rose-700 transition hover:bg-rose-50 disabled:opacity-50">
+                                                    Cancelar
+                                                </button>
+                                            </div>
+                                            <div className="mt-4 grid gap-3 md:grid-cols-[1fr,auto]">
+                                                <FormInput label="Nota manual" placeholder="Ejemplo: el cliente ya cambio DNS en GoDaddy." value={orderActionForm.data.note} onChange={(event) => orderActionForm.setData('note', event.target.value)} />
+                                                <div className="flex items-end">
+                                                    <button type="button" onClick={() => orderActionForm.post(`/admin/subscription/domain-orders/${order.id}/notes`)} disabled={orderActionForm.processing || !orderActionForm.data.note.trim()} className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:opacity-50">
+                                                        Guardar nota
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {(order.notes || order.next_check_at || order.verification_attempts > 0 || order.manual_state) && (
+                                                <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">
+                                                    {order.manual_state && <p><span className="font-semibold text-slate-900">Modo:</span> {toTitle(order.manual_state)}</p>}
+                                                    {order.verification_attempts > 0 && <p className="mt-1"><span className="font-semibold text-slate-900">Intentos:</span> {order.verification_attempts}</p>}
+                                                    {order.next_check_at && <p className="mt-1"><span className="font-semibold text-slate-900">Proximo chequeo:</span> {formatDate(order.next_check_at)}</p>}
+                                                    {order.notes && <p className="mt-2 whitespace-pre-line">{order.notes}</p>}
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="mt-6">
+                                    <EmptyState title="Sin pedidos de dominio" description="Aqui apareceran las compras nuevas y las conexiones de dominios externos que hagas desde este portal." />
+                                </div>
+                            )}
+                        </SectionCard>
+
+                        {domains.length > 0 ? domains.map((domain) => (
+                            <SectionCard key={domain.id}>
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                    <div>
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <h3 className="text-xl font-semibold text-slate-900">{domain.hostname}</h3>
+                                            {domain.is_primary && <StatusPill label="Principal" tone="sky" />}
+                                            <StatusPill label={toTitle(domain.cf_status || 'pending')} tone={statusTone(domain.cf_status)} />
+                                        </div>
+                                        <p className="mt-2 text-sm text-slate-500">Tipo {domain.type} {domain.verified_at ? `- actualizado ${formatDate(domain.verified_at)}` : ''}</p>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-2">
+                                        {domain.cf_custom_hostname_id && (
+                                            <button type="button" onClick={() => domainForm.post(`/admin/subscription/custom-domain/${domain.id}/sync`)} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50">
+                                                <RefreshCw className="h-4 w-4" />
+                                                Verificar
+                                            </button>
+                                        )}
+                                        <button type="button" onClick={() => navigator?.clipboard?.writeText(domain.hostname)} className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:bg-slate-50">
+                                            <Copy className="h-4 w-4" />
+                                            Copiar host
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                                    <DnsCard title="Registro principal" recordType={domain.instructions?.cname?.type} name={domain.instructions?.cname?.name} value={domain.instructions?.cname?.target} />
+                                    <DnsCard title="Validacion" recordType={domain.instructions?.txt?.type} name={domain.instructions?.txt?.name || 'Pendiente'} value={domain.instructions?.txt?.value || 'Cloudflare lo completara cuando genere el desafio'} />
+                                </div>
+                            </SectionCard>
+                        )) : (
+                            <EmptyState title="Sin dominios configurados" description="Cuando agregues tu primer dominio, aqui veras el CNAME o la validacion delegada y el estado devuelto por Cloudflare." />
+                        )}
+                    </section>
+                )}
+
                 {activeTab === 'history' && (
                     <SectionCard>
                         <div className="flex items-center gap-3">
@@ -598,6 +870,28 @@ function PaymentFact({ label, value }) {
         <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
             <p className="mt-2 text-lg font-semibold text-slate-900">{value}</p>
+        </div>
+    );
+}
+
+function DnsCard({ title, recordType, name, value }) {
+    return (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">{title}</p>
+            <div className="mt-4 space-y-3 text-sm">
+                <div>
+                    <p className="text-slate-500">Tipo</p>
+                    <p className="font-semibold text-slate-900">{recordType || 'Pendiente'}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">Nombre</p>
+                    <p className="break-all font-semibold text-slate-900">{name || 'Pendiente'}</p>
+                </div>
+                <div>
+                    <p className="text-slate-500">Valor</p>
+                    <p className="break-all font-semibold text-slate-900">{value || 'Pendiente'}</p>
+                </div>
+            </div>
         </div>
     );
 }

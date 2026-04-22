@@ -294,6 +294,18 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                     </form>
                                 </PanelCard>
 
+                                <PanelCard title="Pedidos y conexiones" description="Control manual para compras, conexion de dominios externos y overrides operativos.">
+                                    {tenant.domain_orders?.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {tenant.domain_orders.map((order) => (
+                                                <DomainOrderCard key={order.id} tenantId={tenant.id} order={order} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <EmptyState title="Sin pedidos de dominio" description="Todavia no hay compras o conexiones externas registradas para este tenant." />
+                                    )}
+                                </PanelCard>
+
                                 {tenant.domains?.length > 0 ? (
                                     tenant.domains.map((domain) => (
                                         <PanelCard
@@ -489,6 +501,131 @@ function InstructionCard({ title, type, name, value }) {
     );
 }
 
+function DomainOrderCard({ tenantId, order }) {
+    const form = useForm({
+        status: order.manual_state || order.status || 'verifying',
+        note: order.notes || '',
+    });
+
+    const submitOverride = (event) => {
+        event.preventDefault();
+        form.post(`/admin/saas/tenants/${tenantId}/domain-orders/${order.id}/override`, {
+            preserveScroll: true,
+        });
+    };
+
+    const retryOrder = () => {
+        form.post(`/admin/saas/tenants/${tenantId}/domain-orders/${order.id}/retry`, {
+            preserveScroll: true,
+        });
+    };
+
+    const markDnsConfigured = () => {
+        form.post(`/admin/saas/tenants/${tenantId}/domain-orders/${order.id}/dns-configured`, {
+            preserveScroll: true,
+        });
+    };
+
+    const cancelOrder = () => {
+        form.post(`/admin/saas/tenants/${tenantId}/domain-orders/${order.id}/cancel`, {
+            preserveScroll: true,
+        });
+    };
+
+    return (
+        <div className="rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-lg font-semibold text-slate-900">{order.domain_name}</p>
+                        <StatusBadge label={order.type || 'pedido'} tone="neutral" />
+                        <StatusBadge label={order.status || 'sin estado'} tone={domainOrderTone(order.status)} />
+                        {order.manual_state && <StatusBadge label={`manual: ${order.manual_state}`} tone="warning" />}
+                    </div>
+                    <p className="mt-2 text-sm text-slate-500">
+                        {order.provider || 'Proveedor no definido'}
+                        {order.amount !== null ? ` · ${order.currency || 'USD'} ${order.amount}` : ''}
+                    </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                    <button
+                        type="button"
+                        onClick={markDnsConfigured}
+                        disabled={form.processing || order.status === 'active' || order.status === 'cancelled'}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        DNS listo
+                    </button>
+                    <button
+                        type="button"
+                        onClick={retryOrder}
+                        disabled={form.processing || order.status === 'active' || order.status === 'cancelled'}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-60"
+                    >
+                        <RefreshCw className="h-4 w-4" />
+                        Reintentar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={cancelOrder}
+                        disabled={form.processing || order.status === 'active' || order.status === 'cancelled'}
+                        className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 disabled:opacity-60"
+                    >
+                        Cancelar
+                    </button>
+                </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                <InfoPanel title="Intentos" value={String(order.verification_attempts || 0)} helper="Cantidad de verificaciones o sincronizaciones realizadas." />
+                <InfoPanel title="Proxima revision" value={order.next_check_at || 'No programada'} helper="El job automatico la usa para seguir el flujo." />
+                <InfoPanel title="Ultimo error" value={order.error_message || 'Sin error'} helper="Si algo fallo, aqui queda visible para soporte." />
+            </div>
+
+            <form onSubmit={submitOverride} className="mt-4 grid gap-4 lg:grid-cols-[240px,1fr,auto]">
+                <Field label="Override de estado" error={form.errors.status}>
+                    <select
+                        value={form.data.status}
+                        onChange={(event) => form.setData('status', event.target.value)}
+                        className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                    >
+                        <option value="awaiting_dns">awaiting_dns</option>
+                        <option value="verifying">verifying</option>
+                        <option value="active">active</option>
+                        <option value="failed">failed</option>
+                        <option value="cancelled">cancelled</option>
+                    </select>
+                </Field>
+                <Field label="Nota interna" error={form.errors.note}>
+                    <textarea
+                        value={form.data.note}
+                        onChange={(event) => form.setData('note', event.target.value)}
+                        className="min-h-[110px] w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none"
+                        placeholder="Ej: cliente ya actualizo DNS en su proveedor y soporte confirma que podemos forzar verifying."
+                    />
+                </Field>
+                <div className="flex items-end">
+                    <button
+                        type="submit"
+                        disabled={form.processing}
+                        className="inline-flex h-[50px] w-full items-center justify-center gap-2 rounded-2xl bg-[#171411] px-4 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60"
+                    >
+                        Guardar override
+                    </button>
+                </div>
+            </form>
+
+            {order.notes && (
+                <div className="mt-4 rounded-2xl border border-[#ece5d8] bg-white px-4 py-3 text-sm text-slate-600">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Notas guardadas</p>
+                    <p className="mt-2 whitespace-pre-line">{order.notes}</p>
+                </div>
+            )}
+        </div>
+    );
+}
+
 function EmptyState({ title, description }) {
     return (
         <div className="rounded-[1.6rem] border border-dashed border-[#ddd3c5] bg-[#fbf9f6] px-5 py-8 text-center">
@@ -513,5 +650,13 @@ function billingTone(status) {
     if (['active', 'paid', 'completed'].includes(normalized)) return 'success';
     if (['pending', 'past_due', 'grace_period'].includes(normalized)) return 'warning';
     if (['failed', 'suspended', 'blocked', 'cancelled'].includes(normalized)) return 'danger';
+    return 'neutral';
+}
+
+function domainOrderTone(status) {
+    const normalized = String(status || '').toLowerCase();
+    if (['active', 'registered', 'completed'].includes(normalized)) return 'success';
+    if (['awaiting_dns', 'verifying', 'registering', 'creating_custom_hostname'].includes(normalized)) return 'warning';
+    if (['failed', 'cancelled'].includes(normalized)) return 'danger';
     return 'neutral';
 }

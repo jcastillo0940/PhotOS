@@ -88,6 +88,10 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::put('/saas/tenants/{tenant}', [SaasTenantController::class, 'update'])->name('admin.saas.tenants.update');
         Route::post('/saas/tenants/{tenant}/domains', [SaasTenantController::class, 'storeDomain'])->name('admin.saas.tenants.domains.store');
         Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
+        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/dns-configured', [SaasTenantController::class, 'markDomainOrderDnsConfigured'])->name('admin.saas.tenants.domain-orders.dns-configured');
+        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/retry', [SaasTenantController::class, 'retryDomainOrder'])->name('admin.saas.tenants.domain-orders.retry');
+        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/cancel', [SaasTenantController::class, 'cancelDomainOrder'])->name('admin.saas.tenants.domain-orders.cancel');
+        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/override', [SaasTenantController::class, 'overrideDomainOrder'])->name('admin.saas.tenants.domain-orders.override');
         Route::get('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'edit'])->name('admin.saas.tenants.website.edit');
         Route::put('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'update'])->name('admin.saas.tenants.website.update');
 
@@ -148,6 +152,15 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/subscription', [TenantSubscriptionPortalController::class, 'show'])->middleware('tenant.admin')->name('admin.subscription');
         Route::post('/subscription/offline-payment', [TenantSubscriptionPortalController::class, 'submitOfflinePayment'])->middleware('tenant.admin')->name('admin.subscription.offline-payment');
         Route::post('/subscription/plan-change', [TenantSubscriptionPortalController::class, 'requestPlanChange'])->middleware('tenant.admin')->name('admin.subscription.plan-change');
+        Route::post('/subscription/domain-search', [TenantSubscriptionPortalController::class, 'searchPurchasableDomains'])->middleware('tenant.admin')->name('admin.subscription.domain-search');
+        Route::post('/subscription/domain-purchase', [TenantSubscriptionPortalController::class, 'purchaseDomain'])->middleware('tenant.admin')->name('admin.subscription.domain-purchase');
+        Route::post('/subscription/custom-domain', [TenantSubscriptionPortalController::class, 'storeCustomDomain'])->middleware('tenant.admin')->name('admin.subscription.custom-domain');
+        Route::post('/subscription/custom-domain/{domain}/sync', [TenantSubscriptionPortalController::class, 'syncCustomDomain'])->middleware('tenant.admin')->name('admin.subscription.custom-domain.sync');
+        Route::post('/subscription/domain-orders/{domainOrder}/sync', [TenantSubscriptionPortalController::class, 'syncDomainOrder'])->middleware('tenant.admin')->name('admin.subscription.domain-orders.sync');
+        Route::post('/subscription/domain-orders/{domainOrder}/dns-configured', [TenantSubscriptionPortalController::class, 'markDomainOrderDnsConfigured'])->middleware('tenant.admin')->name('admin.subscription.domain-orders.dns-configured');
+        Route::post('/subscription/domain-orders/{domainOrder}/retry', [TenantSubscriptionPortalController::class, 'retryDomainOrder'])->middleware('tenant.admin')->name('admin.subscription.domain-orders.retry');
+        Route::post('/subscription/domain-orders/{domainOrder}/cancel', [TenantSubscriptionPortalController::class, 'cancelDomainOrder'])->middleware('tenant.admin')->name('admin.subscription.domain-orders.cancel');
+        Route::post('/subscription/domain-orders/{domainOrder}/notes', [TenantSubscriptionPortalController::class, 'noteDomainOrder'])->middleware('tenant.admin')->name('admin.subscription.domain-orders.notes');
         Route::get('/calendar', [EventController::class, 'index'])->middleware('tenant.admin')->name('admin.calendar');
         Route::post('/events', [EventController::class, 'store'])->middleware('tenant.admin')->name('admin.events.store');
         Route::delete('/events/{event}', [EventController::class, 'destroy'])->middleware('tenant.admin')->name('admin.events.delete');

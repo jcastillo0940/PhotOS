@@ -78,7 +78,7 @@ class SettingsController extends Controller
             'r2_key', 'r2_secret', 'r2_bucket', 'r2_endpoint',
             'paypal_client_id', 'paypal_secret', 'paypal_environment', 'paypal_webhook_id', 'tilopay_api_key', 'tilopay_secret_key',
             'alanube_email', 'alanube_api_url', 'alanube_api_key',
-            'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target',
+            'cloudflare_account_id', 'cloudflare_registrar_api_token', 'cloudflare_dns_api_token', 'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target',
             'smtp_enabled', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_scheme', 'smtp_from_address', 'smtp_from_name',
         ];
 
@@ -381,6 +381,9 @@ class SettingsController extends Controller
             ['key' => 'r2_secret', 'group' => 'storage', 'is_secret' => true],
             ['key' => 'r2_bucket', 'group' => 'storage', 'is_secret' => false],
             ['key' => 'r2_endpoint', 'group' => 'storage', 'is_secret' => false],
+            ['key' => 'cloudflare_account_id', 'group' => 'saas', 'is_secret' => false, 'value' => ''],
+            ['key' => 'cloudflare_registrar_api_token', 'group' => 'saas', 'is_secret' => true, 'value' => ''],
+            ['key' => 'cloudflare_dns_api_token', 'group' => 'saas', 'is_secret' => true, 'value' => ''],
             ['key' => 'cloudflare_saas_api_token', 'group' => 'saas', 'is_secret' => true, 'value' => ''],
             ['key' => 'cloudflare_saas_zone_id', 'group' => 'saas', 'is_secret' => false, 'value' => ''],
             ['key' => 'cloudflare_saas_cname_target', 'group' => 'saas', 'is_secret' => false, 'value' => ''],
@@ -461,7 +464,7 @@ class SettingsController extends Controller
     {
         return match ($key) {
             'r2_key', 'r2_secret', 'r2_bucket', 'r2_endpoint' => 'storage',
-            'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target' => 'saas',
+            'cloudflare_account_id', 'cloudflare_registrar_api_token', 'cloudflare_dns_api_token', 'cloudflare_saas_api_token', 'cloudflare_saas_zone_id', 'cloudflare_saas_cname_target', 'cloudflare_saas_dcv_target' => 'saas',
             'paypal_client_id', 'paypal_secret', 'paypal_environment', 'paypal_webhook_id', 'tilopay_api_key', 'tilopay_secret_key' => 'payment',
             'alanube_email', 'alanube_api_url', 'alanube_api_key' => 'einvoice',
             'smtp_enabled', 'smtp_host', 'smtp_port', 'smtp_username', 'smtp_password', 'smtp_scheme', 'smtp_from_address', 'smtp_from_name' => 'smtp',
@@ -474,6 +477,8 @@ class SettingsController extends Controller
         return in_array($key, [
             'r2_key',
             'r2_secret',
+            'cloudflare_registrar_api_token',
+            'cloudflare_dns_api_token',
             'cloudflare_saas_api_token',
             'paypal_client_id',
             'paypal_secret',

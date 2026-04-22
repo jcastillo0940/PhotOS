@@ -71,6 +71,11 @@ class Tenant extends Model
         return $this->hasMany(TenantSubscription::class);
     }
 
+    public function domainOrders(): HasMany
+    {
+        return $this->hasMany(DomainOrder::class);
+    }
+
     public function latestSubscription(): HasOne
     {
         return $this->hasOne(TenantSubscription::class)->latestOfMany();

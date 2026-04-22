@@ -63,6 +63,24 @@ class CloudflareCustomHostnameService
         $metadata = $domain->metadata ?? [];
         $ownership = $metadata['ownership_verification'] ?? [];
         $validation = $metadata['ssl_validation'] ?? [];
+        $delegated = $metadata['dcv_delegation'] ?? [];
+
+        $delegatedName = $delegated['cname'] ?? $this->delegatedDcvRecordName($domain->hostname);
+        $delegatedTarget = $delegated['cname_target'] ?? $this->delegatedDcvRecordTarget($domain->hostname);
+        $hasDelegatedDcv = filled($delegatedName) && filled($delegatedTarget);
+        $validationRecord = $hasDelegatedDcv
+            ? [
+                'type' => 'CNAME',
+                'name' => $delegatedName,
+                'value' => $delegatedTarget,
+                'mode' => 'delegated_cname',
+            ]
+            : [
+                'type' => 'TXT',
+                'name' => $ownership['name'] ?? $validation['txt_name'] ?? null,
+                'value' => $ownership['value'] ?? $validation['txt_value'] ?? null,
+                'mode' => 'txt',
+            ];
 
         return [
             'cname' => [
@@ -70,11 +88,7 @@ class CloudflareCustomHostnameService
                 'name' => $domain->hostname,
                 'target' => $this->managedCnameTarget(),
             ],
-            'txt' => [
-                'type' => 'TXT',
-                'name' => $ownership['name'] ?? $validation['txt_name'] ?? null,
-                'value' => $ownership['value'] ?? $validation['txt_value'] ?? null,
-            ],
+            'txt' => $validationRecord,
         ];
     }
 
@@ -110,6 +124,9 @@ class CloudflareCustomHostnameService
     {
         $ownership = $payload['ownership_verification'] ?? [];
         $ssl = $payload['ssl'] ?? [];
+        $delegated = $ssl['dcv_delegation_records'][0]
+            ?? $payload['dcv_delegation_records'][0]
+            ?? [];
 
         $domain->forceFill([
             'cf_custom_hostname_id' => $payload['id'] ?? $domain->cf_custom_hostname_id,
@@ -128,6 +145,11 @@ class CloudflareCustomHostnameService
                     'txt_name' => $ssl['validation_records'][0]['txt_name'] ?? null,
                     'txt_value' => $ssl['validation_records'][0]['txt_value'] ?? null,
                 ],
+                'dcv_delegation' => [
+                    'cname' => $delegated['cname'] ?? $this->delegatedDcvRecordName($domain->hostname),
+                    'cname_target' => $delegated['cname_target'] ?? $this->delegatedDcvRecordTarget($domain->hostname),
+                    'status' => $delegated['status'] ?? null,
+                ],
                 'raw_cloudflare' => $payload,
             ]),
         ])->save();
@@ -136,5 +158,21 @@ class CloudflareCustomHostnameService
             'domain' => $domain->fresh(),
             'instructions' => $this->dnsInstructions($domain->fresh()),
         ];
+    }
+
+    protected function delegatedDcvRecordName(string $hostname): string
+    {
+        return '_acme-challenge.'.$hostname;
+    }
+
+    protected function delegatedDcvRecordTarget(string $hostname): ?string
+    {
+        $suffix = trim((string) config('services.cloudflare_saas.dcv_target'), '.');
+
+        if ($suffix === '') {
+            return null;
+        }
+
+        return trim($hostname, '.').'.'.$suffix;
     }
 }
