@@ -507,56 +507,157 @@ function DomainIntegrationGuide({ tenant, cloudflare }) {
     const preferredDomain = tenant.custom_domain || tenant.domains?.find((domain) => domain.type === 'custom')?.hostname || '';
     const customDomain = tenant.domains?.find((domain) => domain.hostname === preferredDomain)
         || tenant.domains?.find((domain) => domain.type === 'custom');
-    const cnameTarget = customDomain?.instructions?.cname?.target || cloudflare?.managed_cname_target || 'Configura cloudflare_saas_cname_target';
+    const cnameTarget = customDomain?.instructions?.cname?.target || cloudflare?.managed_cname_target || '';
     const validation = customDomain?.instructions?.txt;
     const isApex = preferredDomain && preferredDomain.split('.').length === 2;
     const loginUrl = preferredDomain ? `https://${preferredDomain}/login` : 'https://dominio-del-cliente.com/login';
     const fallbackDcvTarget = preferredDomain && cloudflare?.dcv_target
         ? `${preferredDomain}.${String(cloudflare.dcv_target).replace(/^\.+|\.+$/g, '')}`
         : cloudflare?.dcv_target;
+    const validationValue = validation?.value || fallbackDcvTarget || '';
+    const dnsReady = Boolean(cloudflare?.enabled && cnameTarget && validationValue && customDomain?.cf_custom_hostname_id);
+    const namecheapHost = (host) => {
+        if (!host) return 'Pendiente';
+        const domain = preferredDomain || customDomain?.hostname || '';
+        if (host === domain) return '@';
+        if (domain && host.endsWith(`.${domain}`)) {
+            return host.slice(0, -domain.length - 1);
+        }
+
+        return host;
+    };
 
     return (
-        <PanelCard title="Guia para integrar dominio del cliente" description="Pasos y registros para que el cliente use su dominio propio con SSL.">
-            <div className="grid gap-4 xl:grid-cols-2">
-                <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Dominio objetivo</p>
-                    <p className="mt-2 break-all text-lg font-semibold text-slate-900">{preferredDomain || 'No configurado'}</p>
-                    <p className="mt-2 break-words text-sm leading-6 text-slate-500">
-                        El acceso final debe ser {loginUrl}. Si el dominio aun no aparece en la lista inferior, agregalo primero como Dominio propio.
+        <PanelCard title="Guia simple para conectar el dominio" description={`Objetivo final: ${loginUrl}`}>
+            {!dnsReady && (
+                <div className="mb-5 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+                    <p className="font-semibold">Antes de tocar Namecheap falta completar Cloudflare for SaaS.</p>
+                    <p className="mt-2">
+                        Mientras veas valores como Pendiente o vacio, no hay nada definitivo que copiar al DNS del cliente.
+                        Configura Cloudflare for SaaS, guarda `cloudflare_saas_cname_target`, crea/verifica el custom hostname y vuelve a esta pantalla.
                     </p>
                 </div>
+            )}
 
-                <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Nota para dominio raiz</p>
-                    <p className="mt-2 break-words text-sm leading-6 text-amber-800">
-                        Para dominios raiz como {preferredDomain || 'cliente.com'}, el proveedor DNS debe soportar CNAME flattening, ALIAS o ANAME en @.
-                        Si no lo soporta, usa www, mueve DNS a Cloudflare o habilita una solucion apex compatible.
-                    </p>
+            <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Que vamos a conectar</p>
+                <p className="mt-2 break-all text-lg font-semibold text-slate-900">{preferredDomain || 'No configurado'}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-500">
+                    Si el cliente quiere exactamente {preferredDomain || 'cliente.com'}, usa la opcion dominio raiz.
+                    Si Namecheap no permite ese registro o quieres algo mas simple, usa www y el login sera https://www.{preferredDomain || 'cliente.com'}/login.
+                </p>
+            </div>
+
+            <div className="mt-5 grid gap-4 xl:grid-cols-2">
+                <UniversalDnsTable
+                    title="Opcion A: usar dominio raiz"
+                    helper={`Para que ${preferredDomain || 'cliente.com'} abra directamente el SaaS. En muchos paneles el Host del dominio raiz se escribe como @.`}
+                    rows={[
+                        {
+                            type: isApex ? 'ALIAS Record' : 'CNAME Record',
+                            host: isApex ? '@' : namecheapHost(preferredDomain),
+                            value: cnameTarget || 'Pendiente: falta cloudflare_saas_cname_target',
+                            ttl: 'Automatic',
+                        },
+                        {
+                            type: validation?.type === 'TXT' ? 'TXT Record' : 'CNAME Record',
+                            host: namecheapHost(validation?.name || (preferredDomain ? `_acme-challenge.${preferredDomain}` : '')),
+                            value: validationValue || 'Pendiente: falta validacion de Cloudflare',
+                            ttl: 'Automatic',
+                        },
+                    ]}
+                />
+                <UniversalDnsTable
+                    title="Opcion B: usar www"
+                    helper={`Mas facil si el dominio raiz da problemas. Login: https://www.${preferredDomain || 'cliente.com'}/login`}
+                    rows={[
+                        {
+                            type: 'CNAME Record',
+                            host: 'www',
+                            value: cnameTarget || 'Pendiente: falta cloudflare_saas_cname_target',
+                            ttl: 'Automatic',
+                        },
+                        {
+                            type: validation?.type === 'TXT' ? 'TXT Record' : 'CNAME Record',
+                            host: preferredDomain ? `_acme-challenge.www` : 'Pendiente',
+                            value: validationValue ? validationValue.replace(preferredDomain, `www.${preferredDomain}`) : 'Pendiente: falta validacion de Cloudflare',
+                            ttl: 'Automatic',
+                        },
+                    ]}
+                />
+            </div>
+
+            <div className="mt-5 rounded-[1.5rem] border border-[#e6e0d5] bg-white p-4">
+                <p className="font-semibold text-slate-900">Paso a paso universal</p>
+                <div className="mt-3 grid gap-3 text-sm leading-6 text-slate-600 lg:grid-cols-4">
+                    <GuideStep number="1" text="Entra al panel donde el cliente maneja DNS: Hostinger, cPanel, Namecheap, GoDaddy, Cloudflare, etc." />
+                    <GuideStep number="2" text="Busca DNS Zone, Advanced DNS, Zone Editor, DNS Records o Administrar DNS." />
+                    <GuideStep number="3" text="Elimina registros A, CNAME, ALIAS o Redirect que usen el mismo Host que vas a crear." />
+                    <GuideStep number="4" text="Crea los registros de la tabla, espera propagacion y pulsa Verificar o DNS listo." />
                 </div>
             </div>
 
-            <div className="mt-5 grid gap-4 lg:grid-cols-2">
-                <GuideRecordCard
-                    title="Registro principal"
-                    type={isApex ? 'CNAME flattening / ALIAS / ANAME' : 'CNAME'}
-                    name={preferredDomain || 'dominio-del-cliente.com'}
-                    value={cnameTarget}
+            <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                <ProviderHint
+                    title="Hostinger"
+                    text="Ve a Dominios > DNS / Nameservers > DNS Records. Usa Type, Name, Points to y TTL."
                 />
-                <GuideRecordCard
-                    title="Validacion SSL"
-                    type={validation?.type || 'CNAME'}
-                    name={validation?.name || (preferredDomain ? `_acme-challenge.${preferredDomain}` : '_acme-challenge.dominio-del-cliente.com')}
-                    value={validation?.value || fallbackDcvTarget || 'Pendiente de Cloudflare'}
+                <ProviderHint
+                    title="cPanel"
+                    text="Ve a Domains > Zone Editor > Manage. Usa Add Record y coloca Type, Name, Record y TTL."
+                />
+                <ProviderHint
+                    title="Namecheap"
+                    text="Ve a Domain List > Manage > Advanced DNS > Host Records. Usa Type, Host, Value y TTL."
                 />
             </div>
 
-            <div className="mt-5 grid gap-3 text-sm leading-6 text-slate-600 lg:grid-cols-4">
-                <GuideStep number="1" text="Agrega el dominio como Dominio propio si aun no aparece abajo." />
-                <GuideStep number="2" text="Copia los registros DNS en el proveedor del cliente." />
-                <GuideStep number="3" text="Pulsa Verificar o DNS listo para reintentar la validacion." />
-                <GuideStep number="4" text="Cuando Cloudflare marque active, usa el login del dominio propio." />
+            <div className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+                <p className="font-semibold text-slate-900">Como traducir los campos segun el proveedor</p>
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                    <p><strong>Host / Name / Nombre:</strong> es la parte izquierda del DNS. Para dominio raiz suele ser @. Para www suele ser www. Para validacion puede ser _acme-challenge.</p>
+                    <p><strong>Value / Target / Points to / Record:</strong> es el destino que debe copiarse exactamente desde la tabla.</p>
+                    <p><strong>Type / Tipo:</strong> puede ser CNAME, TXT o ALIAS/ANAME. Usa ALIAS/ANAME solo cuando sea dominio raiz y el panel lo permita.</p>
+                    <p><strong>TTL:</strong> dejalo en Automatic, Default o 30 minutos si el panel pide elegir uno.</p>
+                </div>
             </div>
         </PanelCard>
+    );
+}
+
+function UniversalDnsTable({ title, helper, rows }) {
+    return (
+        <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-white p-4">
+            <p className="font-semibold text-slate-900">{title}</p>
+            <p className="mt-1 text-sm leading-6 text-slate-500">{helper}</p>
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[#ece5d8]">
+                <div className="grid grid-cols-4 bg-[#171411] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                    <p>Type</p>
+                    <p>Host / Name</p>
+                    <p>Value / Target</p>
+                    <p>TTL</p>
+                </div>
+                {rows.map((row, index) => (
+                    <div key={`${row.type}-${row.host}-${index}`} className="grid grid-cols-4 gap-2 border-t border-[#ece5d8] bg-[#fbf9f6] px-3 py-3 text-sm">
+                        <DnsCell value={row.type} />
+                        <DnsCell value={row.host} />
+                        <DnsCell value={row.value} />
+                        <DnsCell value={row.ttl} />
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function DnsCell({ value }) {
+    return (
+        <div className="min-w-0">
+            <p className="break-all font-semibold text-slate-900">{value}</p>
+            <button type="button" onClick={() => copy(value)} className="mt-1 text-xs font-semibold text-slate-500 hover:text-black">
+                Copiar
+            </button>
+        </div>
     );
 }
 
@@ -583,6 +684,15 @@ function CopyRow({ label, value }) {
                 </button>
             </div>
             <p className="break-all font-semibold text-slate-900">{value}</p>
+        </div>
+    );
+}
+
+function ProviderHint({ title, text }) {
+    return (
+        <div className="rounded-[1.25rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
+            <p className="font-semibold text-slate-900">{title}</p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">{text}</p>
         </div>
     );
 }
