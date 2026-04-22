@@ -511,10 +511,14 @@ class GalleryController extends Controller
         return back(status: 303)->with('success', "Personas detectadas limpiadas para la foto #{$photo->id}.");
     }
 
-    public function analyzePhotoWithGemini(Project $project, Photo $photo)
+    public function analyzePhotoWithGemini(Request $request, Project $project, Photo $photo)
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
         abort_unless($photo->project_id === $project->id, 404);
+
+        if ($this->photoAlreadyAnalyzedByGemini($photo) && ! $request->boolean('force')) {
+            return back(status: 303)->with('error', 'Esta foto ya fue analizada con Gemini. Si deseas procesarla nuevamente, confirma el reanalisis porque volvera a gastar tokens.');
+        }
 
         \Log::channel('daily')->info('[GEMINI DEBUG] analyzePhotoWithGemini start', [
             'photo_id'       => $photo->id,
@@ -920,6 +924,13 @@ class GalleryController extends Controller
         return $project->hasSelectedSponsors()
             ? null
             : 'Selecciona al menos un patrocinador para este evento antes de ejecutar la IA.';
+    }
+
+    private function photoAlreadyAnalyzedByGemini(Photo $photo): bool
+    {
+        return filled($photo->gemini_request_id)
+            || (int) ($photo->gemini_total_tokens ?? 0) > 0
+            || (int) ($photo->gemini_tokens ?? 0) > 0;
     }
 
     private function applyRecognitionResult(Photo $photo, array $people, ?string $error = null): void

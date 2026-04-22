@@ -10,10 +10,11 @@ import { usePhotoUploader } from '@/hooks/usePhotoUploader';
 const PEOPLE_COUNT_OPTIONS = ['0 personas', '1 persona', '2 personas', '3 personas', '4 o mas personas'];
 
 const TagFields = React.memo(function TagFields({
-    photoId, dark = false, photoValues, savePhoto,
+    photo, photoId, dark = false, photoValues, savePhoto,
     sportsModeEnabled, supportsSponsorDetection,
     isAnalyzing, analyzeWithGemini, canManageGallery,
 }) {
+    const wasAnalyzedWithGemini = !!(photo?.gemini_request_id || photo?.gemini_total_tokens || photo?.gemini_tokens);
     const inputCls = dark
         ? 'w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-slate-200 outline-none focus:border-amber-400 focus:bg-white/10'
         : 'w-full rounded-xl border border-[#e6e0d5] bg-[#fbf9f6] px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400 focus:bg-white';
@@ -23,7 +24,7 @@ const TagFields = React.memo(function TagFields({
             {sportsModeEnabled && canManageGallery && (
                 <button
                     type="button"
-                    onClick={() => analyzeWithGemini(photoId)}
+                    onClick={() => analyzeWithGemini(photo || { id: photoId })}
                     disabled={isAnalyzing}
                     className={clsx(
                         'inline-flex items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-semibold transition',
@@ -33,7 +34,7 @@ const TagFields = React.memo(function TagFields({
                     )}
                 >
                     {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    {isAnalyzing ? 'Analizando...' : 'Analizar con Gemini'}
+                    {isAnalyzing ? 'Analizando...' : wasAnalyzedWithGemini ? 'Reanalizar con Gemini' : 'Analizar con Gemini'}
                 </button>
             )}
             <div className="flex flex-col gap-2">
@@ -442,9 +443,17 @@ export default function Gallery({ project, faceRecognition }) {
     const [geminiLoading, setGeminiLoading] = React.useState({});
     const geminiEnabled = !!faceRecognition?.gemini_enabled;
 
-    const analyzeWithGemini = (photoId) => {
+    const analyzeWithGemini = (photo) => {
+        const photoId = photo.id;
+        const wasAnalyzed = !!(photo.gemini_request_id || photo.gemini_total_tokens || photo.gemini_tokens);
+        const force = wasAnalyzed
+            ? window.confirm('Esta foto ya fue analizada con Gemini. Procesarla nuevamente volvera a gastar tokens. Deseas continuar?')
+            : false;
+
+        if (wasAnalyzed && !force) return;
+
         setGeminiLoading((prev) => ({ ...prev, [photoId]: true }));
-        router.post(`/admin/projects/${project.id}/photos/${photoId}/gemini`, {}, {
+        router.post(`/admin/projects/${project.id}/photos/${photoId}/gemini`, { force }, {
             preserveScroll: true,
             onFinish: () => setGeminiLoading((prev) => ({ ...prev, [photoId]: false })),
         });
@@ -620,6 +629,7 @@ export default function Gallery({ project, faceRecognition }) {
                                     <div className="p-4 space-y-4">
                                         {canManageGallery && (
                                             <TagFields
+                                                photo={photo}
                                                 photoId={photo.id}
                                                 photoValues={photoState[photo.id]}
                                                 savePhoto={savePhoto}
@@ -813,6 +823,7 @@ export default function Gallery({ project, faceRecognition }) {
                             {canManageGallery && (
                                 <div className="w-72 shrink-0 overflow-y-auto border-l border-white/10 bg-[#1a1714] p-4 pt-14">
                                     <TagFields
+                                        photo={lightboxPhoto}
                                         photoId={lightboxPhoto.id}
                                         dark
                                         photoValues={photoState[lightboxPhoto.id]}
