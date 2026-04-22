@@ -316,10 +316,10 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                             description={`${domain.type} · ${domain.cf_status || 'pending'}`}
                                             actions={
                                                 <div className="flex flex-wrap gap-2">
-                                                    {domain.cf_custom_hostname_id && (
-                                                        <button type="button" onClick={() => domainForm.post(`/admin/saas/tenants/${tenant.id}/domains/${domain.id}/sync`)} className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
+                                                    {domain.type === 'custom' && (
+                                                        <button type="button" onClick={() => domainForm.post(`/admin/saas/tenants/${tenant.id}/domains/${domain.id}/sync`, { preserveScroll: true })} className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
                                                             <RefreshCw className="h-4 w-4" />
-                                                            Verificar
+                                                            {domain.cf_custom_hostname_id ? 'Verificar' : 'Crear/Reintentar en Cloudflare'}
                                                         </button>
                                                     )}
                                                     <button type="button" onClick={() => copy(domain.hostname)} className="inline-flex items-center gap-2 rounded-2xl border border-[#e6e0d5] px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50">
@@ -515,7 +515,9 @@ function DomainIntegrationGuide({ tenant, cloudflare }) {
         ? `${preferredDomain}.${String(cloudflare.dcv_target).replace(/^\.+|\.+$/g, '')}`
         : cloudflare?.dcv_target;
     const validationValue = validation?.value || fallbackDcvTarget || '';
-    const dnsReady = Boolean(cloudflare?.enabled && cnameTarget && validationValue && customDomain?.cf_custom_hostname_id);
+    const apiReady = Boolean(cloudflare?.enabled);
+    const hostnameCreated = Boolean(customDomain?.cf_custom_hostname_id);
+    const dnsReady = Boolean(apiReady && cnameTarget && validationValue && hostnameCreated);
     const namecheapHost = (host) => {
         if (!host) return 'Pendiente';
         const domain = preferredDomain || customDomain?.hostname || '';
@@ -531,10 +533,11 @@ function DomainIntegrationGuide({ tenant, cloudflare }) {
         <PanelCard title="Guia simple para conectar el dominio" description={`Objetivo final: ${loginUrl}`}>
             {!dnsReady && (
                 <div className="mb-5 rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
-                    <p className="font-semibold">Antes de tocar Namecheap falta completar Cloudflare for SaaS.</p>
+                    <p className="font-semibold">Primero crea o verifica el dominio en Cloudflare desde esta misma pantalla.</p>
                     <p className="mt-2">
-                        Mientras veas valores como Pendiente o vacio, no hay nada definitivo que copiar al DNS del cliente.
-                        Configura Cloudflare for SaaS, guarda `cloudflare_saas_cname_target`, crea/verifica el custom hostname y vuelve a esta pantalla.
+                        Si todavia no hay valores definitivos, pulsa <strong>Crear/Reintentar en Cloudflare</strong> en la tarjeta del dominio.
+                        El sistema llamara la API, guardara el custom hostname y despues mostrara los registros DNS para Hostinger, cPanel, Namecheap o cualquier proveedor.
+                        {!apiReady && ' Si ese boton falla, faltan el API token o el Zone ID de Cloudflare for SaaS en Configuracion global.'}
                     </p>
                 </div>
             )}
@@ -556,7 +559,7 @@ function DomainIntegrationGuide({ tenant, cloudflare }) {
                         {
                             type: isApex ? 'ALIAS Record' : 'CNAME Record',
                             host: isApex ? '@' : namecheapHost(preferredDomain),
-                            value: cnameTarget || 'Pendiente: falta cloudflare_saas_cname_target',
+                            value: cnameTarget || 'Se completara al provisionar Cloudflare',
                             ttl: 'Automatic',
                         },
                         {
@@ -574,7 +577,7 @@ function DomainIntegrationGuide({ tenant, cloudflare }) {
                         {
                             type: 'CNAME Record',
                             host: 'www',
-                            value: cnameTarget || 'Pendiente: falta cloudflare_saas_cname_target',
+                            value: cnameTarget || 'Se completara al provisionar Cloudflare',
                             ttl: 'Automatic',
                         },
                         {

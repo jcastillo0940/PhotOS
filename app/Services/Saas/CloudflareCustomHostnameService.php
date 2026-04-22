@@ -12,13 +12,20 @@ class CloudflareCustomHostnameService
     public function enabled(): bool
     {
         return filled(config('services.cloudflare_saas.api_token'))
-            && filled(config('services.cloudflare_saas.zone_id'))
-            && filled(config('services.cloudflare_saas.managed_cname_target'));
+            && filled(config('services.cloudflare_saas.zone_id'));
     }
 
     public function managedCnameTarget(): ?string
     {
-        return config('services.cloudflare_saas.managed_cname_target');
+        $configuredTarget = config('services.cloudflare_saas.managed_cname_target');
+
+        if (filled($configuredTarget)) {
+            return $configuredTarget;
+        }
+
+        $appHost = parse_url((string) config('app.url'), PHP_URL_HOST);
+
+        return filled($appHost) ? $appHost : null;
     }
 
     public function dcvTarget(): ?string
@@ -52,8 +59,8 @@ class CloudflareCustomHostnameService
             throw new RuntimeException('Cloudflare for SaaS no esta configurado en este entorno.');
         }
 
-        if (!$domain->cf_custom_hostname_id) {
-            throw new RuntimeException('Este dominio aun no tiene un custom hostname registrado en Cloudflare.');
+        if (! $domain->cf_custom_hostname_id) {
+            return $this->createCustomHostname($domain);
         }
 
         $response = $this->request()->get($this->endpoint('/'.$domain->cf_custom_hostname_id));
