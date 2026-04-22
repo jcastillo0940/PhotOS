@@ -274,6 +274,8 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
 
                         {activeTab === 'domains' && (
                             <>
+                                <DomainIntegrationGuide tenant={tenant} cloudflare={cloudflare} />
+
                                 <PanelCard title="Agregar dominio" description="Subdominio interno o dominio propio con onboarding guiado.">
                                     <form onSubmit={submitDomain} className="grid gap-4 lg:grid-cols-[1fr,220px,auto]">
                                         <Field label="Hostname" error={domainForm.errors.hostname}>
@@ -365,9 +367,9 @@ function PanelCard({ title, description, actions, children }) {
     return (
         <article className="rounded-[2rem] border border-[#e6e0d5] bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <p className="text-xl font-semibold text-slate-900">{title}</p>
-                    {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+                <div className="min-w-0">
+                    <p className="break-words text-xl font-semibold text-slate-900">{title}</p>
+                    {description && <p className="mt-1 break-words text-sm text-slate-500">{description}</p>}
                 </div>
                 {actions}
             </div>
@@ -385,14 +387,14 @@ function KpiCard({ title, value, helper, icon: Icon }) {
                     <Icon className="h-4 w-4" />
                 </div>
             </div>
-            <p className="mt-3 text-lg font-semibold text-slate-900">{value}</p>
-            <p className="mt-1 text-xs leading-5 text-slate-500">{helper}</p>
+            <p className="mt-3 break-words text-lg font-semibold text-slate-900">{value}</p>
+            <p className="mt-1 break-words text-xs leading-5 text-slate-500">{helper}</p>
         </div>
     );
 }
 
 function QuickAction({ href, icon: Icon, title, helper, external = false }) {
-    const commonClassName = 'rounded-[1.5rem] border border-[#e6e0d5] bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
+    const commonClassName = 'min-w-0 rounded-[1.5rem] border border-[#e6e0d5] bg-white px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md';
 
     if (external) {
         return (
@@ -415,9 +417,9 @@ function ActionContent({ icon: Icon, title, helper }) {
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#171411] text-white">
                 <Icon className="h-4 w-4" />
             </div>
-            <div>
-                <p className="text-sm font-semibold text-slate-900">{title}</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">{helper}</p>
+            <div className="min-w-0">
+                <p className="break-words text-sm font-semibold text-slate-900">{title}</p>
+                <p className="mt-1 break-all text-xs leading-5 text-slate-500">{helper}</p>
             </div>
         </div>
     );
@@ -429,9 +431,9 @@ function SummaryCard({ title, rows, accent = false }) {
             <p className={clsx('text-[11px] font-semibold uppercase tracking-[0.22em]', accent ? 'text-white/55' : 'text-slate-400')}>{title}</p>
             <div className="mt-4 space-y-3">
                 {rows.map(([label, value]) => (
-                    <div key={`${label}-${value}`} className="flex items-start justify-between gap-3">
+                    <div key={`${label}-${value}`} className="grid grid-cols-[minmax(0,0.8fr),minmax(0,1.2fr)] items-start gap-3">
                         <p className={clsx('text-xs', accent ? 'text-white/65' : 'text-slate-500')}>{label}</p>
-                        <p className={clsx('text-right text-sm font-semibold', accent ? 'text-white' : 'text-slate-900')}>{value}</p>
+                        <p className={clsx('break-words text-right text-sm font-semibold', accent ? 'text-white' : 'text-slate-900')}>{value}</p>
                     </div>
                 ))}
             </div>
@@ -501,6 +503,99 @@ function InstructionCard({ title, type, name, value }) {
     );
 }
 
+function DomainIntegrationGuide({ tenant, cloudflare }) {
+    const preferredDomain = tenant.custom_domain || tenant.domains?.find((domain) => domain.type === 'custom')?.hostname || '';
+    const customDomain = tenant.domains?.find((domain) => domain.hostname === preferredDomain)
+        || tenant.domains?.find((domain) => domain.type === 'custom');
+    const cnameTarget = customDomain?.instructions?.cname?.target || cloudflare?.managed_cname_target || 'Configura cloudflare_saas_cname_target';
+    const validation = customDomain?.instructions?.txt;
+    const isApex = preferredDomain && preferredDomain.split('.').length === 2;
+    const loginUrl = preferredDomain ? `https://${preferredDomain}/login` : 'https://dominio-del-cliente.com/login';
+    const fallbackDcvTarget = preferredDomain && cloudflare?.dcv_target
+        ? `${preferredDomain}.${String(cloudflare.dcv_target).replace(/^\.+|\.+$/g, '')}`
+        : cloudflare?.dcv_target;
+
+    return (
+        <PanelCard title="Guia para integrar dominio del cliente" description="Pasos y registros para que el cliente use su dominio propio con SSL.">
+            <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Dominio objetivo</p>
+                    <p className="mt-2 break-all text-lg font-semibold text-slate-900">{preferredDomain || 'No configurado'}</p>
+                    <p className="mt-2 break-words text-sm leading-6 text-slate-500">
+                        El acceso final debe ser {loginUrl}. Si el dominio aun no aparece en la lista inferior, agregalo primero como Dominio propio.
+                    </p>
+                </div>
+
+                <div className="rounded-[1.5rem] border border-amber-200 bg-amber-50 p-4">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-700">Nota para dominio raiz</p>
+                    <p className="mt-2 break-words text-sm leading-6 text-amber-800">
+                        Para dominios raiz como {preferredDomain || 'cliente.com'}, el proveedor DNS debe soportar CNAME flattening, ALIAS o ANAME en @.
+                        Si no lo soporta, usa www, mueve DNS a Cloudflare o habilita una solucion apex compatible.
+                    </p>
+                </div>
+            </div>
+
+            <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <GuideRecordCard
+                    title="Registro principal"
+                    type={isApex ? 'CNAME flattening / ALIAS / ANAME' : 'CNAME'}
+                    name={preferredDomain || 'dominio-del-cliente.com'}
+                    value={cnameTarget}
+                />
+                <GuideRecordCard
+                    title="Validacion SSL"
+                    type={validation?.type || 'CNAME'}
+                    name={validation?.name || (preferredDomain ? `_acme-challenge.${preferredDomain}` : '_acme-challenge.dominio-del-cliente.com')}
+                    value={validation?.value || fallbackDcvTarget || 'Pendiente de Cloudflare'}
+                />
+            </div>
+
+            <div className="mt-5 grid gap-3 text-sm leading-6 text-slate-600 lg:grid-cols-4">
+                <GuideStep number="1" text="Agrega el dominio como Dominio propio si aun no aparece abajo." />
+                <GuideStep number="2" text="Copia los registros DNS en el proveedor del cliente." />
+                <GuideStep number="3" text="Pulsa Verificar o DNS listo para reintentar la validacion." />
+                <GuideStep number="4" text="Cuando Cloudflare marque active, usa el login del dominio propio." />
+            </div>
+        </PanelCard>
+    );
+}
+
+function GuideRecordCard({ title, type, name, value }) {
+    return (
+        <div className="rounded-[1.5rem] border border-[#e6e0d5] bg-white p-4">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">{title}</p>
+            <div className="mt-3 space-y-3 text-sm">
+                <CopyRow label="Tipo" value={type} />
+                <CopyRow label="Nombre" value={name} />
+                <CopyRow label="Valor" value={value} />
+            </div>
+        </div>
+    );
+}
+
+function CopyRow({ label, value }) {
+    return (
+        <div className="grid gap-2 rounded-2xl bg-[#fbf9f6] p-3">
+            <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">{label}</p>
+                <button type="button" onClick={() => copy(value)} className="text-xs font-semibold text-slate-700 hover:text-black">
+                    Copiar
+                </button>
+            </div>
+            <p className="break-all font-semibold text-slate-900">{value}</p>
+        </div>
+    );
+}
+
+function GuideStep({ number, text }) {
+    return (
+        <div className="rounded-[1.25rem] border border-[#e6e0d5] bg-[#fbf9f6] p-4">
+            <p className="mb-2 flex h-7 w-7 items-center justify-center rounded-full bg-[#171411] text-xs font-bold text-white">{number}</p>
+            <p className="break-words">{text}</p>
+        </div>
+    );
+}
+
 function DomainOrderCard({ tenantId, order }) {
     const form = useForm({
         status: order.manual_state || order.status || 'verifying',
@@ -535,14 +630,14 @@ function DomainOrderCard({ tenantId, order }) {
     return (
         <div className="rounded-[1.6rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-lg font-semibold text-slate-900">{order.domain_name}</p>
+                        <p className="break-all text-lg font-semibold text-slate-900">{order.domain_name}</p>
                         <StatusBadge label={order.type || 'pedido'} tone="neutral" />
                         <StatusBadge label={order.status || 'sin estado'} tone={domainOrderTone(order.status)} />
                         {order.manual_state && <StatusBadge label={`manual: ${order.manual_state}`} tone="warning" />}
                     </div>
-                    <p className="mt-2 text-sm text-slate-500">
+                    <p className="mt-2 break-words text-sm text-slate-500">
                         {order.provider || 'Proveedor no definido'}
                         {order.amount !== null ? ` · ${order.currency || 'USD'} ${order.amount}` : ''}
                     </p>

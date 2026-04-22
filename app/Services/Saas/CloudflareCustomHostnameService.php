@@ -21,6 +21,11 @@ class CloudflareCustomHostnameService
         return config('services.cloudflare_saas.managed_cname_target');
     }
 
+    public function dcvTarget(): ?string
+    {
+        return config('services.cloudflare_saas.dcv_target');
+    }
+
     public function createCustomHostname(TenantDomain $domain): array
     {
         if (!$this->enabled()) {

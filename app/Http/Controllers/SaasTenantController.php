@@ -506,6 +506,7 @@ class SaasTenantController extends Controller
         return [
             'enabled' => $this->cloudflare->enabled(),
             'managed_cname_target' => $this->cloudflare->managedCnameTarget(),
+            'dcv_target' => $this->cloudflare->dcvTarget(),
         ];
     }
 }
