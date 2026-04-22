@@ -101,11 +101,12 @@ const PhotoCard = ({ photo, isSelected, onClick, onToggleHeart, cardClass, showD
     >
         <div className="overflow-hidden aspect-auto">
             <img
-                src={photo.url}
+                src={photo.thumbnail_url || photo.url}
                 alt="Gallery Shot"
                 className="w-full h-auto object-cover transition-transform duration-1000 group-hover:scale-110 block"
                 onClick={onClick}
                 loading="lazy"
+                decoding="async"
                 draggable={false}
                 onContextMenu={(e) => e.preventDefault()}
             />
@@ -1079,5 +1080,4 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
         </div>
     );
 }
-
 

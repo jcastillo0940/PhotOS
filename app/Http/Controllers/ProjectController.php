@@ -381,6 +381,9 @@ class ProjectController extends Controller
         $resolvedUrl = $photo->optimized_path
             ? $this->temporaryUrlOrFallback($photo->optimized_path)
             : $photo->url;
+        $thumbnailUrl = $photo->thumbnail_url
+            ? $this->temporaryUrlOrFallback($photo->thumbnail_url)
+            : $resolvedUrl;
 
         $faceDetections = $photo->relationLoaded('unknownDetections')
             ? $photo->unknownDetections->map(fn ($d) => [
@@ -393,7 +396,7 @@ class ProjectController extends Controller
         return [
             ...$photo->makeHidden('unknownDetections')->toArray(),
             'url' => $resolvedUrl,
-            'thumbnail_url' => $resolvedUrl,
+            'thumbnail_url' => $thumbnailUrl,
             'people_count_label' => $photo->people_count_label,
             'face_detections' => $faceDetections,
             'recognition_status_label' => match ($photo->recognition_status) {

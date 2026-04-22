@@ -13,7 +13,8 @@ export default function ProjectCollaboratorGallery({ workspace }) {
     const acceptedImageFormats = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
     const { state: upload, upload: startUpload } = usePhotoUploader({
         uploadUrl: `/project-invitations/${workspace.token}/photos`,
-        batchSize: 1,
+        batchSize: 2,
+        maxConcurrent: 3,
         reloadOnly: ['workspace'],
     });
 
@@ -72,7 +73,7 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {photos.length > 0 ? photos.map((photo) => (
                                     <article key={photo.id} className="overflow-hidden rounded-2xl border border-[#ece5d8] bg-white shadow-sm">
-                                        <img src={photo.thumbnail_url || photo.url} alt="Foto del proyecto" className="aspect-[4/3] w-full object-cover" />
+                                        <img src={photo.thumbnail_url || photo.url} alt="Foto del proyecto" className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async" />
                                         <div className="flex items-center justify-between gap-3 p-3">
                                             <p className="truncate text-sm font-semibold text-slate-900">Foto #{photo.id}</p>
                                             <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">

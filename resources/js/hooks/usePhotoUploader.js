@@ -62,7 +62,8 @@ const INITIAL = {
     errors: [],
 };
 
-const CF_MAX_BYTES = 90 * 1024 * 1024; // 90 MB, Cloudflare rejects requests over 100 MB.
+const CF_MAX_BYTES = 90 * 1024 * 1024;
+const CF_TARGET_BATCH_BYTES = 70 * 1024 * 1024;
 
 function delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -82,7 +83,28 @@ function shouldRetryUploadError(error) {
     return status === 0 || status === 408 || status === 429 || status >= 500;
 }
 
-export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }) {
+function makeUploadBatches(files, batchSize) {
+    const maxBatchSize = Math.max(1, Number(batchSize) || 1);
+    const batches = [];
+
+    for (const file of files) {
+        const current = batches[batches.length - 1];
+        const currentBytes = current?.reduce((total, item) => total + item.size, 0) ?? 0;
+        const canAppend = current
+            && current.length < maxBatchSize
+            && currentBytes + file.size <= CF_TARGET_BATCH_BYTES;
+
+        if (canAppend) {
+            current.push(file);
+        } else {
+            batches.push([file]);
+        }
+    }
+
+    return batches;
+}
+
+export function usePhotoUploader({ uploadUrl, batchSize = 1, maxConcurrent = 3, reloadOnly = null }) {
     const [state, setState] = useState(INITIAL);
 
     useEffect(() => {
@@ -138,33 +160,28 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
             return;
         }
 
-        const uploadItems = all.map((file) => [file]);
+        const uploadItems = makeUploadBatches(all, batchSize);
+        const concurrency = Math.max(1, Math.min(Number(maxConcurrent) || 1, uploadItems.length));
 
         setState({
             ...INITIAL,
             isUploading: true,
             totalFiles: all.length,
             totalBatches: uploadItems.length,
-            statusMessage: `Preparando ${all.length} foto${all.length !== 1 ? 's' : ''}...`,
+            statusMessage: `Preparando ${all.length} foto${all.length !== 1 ? 's' : ''} en ${uploadItems.length} lote${uploadItems.length !== 1 ? 's' : ''}...`,
         });
 
         let uploaded = 0;
         let failed = 0;
+        let nextIndex = 0;
+        let active = 0;
         const errors = [];
 
-        for (let i = 0; i < uploadItems.length; i++) {
-            const batch = uploadItems[i];
-            const currentPhoto = i + 1;
-            const range = `foto ${currentPhoto}`;
-            const photoInfo = uploadItems.length > 1 ? ` · Foto ${currentPhoto} de ${uploadItems.length}` : '';
-
-            setState((prev) => ({
-                ...prev,
-                currentBatch: currentPhoto,
-                batchProgress: 0,
-                statusMessage: `Subiendo ${range} de ${all.length}${photoInfo}`,
-            }));
-
+        const uploadOneBatch = async (batch, index) => {
+            const batchNumber = index + 1;
+            const batchLabel = batch.length === 1
+                ? `lote ${batchNumber} (${batch[0].name})`
+                : `lote ${batchNumber} (${batch.length} fotos)`;
             let attempts = 0;
 
             while (true) {
@@ -173,13 +190,19 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                         uploadUrl,
                         batch,
                         (pct) => {
-                            setState((prev) => ({ ...prev, batchProgress: pct }));
+                            setState((prev) => ({
+                                ...prev,
+                                currentBatch: batchNumber,
+                                batchProgress: pct,
+                                statusMessage: `Subiendo ${batchLabel}... ${active} lote${active !== 1 ? 's' : ''} en paralelo`,
+                            }));
                         },
                         () => {
                             setState((prev) => ({
                                 ...prev,
+                                currentBatch: batchNumber,
                                 batchProgress: 100,
-                                statusMessage: `Procesando ${range} en servidor${photoInfo}...`,
+                                statusMessage: `Procesando ${batchLabel} en servidor...`,
                             }));
                         },
                     );
@@ -188,7 +211,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                 } catch (err) {
                     if (!shouldRetryUploadError(err)) {
                         failed += batch.length;
-                        errors.push(`Foto ${currentPhoto}: ${err.message}`);
+                        errors.push(`${batchLabel}: ${err.message}`);
                         break;
                     }
 
@@ -200,8 +223,8 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
                         ...prev,
                         batchProgress: 0,
                         statusMessage: offline
-                            ? `Conexion perdida. Continuara con la foto ${currentPhoto} cuando vuelva internet.`
-                            : `Conexion inestable. Reintentando foto ${currentPhoto} en ${Math.ceil(retryDelay / 1000)}s...`,
+                            ? 'Conexion perdida. Continuara cuando vuelva internet.'
+                            : `Conexion inestable. Reintentando ${batchLabel} en ${Math.ceil(retryDelay / 1000)}s...`,
                     }));
 
                     await waitForOnline();
@@ -210,7 +233,31 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
             }
 
             setState((prev) => ({ ...prev, uploadedFiles: uploaded, failedFiles: failed, errors }));
-        }
+        };
+
+        await new Promise((resolve) => {
+            const startNext = () => {
+                if (nextIndex >= uploadItems.length && active === 0) {
+                    resolve();
+                    return;
+                }
+
+                while (active < concurrency && nextIndex < uploadItems.length) {
+                    const index = nextIndex;
+                    const batch = uploadItems[index];
+                    nextIndex += 1;
+                    active += 1;
+
+                    uploadOneBatch(batch, index)
+                        .finally(() => {
+                            active -= 1;
+                            startNext();
+                        });
+                }
+            };
+
+            startNext();
+        });
 
         const msg = failed > 0
             ? `${uploaded} subidas, ${failed} fallaron`
@@ -222,7 +269,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, reloadOnly = null }
             router.reload({ only: reloadOnly ?? undefined });
             setState(INITIAL);
         }, 1500);
-    }, [uploadUrl, batchSize, reloadOnly]);
+    }, [uploadUrl, batchSize, maxConcurrent, reloadOnly]);
 
     const reset = useCallback(() => setState(INITIAL), []);
 

@@ -91,6 +91,7 @@ class ProjectPhotoUploadService
             $uniqueSuffix = uniqid();
             $originalFileName = "{$safeBaseName}_{$uniqueSuffix}.{$extension}";
             $optimizedFileName = "{$safeBaseName}_{$uniqueSuffix}.webp";
+            $thumbnailFileName = "{$safeBaseName}_{$uniqueSuffix}_thumb.webp";
 
             // Guardar original en disco local temporal
             $localOriginalRelativePath = $file->storeAs($tempMasterDirectory, $originalFileName, 'local');
@@ -135,34 +136,36 @@ class ProjectPhotoUploadService
                 throw new \RuntimeException("La optimización web falló para: {$originalFileName}");
             }
 
-            // ── Versión Gemini (sin watermark, max 800px, 70% calidad) ───────
-            $geminiLocalRelativePath = "{$tempMasterDirectory}/ai/{$optimizedFileName}";
-            $absoluteGeminiPath = Storage::disk('local')->path($geminiLocalRelativePath);
+            // Thumbnail para grillas y previews.
+            $thumbnailLocalRelativePath = "{$tempMasterDirectory}/thumbs/{$thumbnailFileName}";
+            $absoluteThumbnailPath = Storage::disk('local')->path($thumbnailLocalRelativePath);
 
-            if (! file_exists(dirname($absoluteGeminiPath))) {
-                mkdir(dirname($absoluteGeminiPath), 0755, true);
+            if (! file_exists(dirname($absoluteThumbnailPath))) {
+                mkdir(dirname($absoluteThumbnailPath), 0755, true);
             }
 
-            Log::channel('single')->info("{$fileLabel} Iniciando versión Gemini AI", [
+            Log::channel('single')->info("{$fileLabel} Iniciando thumbnail WebP", [
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
 
-            $this->createGeminiWebp($absoluteOriginalPath, $absoluteGeminiPath, $fileLabel);
+            $this->createThumbnailWebp($absoluteOriginalPath, $absoluteThumbnailPath, $fileLabel);
 
-            $geminiExists = file_exists($absoluteGeminiPath);
-            $geminiSize = $geminiExists ? filesize($absoluteGeminiPath) : 0;
+            $thumbnailExists = file_exists($absoluteThumbnailPath);
+            $thumbnailSize = $thumbnailExists ? filesize($absoluteThumbnailPath) : 0;
 
-            Log::channel('single')->info("{$fileLabel} Versión Gemini completada", [
-                'exists' => $geminiExists,
-                'size_bytes' => $geminiSize,
+            Log::channel('single')->info("{$fileLabel} Thumbnail completado", [
+                'exists' => $thumbnailExists,
+                'size_bytes' => $thumbnailSize,
             ]);
+
+            // La version AI se resuelve bajo demanda desde la version web para no frenar la subida.
+            $geminiR2Path = null;
 
             $originalR2Path = $project->originalsBucketPrefix()."/{$originalFileName}";
             $optimizedR2Path = $project->webBucketPrefix()."/{$optimizedFileName}";
-            $geminiR2Path = $geminiExists && $geminiSize > 0
-                ? $project->geminiBucketPrefix()."/{$optimizedFileName}"
+            $thumbnailR2Path = $thumbnailExists && $thumbnailSize > 0
+                ? $project->webBucketPrefix()."/thumbs/{$thumbnailFileName}"
                 : null;
-
             // Subir original a R2
             Log::channel('single')->info("{$fileLabel} Subiendo original a R2", ['r2_path' => $originalR2Path]);
             try {
@@ -181,6 +184,7 @@ class ProjectPhotoUploadService
             try {
                 Storage::disk('r2')->put($optimizedR2Path, fopen($absoluteOptimizedPath, 'r'), [
                     'ContentType' => 'image/webp',
+                    'CacheControl' => 'public, max-age=31536000, immutable',
                 ]);
                 Log::channel('single')->info("{$fileLabel} Web subido a R2 OK");
             } catch (\Throwable $e) {
@@ -191,26 +195,27 @@ class ProjectPhotoUploadService
                 throw $e;
             }
 
-            // Subir versión Gemini a R2
-            if ($geminiR2Path) {
-                Log::channel('single')->info("{$fileLabel} Subiendo Gemini AI a R2", ['r2_path' => $geminiR2Path]);
+            // Subir thumbnail a R2.
+            if ($thumbnailR2Path) {
+                Log::channel('single')->info("{$fileLabel} Subiendo thumbnail a R2", ['r2_path' => $thumbnailR2Path]);
                 try {
-                    Storage::disk('r2')->put($geminiR2Path, fopen($absoluteGeminiPath, 'r'), [
+                    Storage::disk('r2')->put($thumbnailR2Path, fopen($absoluteThumbnailPath, 'r'), [
                         'ContentType' => 'image/webp',
+                        'CacheControl' => 'public, max-age=31536000, immutable',
                     ]);
-                    Log::channel('single')->info("{$fileLabel} Gemini AI subido a R2 OK");
+                    Log::channel('single')->info("{$fileLabel} Thumbnail subido a R2 OK");
                 } catch (\Throwable $e) {
-                    Log::channel('single')->warning("{$fileLabel} FALLO subida Gemini R2 (no crítico)", [
+                    Log::channel('single')->warning("{$fileLabel} FALLO subida thumbnail R2 (se usara web)", [
                         'error' => $e->getMessage(),
                     ]);
-                    $geminiR2Path = null;
+                    $thumbnailR2Path = null;
                 }
             }
 
             $photo = Photo::create([
                 'project_id' => $project->id,
                 'url' => $optimizedR2Path,
-                'thumbnail_url' => $optimizedR2Path,
+                'thumbnail_url' => $thumbnailR2Path ?: $optimizedR2Path,
                 'optimized_path' => $optimizedR2Path,
                 'original_path' => $originalR2Path,
                 'gemini_path' => $geminiR2Path,
@@ -297,6 +302,73 @@ class ProjectPhotoUploadService
             Log::channel('single')->warning("{$label} Gemini: imagewebp falló");
         } else {
             Log::channel('single')->info("{$label} Gemini: WebP generado", [
+                'size_kb' => round(@filesize($outputPath) / 1024, 1),
+            ]);
+        }
+    }
+
+    private function createThumbnailWebp(string $originalPath, string $outputPath, string $logLabel = ''): void
+    {
+        $label = $logLabel ?: '[createThumbnailWebp]';
+        $imageInfo = @getimagesize($originalPath);
+
+        if (! $imageInfo) {
+            Log::channel('single')->warning("{$label} Thumbnail: getimagesize fallo - copiando");
+            copy($originalPath, $outputPath);
+            return;
+        }
+
+        $image = null;
+        try {
+            if ($imageInfo['mime'] === 'image/jpeg') {
+                $image = @imagecreatefromjpeg($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/png') {
+                $image = @imagecreatefrompng($originalPath);
+            } elseif ($imageInfo['mime'] === 'image/webp') {
+                $image = @imagecreatefromwebp($originalPath);
+            }
+        } catch (\Throwable) {
+            $image = null;
+        }
+
+        if (! $image) {
+            Log::channel('single')->warning("{$label} Thumbnail: GD fallo - copiando");
+            copy($originalPath, $outputPath);
+            return;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+        $maxDimension = 640;
+
+        if ($width > $maxDimension || $height > $maxDimension) {
+            $ratio = min($maxDimension / $width, $maxDimension / $height);
+            $newWidth = max(1, (int) round($width * $ratio));
+            $newHeight = max(1, (int) round($height * $ratio));
+
+            $resized = imagecreatetruecolor($newWidth, $newHeight);
+            imagealphablending($resized, false);
+            imagesavealpha($resized, true);
+            imagecopyresampled($resized, $image, 0, 0, 0, 0, $newWidth, $newHeight, $width, $height);
+            imagedestroy($image);
+            $image = $resized;
+        }
+
+        $quality = 72;
+        $result = @imagewebp($image, $outputPath, $quality);
+
+        while ($result && @filesize($outputPath) > 160 * 1024 && $quality > 48) {
+            $quality -= 6;
+            $result = @imagewebp($image, $outputPath, $quality);
+        }
+
+        imagedestroy($image);
+
+        if (! $result) {
+            Log::channel('single')->warning("{$label} Thumbnail: imagewebp fallo");
+        } else {
+            Log::channel('single')->info("{$label} Thumbnail WebP generado", [
+                'quality' => $quality,
                 'size_kb' => round(@filesize($outputPath) / 1024, 1),
             ]);
         }

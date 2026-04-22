@@ -87,7 +87,8 @@ export default function Gallery({ project, faceRecognition }) {
     const fileInputRef = React.useRef(null);
     const { state: upload, upload: startUpload } = usePhotoUploader({
         uploadUrl: `/admin/projects/${project.id}/photos`,
-        batchSize: 1,
+        batchSize: 2,
+        maxConcurrent: 3,
         reloadOnly: ['project'],
     });
     const [heroPhotoId, setHeroPhotoId] = React.useState(project.hero_photo_id || project.photos?.[0]?.id || null);
@@ -585,7 +586,7 @@ export default function Gallery({ project, faceRecognition }) {
                                     <div className="relative group">
                                         {/* thumbnail — click opens lightbox */}
                                         <button type="button" className="block w-full" onClick={() => openLightbox(photo.id)}>
-                                            <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" />
+                                            <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" loading="lazy" decoding="async" />
                                         </button>
 
                                         {/* face detection boxes in grid (hidden when lightbox open) */}
