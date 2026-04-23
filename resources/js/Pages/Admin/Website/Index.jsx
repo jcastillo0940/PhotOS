@@ -86,7 +86,9 @@ export default function Index({
             _method: 'put',
             content: JSON.stringify(content),
             theme: JSON.stringify(themeState),
-        })).post(submitUrl, {
+        }));
+
+        post(submitUrl, {
             forceFormData: true,
             preserveScroll: true,
         });
