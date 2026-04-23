@@ -1,5 +1,6 @@
 import React from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Link } from '@inertiajs/react';
+import SeoHead from '@/Components/SeoHead';
 import { ArrowLeft, ArrowRight, Grip } from 'lucide-react';
 
 const defaultTheme = {
@@ -15,13 +16,13 @@ const defaultTheme = {
     },
 };
 
-export default function Portfolio({ homepage, theme = defaultTheme, projects, categories = [], selectedCategory = '', pagination }) {
+export default function Portfolio({ homepage, theme = defaultTheme, seo = null, projects, categories = [], selectedCategory = '', pagination }) {
     const palette = { ...defaultTheme.palette, ...(theme?.palette || {}) };
     const headingFont = theme?.font_heading || defaultTheme.font_heading;
 
     return (
         <div className="min-h-screen" style={{ backgroundColor: palette.surface, color: palette.text }}>
-            <Head title={`Portafolio | ${homepage.brand.name}`} />
+            <SeoHead seo={seo} fallbackTitle={`Portafolio | ${homepage.brand.name}`} fallbackDescription={homepage.brand.tagline} />
 
             <header className="border-b backdrop-blur" style={{ borderColor: palette.accent_soft, backgroundColor: `${palette.surface}f2` }}>
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">

@@ -1,6 +1,7 @@
 import React from 'react';
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Link, useForm, usePage } from '@inertiajs/react';
 import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
+import SeoHead from '@/Components/SeoHead';
 import { buildSlots } from '@/lib/availability';
 import { ArrowRight, Camera, Grip, Mail, MapPin, Menu, MessageSquare, Phone, Star, Trophy, Zap } from 'lucide-react';
 
@@ -45,10 +46,13 @@ export default function Home({
     busyCalendarEvents = [],
     businessHours,
     availabilitySettings,
+    seo = null,
 }) {
     const { flash, branding } = usePage().props;
     const [mobileOpen, setMobileOpen] = React.useState(false);
     const [activeCategory, setActiveCategory] = React.useState('All');
+    const { x: pointerX, y: pointerY } = usePointerPosition();
+    const scrollProgress = useScrollProgress();
     const palette = { ...defaultTheme.palette, ...(theme?.palette || {}) };
     const fonts = {
         heading: theme?.font_heading || defaultTheme.font_heading,
@@ -125,6 +129,10 @@ export default function Home({
         setActiveCategory,
         branding,
         leadForm,
+        seo,
+        pointerX,
+        pointerY,
+        scrollProgress,
     };
 
     if (theme?.home_layout === 'tetta-explorer') {
@@ -149,12 +157,17 @@ export default function Home({
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} />
 
             <section id="hero" className="relative isolate min-h-[92vh] overflow-hidden">
                 <div
-                    className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `linear-gradient(180deg, ${palette.hero_overlay} 0%, ${palette.hero_overlay} 100%), url(${homepage.hero.image_url})` }}
+                    className="absolute inset-0 bg-cover bg-center will-change-transform"
+                    style={{
+                        backgroundImage: `linear-gradient(180deg, ${palette.hero_overlay} 0%, ${palette.hero_overlay} 100%), url(${homepage.hero.image_url})`,
+                        filter: `blur(${scrollProgress * 2.5}px) saturate(${1 + scrollProgress * 0.18})`,
+                        transform: `scale(${1.04 + scrollProgress * 0.03}) translate3d(${(pointerX - 0.5) * -16}px, ${(pointerY - 0.5) * -12}px, 0)`,
+                    }}
                 />
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,.22),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(166,124,82,.24),transparent_30%)]" />
 
@@ -202,7 +215,7 @@ export default function Home({
 
                 <div className="relative z-10 mx-auto flex min-h-[calc(92vh-88px)] w-full max-w-7xl items-end px-6 pb-10 pt-16 md:px-10">
                     <div className="grid w-full gap-12 lg:grid-cols-[1.35fr_.75fr]">
-                        <div className="max-w-4xl">
+                        <Reveal className="max-w-4xl">
                             <p className="mb-6 text-[11px] uppercase tracking-[0.35em] text-white/70">{homepage.hero.eyebrow}</p>
                             <h1 className="max-w-4xl text-5xl leading-[0.95] text-white md:text-7xl" style={{ fontFamily: fonts.heading }}>
                                 {homepage.hero.title}
@@ -214,9 +227,9 @@ export default function Home({
                                 <LinkButton href="/portfolio" label="Portafolio" background={palette.accent} />
                                 <OutlineLinkButton href="/booking" label="Reservar sesion" />
                             </div>
-                        </div>
+                        </Reveal>
 
-                        <div className="self-end rounded-[2rem] border border-white/14 bg-white/8 p-6 text-white/82 backdrop-blur">
+                        <Reveal delay={120} className="self-end rounded-[2rem] border border-white/14 bg-white/8 p-6 text-white/82 backdrop-blur transition duration-500 hover:-translate-y-2 hover:bg-white/12">
                             <div className="flex items-center justify-between border-b border-white/14 pb-5">
                                 <p className="text-xs uppercase tracking-[0.32em]">Studio note</p>
                                 <Camera className="h-4 w-4" />
@@ -228,7 +241,7 @@ export default function Home({
                                 <StatCard label="Style" value="Editorial and honest" />
                                 <StatCard label="Availability" value="Local and destination" />
                             </div>
-                        </div>
+                        </Reveal>
                     </div>
                 </div>
             </section>
@@ -300,7 +313,7 @@ export default function Home({
                     {filteredPortfolio.length > 0 ? (
                         <div style={{ columnWidth: '320px', columnGap: '1.5rem' }}>
                             {filteredPortfolio.map((item) => (
-                                <article key={item.id} className="mb-6 break-inside-avoid overflow-hidden rounded-[2rem] shadow-[0_24px_60px_rgba(60,40,24,.08)]" style={{ backgroundColor: '#fff' }}>
+                                <article key={item.id} className="motion-card mb-6 break-inside-avoid overflow-hidden rounded-[2rem] shadow-[0_24px_60px_rgba(60,40,24,.08)]" style={{ backgroundColor: '#fff' }}>
                                     <img src={item.image_url} alt={item.project_name} className="w-full object-cover" />
                                     <div className="space-y-3 p-6">
                                         <p className="text-[11px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>{item.category}</p>
@@ -454,7 +467,7 @@ export default function Home({
     );
 }
 
-function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfolio, leadForm, branding }) {
+function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const heroWords = (homepage.hero.title || homepage.brand.name || '').split(' ');
     const firstWord = heroWords.shift() || homepage.brand.name;
     const restTitle = heroWords.join(' ') || homepage.brand.tagline || 'The Explorer';
@@ -462,7 +475,8 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
 
     return (
         <div className="min-h-screen bg-[#0b0b0b] text-white" style={{ fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} dark />
 
             <section id="hero" className="relative isolate min-h-screen overflow-hidden">
                 <div className="grid min-h-screen lg:grid-cols-[38vw_1fr]">
@@ -483,7 +497,15 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                     </aside>
 
                     <main className="relative min-h-[62vh] overflow-hidden lg:min-h-screen">
-                        <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover opacity-82" />
+                        <img
+                            src={homepage.hero.image_url}
+                            alt={homepage.hero.title}
+                            className="absolute inset-0 h-full w-full object-cover opacity-82 will-change-transform"
+                            style={{
+                                filter: `blur(${scrollProgress * 2}px)`,
+                                transform: `scale(${1.03 + scrollProgress * 0.04}) translate3d(${(pointerX - 0.5) * 22}px, ${(pointerY - 0.5) * 16}px, 0)`,
+                            }}
+                        />
                         <div className="absolute inset-0 bg-gradient-to-r from-black/42 via-black/5 to-black/35" />
                         <header className="relative z-20 flex items-center justify-end gap-8 px-7 py-8 text-sm font-semibold text-white/72 md:px-12">
                             {navItems.map((item) => (
@@ -494,7 +516,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                             <Link href="/portfolio" className="rounded-full bg-white px-5 py-2 text-black">Portfolio</Link>
                         </header>
                         <div className="relative z-10 flex min-h-[calc(100vh-96px)] items-center px-7 pb-16 md:px-12">
-                            <div className="-ml-[2px] max-w-6xl">
+                            <Reveal className="-ml-[2px] max-w-6xl">
                                 <p className="mb-7 text-[11px] uppercase tracking-[0.38em] text-white/62">{homepage.hero.eyebrow}</p>
                                 <h1 className="text-[clamp(4rem,9vw,10.5rem)] font-black leading-[0.86] tracking-[-0.08em]" style={{ fontFamily: fonts.heading }}>
                                     {firstWord} <span className="text-transparent [-webkit-text-stroke:1.4px_rgba(255,255,255,.86)]">{restTitle}</span>
@@ -503,7 +525,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                                     <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#fff" color="#050505" />
                                     <OutlineHeroButton label={homepage.hero.secondary_cta_label} onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)} />
                                 </div>
-                            </div>
+                            </Reveal>
                         </div>
                     </main>
                 </div>
@@ -528,12 +550,13 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
     );
 }
 
-function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const portrait = homepage.about.image_url || homepage.hero.image_url;
 
     return (
         <div style={{ backgroundColor: '#f6efe4', color: '#221a14', fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} />
 
             <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-7 md:px-10">
                 <BrandMark homepage={homepage} branding={branding} fonts={fonts} textClassName="text-2xl font-semibold" />
@@ -546,7 +569,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
             </header>
 
             <section id="hero" className="mx-auto grid max-w-7xl gap-10 px-6 pb-20 pt-8 md:px-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
-                <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
+                <Reveal>
                     <p className="mb-5 text-sm font-semibold uppercase tracking-[0.28em] text-[#b68156]">{homepage.hero.eyebrow || "Hello I'm Hardy"}</p>
                     <h1 className="text-5xl leading-[1.02] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
                     <p className="mt-7 max-w-xl text-base leading-8 text-[#716052]">{homepage.hero.description}</p>
@@ -554,15 +577,20 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                         <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#221a14" color="#fff" />
                         <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full border border-[#d9c7b3] px-7 py-3 text-sm font-semibold text-[#221a14]">View portfolio</Link>
                     </div>
-                </div>
-                <div className="relative">
+                </Reveal>
+                <Reveal delay={120} className="relative">
                     <div className="absolute -left-5 top-10 hidden h-72 w-32 rounded-full bg-[#d7a676]/35 blur-3xl lg:block" />
-                    <img src={homepage.hero.image_url} alt={homepage.hero.title} className="relative h-[680px] w-full rounded-t-full object-cover shadow-[0_40px_90px_rgba(78,52,32,.18)]" />
+                    <img
+                        src={homepage.hero.image_url}
+                        alt={homepage.hero.title}
+                        className="relative h-[680px] w-full rounded-t-full object-cover shadow-[0_40px_90px_rgba(78,52,32,.18)] will-change-transform"
+                        style={{ transform: `translate3d(${(pointerX - 0.5) * -18}px, ${(pointerY - 0.5) * -12}px, 0) scale(${1 + scrollProgress * 0.015})` }}
+                    />
                     <div className="absolute bottom-8 left-8 rounded-[1.6rem] bg-white/88 p-5 shadow-xl backdrop-blur">
                         <p className="text-xs uppercase tracking-[0.24em] text-[#b68156]">Professional photographer</p>
                         <p className="mt-2 text-3xl" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
                     </div>
-                </div>
+                </Reveal>
             </section>
 
             <section id="about" className="bg-white px-6 py-24 md:px-10">
@@ -587,17 +615,26 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
     );
 }
 
-function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const storyImages = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 5)
         : homepage.gallery.images.slice(0, 5).map((image_url, id) => ({ id, image_url, project_name: `Story ${id + 1}`, category: 'Wedding' }));
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} />
 
             <section id="hero" className="relative min-h-screen overflow-hidden">
-                <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover" />
+                <img
+                    src={homepage.hero.image_url}
+                    alt={homepage.hero.title}
+                    className="absolute inset-0 h-full w-full object-cover will-change-transform"
+                    style={{
+                        filter: `blur(${scrollProgress * 1.8}px)`,
+                        transform: `scale(${1.04 + scrollProgress * 0.025}) translate3d(${(pointerX - 0.5) * -14}px, ${(pointerY - 0.5) * -10}px, 0)`,
+                    }}
+                />
                 <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${palette.hero_overlay}, rgba(255,248,245,.2) 58%, rgba(50,28,31,.45))` }} />
                 <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-7 md:px-10">
                     <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-semibold" />
@@ -608,7 +645,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
                     </nav>
                 </header>
                 <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-center px-6 pb-16 md:px-10">
-                    <div className="max-w-3xl rounded-[3rem] border border-white/14 bg-white/10 p-8 text-white shadow-[0_40px_100px_rgba(50,28,31,.25)] backdrop-blur md:p-12">
+                    <Reveal className="max-w-3xl rounded-[3rem] border border-white/14 bg-white/10 p-8 text-white shadow-[0_40px_100px_rgba(50,28,31,.25)] backdrop-blur md:p-12">
                         <p className="mb-5 text-[11px] uppercase tracking-[0.36em] text-white/62">{homepage.hero.eyebrow || 'Wedding stories'}</p>
                         <h1 className="text-5xl leading-[1.02] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
                         <p className="mt-7 max-w-2xl text-base leading-8 text-white/76">{homepage.hero.description}</p>
@@ -616,7 +653,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
                             <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background={palette.accent_soft} color={palette.text} />
                             <OutlineHeroButton label={homepage.hero.secondary_cta_label} onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)} />
                         </div>
-                    </div>
+                    </Reveal>
                 </div>
             </section>
 
@@ -644,7 +681,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
                     <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                     <div className="mt-12 grid gap-6 lg:grid-cols-3">
                         {homepage.featured.items.map((item, index) => (
-                            <article key={`${item.title}-${index}`} className="overflow-hidden rounded-[2.2rem] bg-white shadow-[0_26px_70px_rgba(50,28,31,.1)]">
+                            <article key={`${item.title}-${index}`} className="motion-card overflow-hidden rounded-[2.2rem] bg-white shadow-[0_26px_70px_rgba(50,28,31,.1)]">
                                 <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
                                 <div className="p-7">
                                     <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>Chapter {index + 1}</p>
@@ -665,7 +702,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
                     </div>
                     <div className="grid auto-rows-[220px] gap-4 md:grid-cols-4">
                         {storyImages.map((item, index) => (
-                            <article key={item.id} className={`group overflow-hidden rounded-[2rem] ${index === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}>
+                            <article key={item.id} className={`motion-card group overflow-hidden rounded-[2rem] ${index === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}>
                                 <img src={item.image_url} alt={item.project_name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
                             </article>
                         ))}
@@ -679,17 +716,26 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
     );
 }
 
-function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const natureItems = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 6)
         : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Expedition ${id + 1}`, category: 'Nature' }));
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} />
 
             <section id="hero" className="relative min-h-screen overflow-hidden">
-                <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover" />
+                <img
+                    src={homepage.hero.image_url}
+                    alt={homepage.hero.title}
+                    className="absolute inset-0 h-full w-full object-cover will-change-transform"
+                    style={{
+                        filter: `blur(${scrollProgress * 2.2}px) contrast(${1 + scrollProgress * 0.08})`,
+                        transform: `scale(${1.04 + scrollProgress * 0.035}) translate3d(${(pointerX - 0.5) * 18}px, ${(pointerY - 0.5) * 12}px, 0)`,
+                    }}
+                />
                 <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${palette.hero_overlay}, rgba(23,36,25,.8))` }} />
                 <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-7 text-white md:px-10">
                     <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-black uppercase tracking-[0.08em]" />
@@ -697,17 +743,17 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
                 </header>
                 <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-end px-6 pb-16 md:px-10">
                     <div className="grid w-full gap-10 lg:grid-cols-[1.15fr_.85fr] lg:items-end">
-                        <div>
+                        <Reveal>
                             <p className="mb-5 text-[11px] uppercase tracking-[0.38em] text-white/62">{homepage.hero.eyebrow || 'Wild visual stories'}</p>
                             <h1 className="max-w-5xl text-6xl font-black leading-[.9] tracking-[-0.06em] text-white md:text-8xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
                             <p className="mt-7 max-w-2xl text-lg leading-8 text-white/72">{homepage.hero.description}</p>
-                        </div>
-                        <div className="rounded-[2rem] border border-white/12 bg-white/10 p-6 text-white backdrop-blur">
+                        </Reveal>
+                        <Reveal delay={140} className="rounded-[2rem] border border-white/12 bg-white/10 p-6 text-white backdrop-blur">
                             <p className="text-[11px] uppercase tracking-[0.28em] text-white/45">{homepage.hero.floating_caption}</p>
                             <div className="mt-6 grid gap-3">
                                 {homepage.about.stats.map((item) => <DarkMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
                             </div>
-                        </div>
+                        </Reveal>
                     </div>
                 </div>
             </section>
@@ -729,7 +775,7 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
                     <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                     <div className="mt-12 grid gap-5 lg:grid-cols-3">
                         {homepage.featured.items.map((item) => (
-                            <article key={item.title} className="rounded-[2rem] border p-6" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt }}>
+                            <article key={item.title} className="motion-card rounded-[2rem] border p-6" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt }}>
                                 <img src={item.image_url} alt={item.title} className="mb-6 h-64 w-full rounded-[1.4rem] object-cover" />
                                 <h3 className="text-3xl" style={{ fontFamily: fonts.heading }}>{item.title}</h3>
                                 <p className="mt-3 text-sm leading-7" style={{ color: palette.muted }}>{item.category}</p>
@@ -744,7 +790,7 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
                     <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
                     <div className="mt-10 flex gap-5 overflow-x-auto pb-6">
                         {natureItems.map((item) => (
-                            <article key={item.id} className="min-w-[300px] overflow-hidden rounded-[2rem] bg-white shadow-[0_20px_60px_rgba(30,42,29,.1)] md:min-w-[420px]">
+                            <article key={item.id} className="motion-card min-w-[300px] overflow-hidden rounded-[2rem] bg-white shadow-[0_20px_60px_rgba(30,42,29,.1)] md:min-w-[420px]">
                                 <img src={item.image_url} alt={item.project_name} className="h-[460px] w-full object-cover" />
                                 <div className="p-6">
                                     <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>{item.category}</p>
@@ -762,10 +808,11 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
     );
 }
 
-function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     return (
         <div className="overflow-hidden bg-[#051015] text-white" style={{ fontFamily: fonts.body }}>
-            <Head title={homepage.brand.name} />
+            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <MotionAtmosphere palette={palette} pointerX={pointerX} pointerY={pointerY} scrollProgress={scrollProgress} dark />
 
             <section id="hero" className="relative min-h-screen px-6 py-7 md:px-10">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(183,255,60,.26),transparent_26%),linear-gradient(135deg,#051015_0%,#0d2028_52%,#020609_100%)]" />
@@ -789,7 +836,12 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                         </div>
                     </div>
                     <div className="relative">
-                        <img src={homepage.hero.image_url} alt={homepage.hero.title} className="h-[640px] w-full skew-y-[-3deg] rounded-[2rem] object-cover shadow-[0_40px_100px_rgba(0,0,0,.42)]" />
+                        <img
+                            src={homepage.hero.image_url}
+                            alt={homepage.hero.title}
+                            className="h-[640px] w-full skew-y-[-3deg] rounded-[2rem] object-cover shadow-[0_40px_100px_rgba(0,0,0,.42)] will-change-transform"
+                            style={{ transform: `skewY(-3deg) translate3d(${(pointerX - 0.5) * -20}px, ${(pointerY - 0.5) * -14}px, 0) scale(${1 + scrollProgress * 0.02})` }}
+                        />
                         <div className="absolute -bottom-6 left-5 grid w-[calc(100%-40px)] grid-cols-3 gap-3">
                             {homepage.about.stats.map((item) => <ScoreMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
                         </div>
@@ -816,7 +868,7 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                     </div>
                     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                         {(filteredPortfolio.length ? filteredPortfolio : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Highlight ${id + 1}`, category: 'Sports' }))).slice(0, 6).map((item) => (
-                            <article key={item.id} className="group overflow-hidden rounded-[1.8rem] bg-white/5">
+                            <article key={item.id} className="motion-card group overflow-hidden rounded-[1.8rem] bg-white/5">
                                 <img src={item.image_url} alt={item.project_name} className="h-80 w-full object-cover transition duration-500 group-hover:scale-105" />
                                 <div className="p-5">
                                     <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#b7ff3c]">{item.category}</p>
@@ -934,7 +986,7 @@ function TettaGallery({ homepage, filteredPortfolio, fonts }) {
                 <h2 className="max-w-4xl text-5xl leading-[.92] text-white md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
                 <div className="mt-12 grid gap-5 md:grid-cols-3">
                     {items.map((item, index) => (
-                        <article key={item.id} className={`group overflow-hidden rounded-[2rem] bg-white/5 ${index === 1 ? 'md:mt-16' : ''}`}>
+                        <article key={item.id} className={`motion-card group overflow-hidden rounded-[2rem] bg-white/5 ${index === 1 ? 'md:mt-16' : ''}`}>
                             <img src={item.image_url} alt={item.project_name} className="h-[420px] w-full object-cover grayscale transition duration-500 group-hover:grayscale-0" />
                             <div className="p-5">
                                 <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">{item.category}</p>
@@ -956,7 +1008,7 @@ function HardyServices({ homepage, fonts }) {
                 <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                 <div className="mt-12 grid gap-6 lg:grid-cols-3">
                     {homepage.featured.items.map((item, index) => (
-                        <article key={`${item.title}-${index}`} className="overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_70px_rgba(78,52,32,.1)]">
+                        <article key={`${item.title}-${index}`} className="motion-card overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_70px_rgba(78,52,32,.1)]">
                             <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
                             <div className="p-7">
                                 <p className="text-xs uppercase tracking-[0.24em] text-[#b68156]">Service</p>
@@ -983,7 +1035,7 @@ function HardyProjects({ homepage, filteredPortfolio, fonts }) {
                 <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
                 <div className="mt-12 grid gap-5 md:grid-cols-2">
                     {photos.map((item) => (
-                        <article key={item.id} className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 md:grid-cols-[.9fr_1fr]">
+                        <article key={item.id} className="motion-card grid overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 md:grid-cols-[.9fr_1fr]">
                             <img src={item.image_url} alt={item.project_name} className="h-80 w-full object-cover md:h-full" />
                             <div className="flex flex-col justify-end p-7">
                                 <p className="text-[10px] uppercase tracking-[0.24em] text-[#d7a676]">{item.category}</p>
@@ -1036,7 +1088,7 @@ function SectionKicker({ icon: Icon, label }) {
 
 function SportCard({ item, index }) {
     return (
-        <article className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/5 p-6">
+        <article className="motion-card relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/5 p-6">
             <Star className="mb-8 h-8 w-8 text-[#b7ff3c]" />
             <p className="absolute right-5 top-5 text-7xl font-black text-white/5">0{index + 1}</p>
             <h3 className="text-3xl font-black uppercase">{item.title}</h3>
@@ -1057,6 +1109,158 @@ function MinimalFooter({ palette }) {
             </div>
         </footer>
     );
+}
+
+function MotionAtmosphere({ palette, pointerX = 0.5, pointerY = 0.5, scrollProgress = 0, dark = false }) {
+    return (
+        <>
+            <MotionStyles />
+            <div className="pointer-events-none fixed left-0 top-0 z-[80] h-1 w-full bg-transparent">
+                <div
+                    className="h-full origin-left"
+                    style={{
+                        width: `${Math.min(100, Math.max(0, scrollProgress * 100))}%`,
+                        background: `linear-gradient(90deg, ${palette.accent}, ${palette.accent_soft})`,
+                        boxShadow: `0 0 18px ${palette.accent}`,
+                    }}
+                />
+            </div>
+            <div
+                className="pointer-events-none fixed z-[3] hidden h-72 w-72 rounded-full blur-3xl transition-transform duration-300 md:block"
+                style={{
+                    left: `${pointerX * 100}%`,
+                    top: `${pointerY * 100}%`,
+                    transform: 'translate(-50%, -50%)',
+                    backgroundColor: palette.accent,
+                    opacity: dark ? 0.14 : 0.1,
+                    mixBlendMode: dark ? 'screen' : 'multiply',
+                }}
+            />
+            <div
+                className="pointer-events-none fixed -right-24 top-24 z-[2] h-80 w-80 rounded-full blur-3xl motion-blob"
+                style={{ backgroundColor: palette.accent_soft, opacity: dark ? 0.1 : 0.22 }}
+            />
+        </>
+    );
+}
+
+function MotionStyles() {
+    return (
+        <style>{`
+            @keyframes motionFloat {
+                0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+                50% { transform: translate3d(16px, -22px, 0) rotate(4deg); }
+            }
+
+            @keyframes motionShimmer {
+                0% { background-position: 0% 50%; }
+                100% { background-position: 200% 50%; }
+            }
+
+            .motion-blob {
+                animation: motionFloat 9s ease-in-out infinite;
+            }
+
+            .motion-shimmer {
+                background-size: 200% 100%;
+                animation: motionShimmer 4s linear infinite;
+            }
+
+            .motion-card {
+                transform: translateZ(0);
+                transition: transform .45s cubic-bezier(.2,.8,.2,1), filter .45s ease, box-shadow .45s ease;
+            }
+
+            .motion-card:hover {
+                transform: translateY(-10px) scale(1.015);
+                filter: saturate(1.08);
+            }
+        `}</style>
+    );
+}
+
+function Reveal({ children, className = '', delay = 0 }) {
+    const ref = React.useRef(null);
+    const [visible, setVisible] = React.useState(false);
+
+    React.useEffect(() => {
+        const node = ref.current;
+
+        if (!node) {
+            return undefined;
+        }
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setVisible(true);
+                    observer.disconnect();
+                }
+            },
+            { threshold: 0.16 },
+        );
+
+        observer.observe(node);
+
+        return () => observer.disconnect();
+    }, []);
+
+    return (
+        <div
+            ref={ref}
+            className={className}
+            style={{
+                opacity: visible ? 1 : 0,
+                filter: visible ? 'blur(0px)' : 'blur(14px)',
+                transform: visible ? 'translate3d(0,0,0)' : 'translate3d(0,28px,0)',
+                transition: 'opacity .8s ease, transform .8s cubic-bezier(.2,.8,.2,1), filter .8s ease',
+                transitionDelay: `${delay}ms`,
+            }}
+        >
+            {children}
+        </div>
+    );
+}
+
+function usePointerPosition() {
+    const [position, setPosition] = React.useState({ x: 0.5, y: 0.5 });
+
+    React.useEffect(() => {
+        const update = (event) => {
+            setPosition({
+                x: event.clientX / Math.max(window.innerWidth, 1),
+                y: event.clientY / Math.max(window.innerHeight, 1),
+            });
+        };
+
+        window.addEventListener('pointermove', update, { passive: true });
+
+        return () => window.removeEventListener('pointermove', update);
+    }, []);
+
+    return position;
+}
+
+function useScrollProgress() {
+    const [progress, setProgress] = React.useState(0);
+
+    React.useEffect(() => {
+        const update = () => {
+            const max = Math.max(document.documentElement.scrollHeight - window.innerHeight, 1);
+            setProgress(window.scrollY / max);
+        };
+
+        update();
+        window.addEventListener('scroll', update, { passive: true });
+        window.addEventListener('resize', update);
+
+        return () => {
+            window.removeEventListener('scroll', update);
+            window.removeEventListener('resize', update);
+        };
+    }, []);
+
+    return progress;
 }
 
 function BrandMark({ homepage, branding, fonts, className = '', textClassName = '', logoClassName = '' }) {

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Setting;
 use App\Support\HomepageSettings;
+use App\Support\TenantSeoSettings;
 use App\Support\TenantThemeSettings;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
@@ -22,6 +23,7 @@ class WebsiteController extends Controller
             'homepage' => $content,
             'homepagePreview' => HomepageSettings::toFrontend($content),
             'theme' => TenantThemeSettings::get($tenantId),
+            'seo' => TenantSeoSettings::get($tenantId, HomepageSettings::toFrontend($content)),
             'submitUrl' => '/admin/website',
             'tenantLabel' => app(TenantContext::class)->tenant()?->name,
         ]);
@@ -49,6 +51,7 @@ class WebsiteController extends Controller
 
         $tenantId = app(TenantContext::class)->id();
         $themeDecoded = json_decode($request->input('theme', '{}'), true);
+        $seoDecoded = json_decode($request->input('seo', '{}'), true);
 
         $content = HomepageSettings::sanitize($decoded, $tenantId);
         $content['brand']['name'] = Setting::get('app_name', Setting::get('photographer_business_name', $content['brand']['name'] ?? 'PhotOS'));
@@ -82,6 +85,10 @@ class WebsiteController extends Controller
 
         if (is_array($themeDecoded)) {
             TenantThemeSettings::save($themeDecoded, $tenantId);
+        }
+
+        if (is_array($seoDecoded)) {
+            TenantSeoSettings::save($seoDecoded, $tenantId, HomepageSettings::toFrontend($content));
         }
 
         return back()->with('success', 'Website updated successfully.');

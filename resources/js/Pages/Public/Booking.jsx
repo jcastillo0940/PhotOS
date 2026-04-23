@@ -1,5 +1,6 @@
 import React from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
+import SeoHead from '@/Components/SeoHead';
 import { ArrowLeft, CalendarDays, Clock3, ShieldCheck } from 'lucide-react';
 
 const defaultTheme = {
@@ -15,7 +16,7 @@ const defaultTheme = {
     },
 };
 
-export default function Booking({ homepage, theme = defaultTheme, events = [] }) {
+export default function Booking({ homepage, theme = defaultTheme, seo = null, events = [] }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
@@ -35,7 +36,7 @@ export default function Booking({ homepage, theme = defaultTheme, events = [] })
 
     return (
         <div className="min-h-screen px-6 py-10 md:px-10" style={{ backgroundColor: palette.surface, color: palette.text }}>
-            <Head title={`Booking | ${homepage?.brand?.name || 'Studio'}`} />
+            <SeoHead seo={seo} fallbackTitle={`Booking | ${homepage?.brand?.name || 'Studio'}`} fallbackDescription={homepage?.brand?.tagline} />
 
             <div className="mx-auto mb-8 flex max-w-7xl items-center justify-between gap-4">
                 <div>

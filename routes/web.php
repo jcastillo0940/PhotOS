@@ -27,6 +27,7 @@ use App\Http\Controllers\SaasBillingController;
 use App\Http\Controllers\SaasOnboardingController;
 use App\Http\Controllers\SaasTenantController;
 use App\Http\Controllers\SaasTenantWebsiteController;
+use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TenantSubscriptionPortalController;
@@ -35,6 +36,8 @@ use Illuminate\Support\Facades\Route;
 
 // Public: Studio Website
 Route::get('/', [HomeController::class, 'index'])->name('home');
+Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
+Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
 Route::get('/portfolio', [HomeController::class, 'portfolio'])->name('public.portfolio');
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 Route::get('/booking', [BookingController::class, 'index'])->name('public.booking');

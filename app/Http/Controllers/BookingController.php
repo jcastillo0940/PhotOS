@@ -7,6 +7,7 @@ use App\Models\Event;
 use App\Models\Lead;
 use App\Models\Project;
 use App\Support\HomepageSettings;
+use App\Support\TenantSeoSettings;
 use App\Support\TenantThemeSettings;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
@@ -14,7 +15,7 @@ use Inertia\Inertia;
 
 class BookingController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $tenantId = app(TenantContext::class)->id();
         $homepage = HomepageSettings::toFrontend(HomepageSettings::get($tenantId));
@@ -22,6 +23,7 @@ class BookingController extends Controller
         return Inertia::render('Public/Booking', [
             'homepage' => $homepage,
             'theme' => TenantThemeSettings::get($tenantId),
+            'seo' => TenantSeoSettings::toFrontend(TenantSeoSettings::get($tenantId, $homepage), $request, $homepage),
             'events' => Event::query()
                 ->whereIn('status', ['confirmed', 'paid', 'blocked'])
                 ->orderBy('start')

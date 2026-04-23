@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use App\Models\Tenant;
 use App\Support\HomepageSettings;
+use App\Support\TenantSeoSettings;
 use App\Support\TenantThemeSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -26,6 +27,7 @@ class SaasTenantWebsiteController extends Controller
             'homepage' => $content,
             'homepagePreview' => HomepageSettings::toFrontend($content),
             'theme' => TenantThemeSettings::get($tenant->id),
+            'seo' => TenantSeoSettings::get($tenant->id, HomepageSettings::toFrontend($content)),
         ]);
     }
 
@@ -34,6 +36,7 @@ class SaasTenantWebsiteController extends Controller
         $validated = $request->validate([
             'content' => 'required|string',
             'theme' => 'required|string',
+            'seo' => 'nullable|string',
             'hero_image' => 'nullable|image|max:5120',
             'about_image' => 'nullable|image|max:5120',
             'gallery_image_0' => 'nullable|image|max:5120',
@@ -49,6 +52,7 @@ class SaasTenantWebsiteController extends Controller
 
         $decoded = json_decode($validated['content'], true);
         $themeDecoded = json_decode($validated['theme'], true);
+        $seoDecoded = json_decode($request->input('seo', '{}'), true);
 
         abort_unless(is_array($decoded), 422, 'Invalid homepage payload.');
         abort_unless(is_array($themeDecoded), 422, 'Invalid theme payload.');
@@ -83,6 +87,10 @@ class SaasTenantWebsiteController extends Controller
 
         HomepageSettings::save($content, $tenant->id);
         TenantThemeSettings::save($themeDecoded, $tenant->id);
+
+        if (is_array($seoDecoded)) {
+            TenantSeoSettings::save($seoDecoded, $tenant->id, HomepageSettings::toFrontend($content));
+        }
 
         return back()->with('success', 'Sitio del tenant actualizado.');
     }

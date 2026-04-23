@@ -1,12 +1,13 @@
 import React from 'react';
 import WebsiteBuilder from '@/Pages/Admin/Website/Index';
 
-export default function Website({ tenant, homepage, homepagePreview, theme }) {
+export default function Website({ tenant, homepage, homepagePreview, theme, seo }) {
     return (
         <WebsiteBuilder
             homepage={homepage}
             homepagePreview={homepagePreview}
             theme={theme}
+            seo={seo}
             submitUrl={`/admin/saas/tenants/${tenant.id}/website`}
             tenantLabel={tenant.name}
             pageTitle={`White label | ${tenant.name}`}

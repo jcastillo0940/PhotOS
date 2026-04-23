@@ -11,6 +11,7 @@ use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
 use App\Support\SaasPlanCatalog;
 use App\Support\TenantThemeSettings;
+use App\Support\TenantSeoSettings;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Schema;
@@ -63,6 +64,7 @@ class HomeController extends Controller
         return Inertia::render('Public/Home', [
             'homepage' => $homepage,
             'theme' => $theme,
+            'seo' => TenantSeoSettings::toFrontend(TenantSeoSettings::get($tenantId, $homepage), $request, $homepage),
             'portfolioPhotos' => $portfolioPhotos,
             'portfolioCategories' => $portfolioCategories,
             'eventTypes' => EventTypeSettings::get(),
@@ -115,6 +117,7 @@ class HomeController extends Controller
         return Inertia::render('Public/Portfolio', [
             'homepage' => $homepage,
             'theme' => $theme,
+            'seo' => TenantSeoSettings::toFrontend(TenantSeoSettings::get($tenantId, $homepage), $request, $homepage),
             'selectedCategory' => $selectedCategory,
             'categories' => $categories,
             'projects' => $projects->through(function (Project $project) {

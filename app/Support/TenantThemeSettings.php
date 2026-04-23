@@ -123,31 +123,55 @@ class TenantThemeSettings
                 'label' => 'Classic Editorial',
                 'description' => 'El home actual: hero fotografico, galeria editorial y formulario completo.',
                 'recommended_preset' => 'editorial-warm',
+                'recommended_fonts' => [
+                    'heading' => 'Fraunces, Georgia, serif',
+                    'body' => 'Inter, system-ui, sans-serif',
+                ],
             ],
             'tetta-explorer' => [
                 'label' => 'Tetta Explorer',
                 'description' => 'Hero dividido, negro elegante, titulo gigante y portafolio cinematografico.',
                 'recommended_preset' => 'tetta-noir',
+                'recommended_fonts' => [
+                    'heading' => 'Bebas Neue, Impact, sans-serif',
+                    'body' => 'Manrope, Inter, system-ui, sans-serif',
+                ],
             ],
             'hardy-portrait' => [
                 'label' => 'Hardy Portrait',
                 'description' => 'Retrato premium con servicios, estadisticas y proyectos destacados.',
                 'recommended_preset' => 'editorial-warm',
+                'recommended_fonts' => [
+                    'heading' => 'Cormorant Garamond, Georgia, serif',
+                    'body' => 'Plus Jakarta Sans, Inter, system-ui, sans-serif',
+                ],
             ],
             'wedding-event' => [
                 'label' => 'Wedding Event',
                 'description' => 'Home romantico para bodas, eventos sociales, paquetes y storytelling emocional.',
                 'recommended_preset' => 'wedding-rose',
+                'recommended_fonts' => [
+                    'heading' => 'Playfair Display, Georgia, serif',
+                    'body' => 'Lora, Georgia, serif',
+                ],
             ],
             'wild-nature' => [
                 'label' => 'Wild Nature',
                 'description' => 'Visual inmersivo para naturaleza, aventura, turismo y fotografia outdoor.',
                 'recommended_preset' => 'wild-earth',
+                'recommended_fonts' => [
+                    'heading' => 'Oswald, Impact, sans-serif',
+                    'body' => 'Nunito Sans, Inter, system-ui, sans-serif',
+                ],
             ],
             'sports-dynamic' => [
                 'label' => 'Sports Dynamic',
                 'description' => 'Landing deportiva con energia, metricas, diagonales y CTA agresivo.',
                 'recommended_preset' => 'sports-electric',
+                'recommended_fonts' => [
+                    'heading' => 'Anton, Impact, sans-serif',
+                    'body' => 'Barlow Condensed, Inter, system-ui, sans-serif',
+                ],
             ],
         ];
     }
@@ -210,8 +234,8 @@ class TenantThemeSettings
         return [
             'preset' => $preset,
             'home_layout' => $homeLayout,
-            'font_heading' => trim((string) ($content['font_heading'] ?? $defaults['font_heading'])),
-            'font_body' => trim((string) ($content['font_body'] ?? $defaults['font_body'])),
+            'font_heading' => str($content['font_heading'] ?? $defaults['font_heading'])->trim()->limit(140, '')->toString() ?: $defaults['font_heading'],
+            'font_body' => str($content['font_body'] ?? $defaults['font_body'])->trim()->limit(140, '')->toString() ?: $defaults['font_body'],
         ];
     }
 
@@ -232,6 +256,7 @@ class TenantThemeSettings
                 'label' => $item['label'],
                 'description' => $item['description'],
                 'recommended_preset' => $item['recommended_preset'],
+                'recommended_fonts' => $item['recommended_fonts'],
             ])->values()->all(),
         ]);
     }

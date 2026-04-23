@@ -6,7 +6,10 @@ import {
     GripVertical,
     Image as ImageIcon,
     LayoutTemplate,
+    MapPin,
     Save,
+    Search,
+    Share2,
     Sparkles,
     Type,
     Upload,
@@ -24,6 +27,7 @@ export default function Index({
     homepage,
     homepagePreview,
     theme,
+    seo,
     submitUrl = '/admin/website',
     tenantLabel = null,
     pageTitle = 'Sitio web',
@@ -39,6 +43,7 @@ export default function Index({
     const { data, setData, post, processing, transform } = useForm({
         content: JSON.stringify(homepage),
         theme: JSON.stringify(theme || {}),
+        seo: JSON.stringify(seo || {}),
         hero_image: null,
         about_image: null,
         gallery_image_0: null,
@@ -86,6 +91,7 @@ export default function Index({
             _method: 'put',
             content: JSON.stringify(content),
             theme: JSON.stringify(themeState),
+            seo: JSON.stringify(seoState),
         }));
 
         post(submitUrl, {
@@ -94,9 +100,11 @@ export default function Index({
         });
     };
     const [themeState, setThemeState] = React.useState(theme || {});
+    const [seoState, setSeoState] = React.useState(seo || {});
     const activeLayout = (theme?.home_layouts || []).find((layout) => layout.key === (themeState.home_layout || 'classic-editorial'));
     const editorTabs = [
         ['design', 'Diseño'],
+        ['seo', 'SEO'],
         ['sections', 'Secciones'],
         ['hero', 'Hero'],
         ['about', 'About'],
@@ -256,6 +264,88 @@ export default function Index({
                             >
                                 Ir a branding
                             </Link>
+                                </Panel>
+                            </>
+                        )}
+
+                        {activeEditor === 'seo' && (
+                            <>
+                                <Panel title="SEO estrella del tenant" icon={Search} description="Controla como aparece el front en Google, enlaces compartidos, WhatsApp, X/Facebook y resultados enriquecidos.">
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <ToggleField
+                                            label="Permitir indexacion"
+                                            description="Si esta apagado, Google recibe noindex/nofollow. Usalo solo en sitios en construccion."
+                                            checked={seoState.indexable !== false}
+                                            onChange={(value) => setSeoState((current) => ({ ...current, indexable: value }))}
+                                        />
+                                        <ToggleField
+                                            label="SEO activo"
+                                            description="Mantiene metatags, Open Graph, canonical y schema en el front publico."
+                                            checked={seoState.enabled !== false}
+                                            onChange={(value) => setSeoState((current) => ({ ...current, enabled: value }))}
+                                        />
+                                    </div>
+                                    <TextField label="Titulo SEO" value={seoState.title} onChange={(value) => setSeoState((current) => ({ ...current, title: value }))} />
+                                    <TextAreaField label="Descripcion SEO" value={seoState.description} onChange={(value) => setSeoState((current) => ({ ...current, description: value }))} rows={3} />
+                                    <div className="grid gap-5 md:grid-cols-2">
+                                        <TextField label="Keywords / servicios clave" value={seoState.keywords} onChange={(value) => setSeoState((current) => ({ ...current, keywords: value }))} />
+                                        <TextField label="Canonical URL opcional" value={seoState.canonical_url} onChange={(value) => setSeoState((current) => ({ ...current, canonical_url: value }))} />
+                                    </div>
+                                    <SeoPreview seo={seoState} fallbackTitle={homepage?.brand?.name} fallbackDescription={homepage?.brand?.tagline} />
+                                </Panel>
+
+                                <Panel title="Compartir en redes y WhatsApp" icon={Share2} description="Esto define la tarjeta visual cuando pegan el enlace en redes, chats o mensajes.">
+                                    <div className="grid gap-5 md:grid-cols-2">
+                                        <TextField label="Open Graph title" value={seoState.og_title} onChange={(value) => setSeoState((current) => ({ ...current, og_title: value }))} />
+                                        <TextField label="Imagen social URL" value={seoState.og_image_url} onChange={(value) => setSeoState((current) => ({ ...current, og_image_url: value }))} />
+                                    </div>
+                                    <TextAreaField label="Open Graph description" value={seoState.og_description} onChange={(value) => setSeoState((current) => ({ ...current, og_description: value }))} rows={3} />
+                                    <div className="grid gap-5 md:grid-cols-2">
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Twitter/X card</label>
+                                            <select
+                                                value={seoState.twitter_card || 'summary_large_image'}
+                                                onChange={(event) => setSeoState((current) => ({ ...current, twitter_card: event.target.value }))}
+                                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white"
+                                            >
+                                                <option value="summary_large_image">Imagen grande</option>
+                                                <option value="summary">Resumen compacto</option>
+                                            </select>
+                                        </div>
+                                        <TextField label="Google Search Console verification" value={seoState.google_site_verification} onChange={(value) => setSeoState((current) => ({ ...current, google_site_verification: value }))} />
+                                    </div>
+                                </Panel>
+
+                                <Panel title="Google Cards / Schema local" icon={MapPin} description="Datos estructurados para que Google entienda el negocio, ubicacion, servicios y presencia real del tenant.">
+                                    <div className="grid gap-5 md:grid-cols-3">
+                                        <div className="space-y-2">
+                                            <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Tipo schema</label>
+                                            <select
+                                                value={seoState.schema_type || 'LocalBusiness'}
+                                                onChange={(event) => setSeoState((current) => ({ ...current, schema_type: event.target.value }))}
+                                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white"
+                                            >
+                                                <option value="LocalBusiness">LocalBusiness</option>
+                                                <option value="ProfessionalService">ProfessionalService</option>
+                                                <option value="Organization">Organization</option>
+                                            </select>
+                                        </div>
+                                        <TextField label="Nombre negocio" value={seoState.business_name} onChange={(value) => setSeoState((current) => ({ ...current, business_name: value }))} />
+                                        <TextField label="Rango precio" value={seoState.price_range} onChange={(value) => setSeoState((current) => ({ ...current, price_range: value }))} />
+                                    </div>
+                                    <TextAreaField label="Descripcion negocio" value={seoState.business_description} onChange={(value) => setSeoState((current) => ({ ...current, business_description: value }))} rows={3} />
+                                    <div className="grid gap-5 md:grid-cols-2">
+                                        <TextField label="Telefono" value={seoState.phone} onChange={(value) => setSeoState((current) => ({ ...current, phone: value }))} />
+                                        <TextField label="Email publico" value={seoState.email} onChange={(value) => setSeoState((current) => ({ ...current, email: value }))} />
+                                        <TextField label="Direccion" value={seoState.street_address} onChange={(value) => setSeoState((current) => ({ ...current, street_address: value }))} />
+                                        <TextField label="Ciudad" value={seoState.locality} onChange={(value) => setSeoState((current) => ({ ...current, locality: value }))} />
+                                        <TextField label="Region / provincia" value={seoState.region} onChange={(value) => setSeoState((current) => ({ ...current, region: value }))} />
+                                        <TextField label="Pais" value={seoState.country} onChange={(value) => setSeoState((current) => ({ ...current, country: value }))} />
+                                        <TextField label="Latitud" value={seoState.latitude} onChange={(value) => setSeoState((current) => ({ ...current, latitude: value }))} />
+                                        <TextField label="Longitud" value={seoState.longitude} onChange={(value) => setSeoState((current) => ({ ...current, longitude: value }))} />
+                                    </div>
+                                    <TextAreaField label="Servicios separados por coma" value={seoState.services} onChange={(value) => setSeoState((current) => ({ ...current, services: value }))} rows={3} />
+                                    <TextAreaField label="Redes / perfiles separados por coma" value={seoState.same_as} onChange={(value) => setSeoState((current) => ({ ...current, same_as: value }))} rows={3} />
                                 </Panel>
                             </>
                         )}
@@ -450,6 +540,52 @@ function TextField({ label, value, onChange }) {
                 onChange={(event) => onChange(event.target.value)}
                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-primary-300 focus:bg-white"
             />
+        </div>
+    );
+}
+
+function ToggleField({ label, description, checked, onChange }) {
+    return (
+        <button
+            type="button"
+            onClick={() => onChange(!checked)}
+            className={`rounded-[1.5rem] border p-4 text-left transition ${checked ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-slate-50'}`}
+        >
+            <span className="flex items-center justify-between gap-4">
+                <span className="text-sm font-semibold text-slate-900">{label}</span>
+                <span className={`h-6 w-11 rounded-full p-1 transition ${checked ? 'bg-emerald-500' : 'bg-slate-300'}`}>
+                    <span className={`block h-4 w-4 rounded-full bg-white transition ${checked ? 'translate-x-5' : ''}`} />
+                </span>
+            </span>
+            <span className="mt-2 block text-xs leading-5 text-slate-500">{description}</span>
+        </button>
+    );
+}
+
+function SeoPreview({ seo, fallbackTitle, fallbackDescription }) {
+    const title = seo?.title || fallbackTitle || 'Titulo del tenant';
+    const description = seo?.description || fallbackDescription || 'Descripcion que vera Google cuando muestre esta pagina.';
+    const ogTitle = seo?.og_title || title;
+    const ogDescription = seo?.og_description || description;
+
+    return (
+        <div className="grid gap-4 lg:grid-cols-2">
+            <div className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Vista Google</p>
+                <p className="mt-4 text-sm text-emerald-700">https://dominio-del-tenant.com</p>
+                <p className="mt-1 text-xl font-medium text-blue-700">{title}</p>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
+            </div>
+            <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white">
+                <div className="flex h-36 items-center justify-center bg-slate-100 text-sm text-slate-400">
+                    {seo?.og_image_url ? <img src={seo.og_image_url} alt="Social preview" className="h-full w-full object-cover" /> : 'Imagen social'}
+                </div>
+                <div className="p-5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-400">Card social</p>
+                    <p className="mt-2 text-base font-semibold text-slate-900">{ogTitle}</p>
+                    <p className="mt-1 line-clamp-2 text-sm leading-6 text-slate-500">{ogDescription}</p>
+                </div>
+            </div>
         </div>
     );
 }
