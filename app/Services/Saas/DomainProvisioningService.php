@@ -212,11 +212,13 @@ class DomainProvisioningService
 
             $freshDomain = $tenantDomain->fresh();
             $instructions = $this->customHostnames->dnsInstructions($freshDomain);
+            $zoneName = $this->zoneNameForHostname($freshDomain->hostname);
+            $zoneDetails = $this->dns->enabled() ? $this->dns->zoneDetailsFor($zoneName) : null;
             $dnsRecords = [];
 
             if ($this->dns->enabled()) {
                 $dnsRecords = $this->dns->ensureVanityRecords(
-                    $this->zoneNameForHostname($freshDomain->hostname),
+                    $zoneName,
                     $freshDomain->hostname,
                     (string) $this->customHostnames->managedCnameTarget(),
                     config('services.cloudflare_saas.dcv_target'),
@@ -242,6 +244,13 @@ class DomainProvisioningService
                 'metadata' => array_merge($order->metadata ?? [], [
                     'instructions' => $this->customHostnames->dnsInstructions($freshDomain),
                     'dns_records' => $dnsRecords,
+                    'cloudflare_zone' => $zoneDetails ? [
+                        'id' => $zoneDetails['id'] ?? null,
+                        'name' => $zoneDetails['name'] ?? $zoneName,
+                        'status' => $zoneDetails['status'] ?? null,
+                        'name_servers' => $zoneDetails['name_servers'] ?? [],
+                        'original_name_servers' => $zoneDetails['original_name_servers'] ?? [],
+                    ] : null,
                     'provisioning_mode' => $this->dns->enabled() ? 'cloudflare_managed_dns' : 'manual_dns',
                 ]),
             ])->save();

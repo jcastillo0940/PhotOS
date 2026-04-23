@@ -791,6 +791,14 @@ function DomainOrderCard({ tenantId, order }) {
                 <InfoPanel title="Ultimo error" value={order.error_message || 'Sin error'} helper="Si algo fallo, aqui queda visible para soporte." />
             </div>
 
+            {order.metadata?.cloudflare_zone && (
+                <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                    <InfoPanel title="Zona Cloudflare" value={order.metadata.cloudflare_zone.name || 'Detectada'} helper={`Estado: ${order.metadata.cloudflare_zone.status || 'desconocido'}`} />
+                    <InfoPanel title="DNS gestionado" value={order.metadata.provisioning_mode || 'Sin modo'} helper="Indica si el sistema pudo editar DNS por API." />
+                    <InfoPanel title="Registros aplicados" value={String(order.metadata.dns_records?.length || 0)} helper="CNAME apex/www y validacion SSL creados o actualizados." />
+                </div>
+            )}
+
             <form onSubmit={submitOverride} className="mt-4 grid gap-4 lg:grid-cols-[240px,1fr,auto]">
                 <Field label="Override de estado" error={form.errors.status}>
                     <select

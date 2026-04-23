@@ -20,10 +20,15 @@ class CloudflareDnsService
             throw new RuntimeException('Cloudflare DNS no esta configurado en este entorno.');
         }
 
-        $zoneId = $this->zoneIdFor($zoneName);
+        $zone = $this->zoneDetailsFor($zoneName);
+        $zoneId = $zone['id'] ?? null;
 
         if (! $zoneId) {
             throw new RuntimeException("Cloudflare DNS aun no expone una zona editable para {$zoneName}.");
+        }
+
+        if (($zone['status'] ?? null) !== 'active') {
+            throw new RuntimeException("La zona {$zoneName} existe en Cloudflare, pero aun no esta activa. Revisa que el dominio use los nameservers de Cloudflare.");
         }
 
         $records = [];
@@ -34,6 +39,16 @@ class CloudflareDnsService
             'proxied' => false,
             'ttl' => 1,
         ]);
+
+        if ($this->isApexHostname($zoneName, $hostname)) {
+            $records[] = $this->upsertRecord($zoneId, [
+                'type' => 'CNAME',
+                'name' => 'www.'.$zoneName,
+                'content' => $cnameTarget,
+                'proxied' => false,
+                'ttl' => 1,
+            ]);
+        }
 
         if (is_array($validationRecord) && filled($validationRecord['name'] ?? null) && filled($validationRecord['value'] ?? null)) {
             $validationPayload = [
@@ -61,7 +76,7 @@ class CloudflareDnsService
         return $records;
     }
 
-    public function zoneIdFor(string $zoneName): ?string
+    public function zoneDetailsFor(string $zoneName): ?array
     {
         $query = [
             'name' => strtolower(trim($zoneName)),
@@ -76,7 +91,12 @@ class CloudflareDnsService
 
         $result = $this->parseResponse($response);
 
-        return $result[0]['id'] ?? null;
+        return $result[0] ?? null;
+    }
+
+    public function zoneIdFor(string $zoneName): ?string
+    {
+        return $this->zoneDetailsFor($zoneName)['id'] ?? null;
     }
 
     protected function upsertRecord(string $zoneId, array $payload): array
@@ -92,7 +112,7 @@ class CloudflareDnsService
         $records = $this->parseResponse($recordsForName);
         $recordId = collect($records)->firstWhere('type', $type)['id'] ?? null;
 
-        $this->deleteConflictingRecords($zoneId, $records, $type);
+        $this->deleteConflictingRecords($zoneId, $records, $type, $recordName);
 
         $response = $recordId
             ? $this->request()->put("/zones/{$zoneId}/dns_records/{$recordId}", $payload)
@@ -135,7 +155,7 @@ class CloudflareDnsService
         return $result;
     }
 
-    protected function deleteConflictingRecords(string $zoneId, array $records, string $targetType): void
+    protected function deleteConflictingRecords(string $zoneId, array $records, string $targetType, string $recordName): void
     {
         if ($targetType !== 'CNAME') {
             return;
@@ -145,7 +165,14 @@ class CloudflareDnsService
             $type = strtoupper((string) ($record['type'] ?? ''));
             $id = $record['id'] ?? null;
 
-            if (! $id || ! in_array($type, ['A', 'AAAA'], true)) {
+            if (! $id || $type === 'CNAME') {
+                continue;
+            }
+
+            $isApexOrWwwAddressConflict = in_array($type, ['A', 'AAAA'], true);
+            $isDcvConflict = str_starts_with($recordName, '_acme-challenge.');
+
+            if (! $isApexOrWwwAddressConflict && ! $isDcvConflict) {
                 continue;
             }
 
@@ -155,6 +182,11 @@ class CloudflareDnsService
                 throw new RuntimeException($response->json('errors.0.message') ?: ('Cloudflare DNS no pudo eliminar un registro conflictivo '.$type.'.'));
             }
         }
+    }
+
+    protected function isApexHostname(string $zoneName, string $hostname): bool
+    {
+        return strtolower(trim($zoneName, '.')) === strtolower(trim($hostname, '.'));
     }
 
     protected function accountId(): ?string

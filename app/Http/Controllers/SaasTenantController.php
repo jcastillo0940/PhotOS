@@ -252,6 +252,7 @@ class SaasTenantController extends Controller
                         'manual_state' => $order->manual_state,
                         'verification_attempts' => $order->verification_attempts,
                         'next_check_at' => optional($order->next_check_at)?->toIso8601String(),
+                        'metadata' => $order->metadata,
                     ])
                     ->values(),
             ],
