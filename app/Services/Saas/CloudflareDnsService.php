@@ -32,23 +32,6 @@ class CloudflareDnsService
         }
 
         $records = [];
-        $records[] = $this->upsertRecord($zoneId, [
-            'type' => 'CNAME',
-            'name' => $hostname,
-            'content' => $cnameTarget,
-            'proxied' => false,
-            'ttl' => 1,
-        ]);
-
-        if ($this->isApexHostname($zoneName, $hostname)) {
-            $records[] = $this->upsertRecord($zoneId, [
-                'type' => 'CNAME',
-                'name' => 'www.'.$zoneName,
-                'content' => $cnameTarget,
-                'proxied' => false,
-                'ttl' => 1,
-            ]);
-        }
 
         if (is_array($validationRecord) && filled($validationRecord['name'] ?? null) && filled($validationRecord['value'] ?? null)) {
             $validationPayload = [
@@ -68,6 +51,24 @@ class CloudflareDnsService
                 'type' => 'CNAME',
                 'name' => '_acme-challenge.'.$hostname,
                 'content' => trim($hostname, '.').'.'.trim((string) $dcvSuffix, '.'),
+                'proxied' => false,
+                'ttl' => 1,
+            ]);
+        }
+
+        $records[] = $this->upsertRecord($zoneId, [
+            'type' => 'CNAME',
+            'name' => $hostname,
+            'content' => $cnameTarget,
+            'proxied' => false,
+            'ttl' => 1,
+        ]);
+
+        if ($this->isApexHostname($zoneName, $hostname)) {
+            $records[] = $this->upsertRecord($zoneId, [
+                'type' => 'CNAME',
+                'name' => 'www.'.$zoneName,
+                'content' => $cnameTarget,
                 'proxied' => false,
                 'ttl' => 1,
             ]);
