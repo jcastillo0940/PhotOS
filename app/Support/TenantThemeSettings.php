@@ -13,6 +13,7 @@ class TenantThemeSettings
     {
         return [
             'preset' => 'editorial-warm',
+            'home_layout' => 'classic-editorial',
             'font_heading' => 'Fraunces, Georgia, serif',
             'font_body' => 'Inter, system-ui, sans-serif',
         ];
@@ -59,6 +60,58 @@ class TenantThemeSettings
                     'accent' => '#c2a36f',
                     'accent_soft' => '#2b2721',
                 ],
+            ],
+            'tetta-noir' => [
+                'label' => 'Tetta Noir',
+                'palette' => [
+                    'hero_overlay' => 'rgba(6,6,6,.32)',
+                    'surface' => '#0f0f0f',
+                    'surface_alt' => '#181818',
+                    'surface_dark' => '#050505',
+                    'text' => '#f6f2ec',
+                    'muted' => '#b7aca0',
+                    'accent' => '#f5f0e8',
+                    'accent_soft' => '#29231f',
+                ],
+            ],
+            'sports-electric' => [
+                'label' => 'Sports Electric',
+                'palette' => [
+                    'hero_overlay' => 'rgba(4,8,12,.62)',
+                    'surface' => '#071015',
+                    'surface_alt' => '#0d1b22',
+                    'surface_dark' => '#02070a',
+                    'text' => '#eef7f5',
+                    'muted' => '#9ab5b0',
+                    'accent' => '#b7ff3c',
+                    'accent_soft' => '#173621',
+                ],
+            ],
+        ];
+    }
+
+    public static function homeLayouts(): array
+    {
+        return [
+            'classic-editorial' => [
+                'label' => 'Classic Editorial',
+                'description' => 'El home actual: hero fotografico, galeria editorial y formulario completo.',
+                'recommended_preset' => 'editorial-warm',
+            ],
+            'tetta-explorer' => [
+                'label' => 'Tetta Explorer',
+                'description' => 'Hero dividido, negro elegante, titulo gigante y portafolio cinematografico.',
+                'recommended_preset' => 'tetta-noir',
+            ],
+            'hardy-portrait' => [
+                'label' => 'Hardy Portrait',
+                'description' => 'Retrato premium con servicios, estadisticas y proyectos destacados.',
+                'recommended_preset' => 'editorial-warm',
+            ],
+            'sports-dynamic' => [
+                'label' => 'Sports Dynamic',
+                'description' => 'Landing deportiva con energia, metricas, diagonales y CTA agresivo.',
+                'recommended_preset' => 'sports-electric',
             ],
         ];
     }
@@ -108,13 +161,19 @@ class TenantThemeSettings
     {
         $defaults = self::defaults();
         $preset = $content['preset'] ?? $defaults['preset'];
+        $homeLayout = $content['home_layout'] ?? $defaults['home_layout'];
 
         if (!array_key_exists($preset, self::presets())) {
             $preset = $defaults['preset'];
         }
 
+        if (!array_key_exists($homeLayout, self::homeLayouts())) {
+            $homeLayout = $defaults['home_layout'];
+        }
+
         return [
             'preset' => $preset,
+            'home_layout' => $homeLayout,
             'font_heading' => trim((string) ($content['font_heading'] ?? $defaults['font_heading'])),
             'font_body' => trim((string) ($content['font_body'] ?? $defaults['font_body'])),
         ];
@@ -131,6 +190,12 @@ class TenantThemeSettings
             'presets' => collect(self::presets())->map(fn ($item, $key) => [
                 'key' => $key,
                 'label' => $item['label'],
+            ])->values()->all(),
+            'home_layouts' => collect(self::homeLayouts())->map(fn ($item, $key) => [
+                'key' => $key,
+                'label' => $item['label'],
+                'description' => $item['description'],
+                'recommended_preset' => $item['recommended_preset'],
             ])->values()->all(),
         ]);
     }

@@ -119,6 +119,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/saas/payments', [App\Http\Controllers\Saas\PaymentController::class, 'index'])->name('admin.saas.payments.index');
 
         Route::post('/saas/tenants/{tenant}/billing/manual', [SaasBillingController::class, 'manualUpdate'])->name('admin.saas.tenants.billing.manual');
+        Route::post('/saas/tenants/{tenant}/billing/manual-payment', [SaasBillingController::class, 'recordManualPayment'])->name('admin.saas.tenants.billing.manual-payment');
+        Route::post('/saas/tenants/{tenant}/billing/discount', [SaasBillingController::class, 'applyDiscount'])->name('admin.saas.tenants.billing.discount');
         Route::post('/saas/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('admin.saas.tenants.billing.setup-token');
     });
 

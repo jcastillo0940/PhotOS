@@ -222,6 +222,7 @@ export default function Show({
     tenant,
     billing,
     subscription,
+    statement = {},
     transactions = [],
     plans = [],
     domains = [],
@@ -236,6 +237,7 @@ export default function Show({
     const [activeTab, setActiveTab] = React.useState('overview');
     const current = currentPlan(plans, subscription?.plan_code || tenant?.plan_code);
     const cycleState = cycleProgress(subscription, billing);
+    const balanceDue = Number(statement?.balance_due || 0);
 
     const offlineForm = useForm({
         amount: subscription?.amount || '',
@@ -315,7 +317,7 @@ export default function Show({
                             <div className="mt-6 grid gap-4 sm:grid-cols-3">
                                 <MiniStat label="Plan activo" value={current?.name || subscription?.plan_code || tenant?.plan_code || 'Sin plan'} helper={tenant?.name} />
                                 <MiniStat label="Proximo corte" value={formatDate(subscription?.expires_at || billing?.expires_at)} helper={`${billing?.days_remaining ?? 0} dias restantes`} />
-                                <MiniStat label="Monto actual" value={formatCurrency(subscription?.amount, subscription?.currency)} helper={`Facturacion ${cycleLabel(subscription?.billing_cycle).toLowerCase()}`} />
+                                <MiniStat label="Saldo pendiente" value={formatCurrency(balanceDue, statement?.currency || subscription?.currency)} helper={balanceDue > 0 ? 'Pendiente del periodo' : 'Cuenta al dia'} />
                             </div>
                         </div>
 
@@ -369,7 +371,7 @@ export default function Show({
                             <MetricCard icon={CreditCard} label="Suscripcion" value={current?.name || toTitle(subscription?.plan_code || tenant?.plan_code)} helper={`Ciclo ${cycleLabel(subscription?.billing_cycle).toLowerCase()}`} tone="sky" />
                             <MetricCard icon={CalendarClock} label="Periodo activo" value={formatDate(subscription?.current_period_ends_at || subscription?.expires_at || billing?.expires_at)} helper="Fecha usada para renovacion y acceso." tone="emerald" />
                             <MetricCard icon={Wallet} label="Metodo de pago" value={toTitle(subscription?.payment_mode || 'No definido')} helper={`Proveedor ${subscription?.provider || 'manual'}`} tone="amber" />
-                            <MetricCard icon={Receipt} label="Cobro estimado" value={formatCurrency(subscription?.amount, subscription?.currency)} helper="Monto asociado al plan actual." tone="slate" />
+                            <MetricCard icon={Receipt} label="Cobro final" value={formatCurrency(statement?.effective_amount ?? subscription?.amount, statement?.currency || subscription?.currency)} helper={Number(statement?.discount_amount || 0) > 0 ? `Incluye descuento de ${formatCurrency(statement.discount_amount, statement.currency)}` : 'Monto asociado al plan actual.'} tone="slate" />
                         </div>
 
                         <SectionCard>
@@ -400,6 +402,22 @@ export default function Show({
                                     </div>
                                 </div>
                             )}
+                        </SectionCard>
+
+                        <SectionCard className="xl:col-span-2">
+                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                <div>
+                                    <h2 className="text-xl font-semibold text-slate-900">Estado de cuenta</h2>
+                                    <p className="mt-1 text-sm text-slate-600">Resumen de plan, descuentos y pagos recibidos.</p>
+                                </div>
+                                <StatusPill label={balanceDue > 0 ? 'Saldo pendiente' : 'Cuenta al dia'} tone={balanceDue > 0 ? 'amber' : 'emerald'} />
+                            </div>
+                            <div className="mt-5 grid gap-4 md:grid-cols-4">
+                                <MiniStat label="Plan" value={formatCurrency(statement?.plan_amount, statement?.currency)} helper={subscription?.plan_code} />
+                                <MiniStat label="Descuento" value={formatCurrency(statement?.discount_amount, statement?.currency)} helper={statement?.discount?.reason || 'Sin descuento'} />
+                                <MiniStat label="Pagado" value={formatCurrency(statement?.paid_total, statement?.currency)} helper={`${formatCurrency(statement?.submitted_total, statement?.currency)} pendiente`} />
+                                <MiniStat label="Saldo" value={formatCurrency(statement?.balance_due, statement?.currency)} helper="Balance actual" />
+                            </div>
                         </SectionCard>
                     </section>
                 )}
@@ -792,6 +810,21 @@ export default function Show({
                         </div>
 
                         <div className="mt-6 max-h-[650px] space-y-4 overflow-y-auto pr-1">
+                            {(statement?.lines || []).length > 0 && (
+                                <div className="mb-6 overflow-hidden rounded-2xl border border-slate-200">
+                                    {(statement.lines || []).slice(0, 8).map((line, index) => (
+                                        <div key={`${line.type}-${line.reference}-${index}`} className="grid gap-3 border-t border-slate-200 bg-white p-4 text-sm first:border-t-0 md:grid-cols-[1fr,2fr,1fr,1fr]">
+                                            <p className="text-slate-500">{formatDate(line.date)}</p>
+                                            <div>
+                                                <p className="font-semibold text-slate-900">{line.description}</p>
+                                                <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">{line.reference || line.type}</p>
+                                            </div>
+                                            <p className="font-semibold text-slate-900">{Number(line.debit || 0) > 0 ? formatCurrency(line.debit, statement.currency) : '-'}</p>
+                                            <p className="font-semibold text-emerald-700">{Number(line.credit || 0) > 0 ? formatCurrency(line.credit, statement.currency) : '-'}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             {transactions.length > 0 ? transactions.map((transaction) => {
                                 const tone = statusTone(transaction.status);
 

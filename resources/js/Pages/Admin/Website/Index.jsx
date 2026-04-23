@@ -215,6 +215,36 @@ export default function Index({
                         </Panel>
 
                         <Panel title="Tema visual" icon={Sparkles} description="Cada tenant puede usar el mismo motor del front, pero con una atmosfera visual distinta.">
+                            <div className="space-y-3">
+                                <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Home asignado al tenant</label>
+                                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                                    {(theme?.home_layouts || []).map((layout) => {
+                                        const active = (themeState.home_layout || 'classic-editorial') === layout.key;
+
+                                        return (
+                                            <button
+                                                key={layout.key}
+                                                type="button"
+                                                onClick={() => setThemeState((current) => ({
+                                                    ...current,
+                                                    home_layout: layout.key,
+                                                    preset: layout.recommended_preset || current.preset,
+                                                }))}
+                                                className={`rounded-[1.5rem] border p-4 text-left transition ${active ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/10' : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-primary-300 hover:bg-white'}`}
+                                            >
+                                                <span className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${active ? 'text-white/50' : 'text-slate-400'}`}>
+                                                    Front
+                                                </span>
+                                                <span className="mt-3 block text-sm font-semibold">{layout.label}</span>
+                                                <span className={`mt-2 block text-xs leading-5 ${active ? 'text-white/68' : 'text-slate-500'}`}>
+                                                    {layout.description}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
                             <div className="grid gap-5 md:grid-cols-3">
                                 <div className="space-y-2 md:col-span-1">
                                     <label className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Preset</label>

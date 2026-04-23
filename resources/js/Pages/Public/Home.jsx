@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
 import { buildSlots } from '@/lib/availability';
-import { ArrowRight, Camera, Grip, Mail, MapPin, Menu, MessageSquare, Phone } from 'lucide-react';
+import { ArrowRight, Camera, Grip, Mail, MapPin, Menu, MessageSquare, Phone, Star, Trophy, Zap } from 'lucide-react';
 
 const sectionLabels = {
     hero: 'Home',
@@ -97,6 +97,46 @@ export default function Home({
             },
         });
     };
+
+    const leadForm = {
+        data,
+        setData,
+        processing,
+        errors,
+        recentlySuccessful,
+        submit,
+        availableSlots,
+        eventTypes,
+        busyCalendarEvents,
+        businessHours,
+        availabilitySettings,
+        flash,
+    };
+
+    const commonLayoutProps = {
+        homepage,
+        palette,
+        fonts,
+        navItems,
+        portfolioCategories,
+        allCategories,
+        filteredPortfolio,
+        activeCategory,
+        setActiveCategory,
+        leadForm,
+    };
+
+    if (theme?.home_layout === 'tetta-explorer') {
+        return <TettaExplorerHome {...commonLayoutProps} />;
+    }
+
+    if (theme?.home_layout === 'hardy-portrait') {
+        return <HardyPortraitHome {...commonLayoutProps} />;
+    }
+
+    if (theme?.home_layout === 'sports-dynamic') {
+        return <SportsDynamicHome {...commonLayoutProps} />;
+    }
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
@@ -404,6 +444,436 @@ export default function Home({
                 </div>
             </footer>
         </div>
+    );
+}
+
+function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfolio, leadForm }) {
+    const heroWords = (homepage.hero.title || homepage.brand.name || '').split(' ');
+    const firstWord = heroWords.shift() || homepage.brand.name;
+    const restTitle = heroWords.join(' ') || homepage.brand.tagline || 'The Explorer';
+    const featuredPhoto = filteredPortfolio[0]?.image_url || homepage.hero.image_url;
+
+    return (
+        <div className="min-h-screen bg-[#0b0b0b] text-white" style={{ fontFamily: fonts.body }}>
+            <Head title={homepage.brand.name} />
+
+            <section id="hero" className="relative isolate min-h-screen overflow-hidden">
+                <div className="grid min-h-screen lg:grid-cols-[38vw_1fr]">
+                    <aside className="relative z-10 flex min-h-[52vh] flex-col justify-between bg-[#090909] px-7 py-8 md:px-12 lg:min-h-screen">
+                        <div className="flex items-center justify-between">
+                            <p className="text-3xl font-black tracking-tight" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}<span className="text-white/35">.</span></p>
+                            <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-white/55">Login</Link>
+                        </div>
+                        <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
+                            <div className="mb-8 h-px w-16 bg-white" />
+                            <p className="max-w-sm text-sm leading-7 text-white/72">{homepage.hero.description}</p>
+                        </div>
+                        <div className="flex gap-5 text-xs uppercase tracking-[0.24em] text-white/40">
+                            <span>Instagram</span>
+                            <span>Behance</span>
+                            <span>Studio</span>
+                        </div>
+                    </aside>
+
+                    <main className="relative min-h-[62vh] overflow-hidden lg:min-h-screen">
+                        <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover opacity-82" />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/42 via-black/5 to-black/35" />
+                        <header className="relative z-20 flex items-center justify-end gap-8 px-7 py-8 text-sm font-semibold text-white/72 md:px-12">
+                            {navItems.map((item) => (
+                                <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)} className="hidden transition hover:text-white md:inline-flex">
+                                    {sectionLabels[item]}
+                                </button>
+                            ))}
+                            <Link href="/portfolio" className="rounded-full bg-white px-5 py-2 text-black">Portfolio</Link>
+                        </header>
+                        <div className="relative z-10 flex min-h-[calc(100vh-96px)] items-center px-7 pb-16 md:px-12">
+                            <div className="-ml-[2px] max-w-6xl">
+                                <p className="mb-7 text-[11px] uppercase tracking-[0.38em] text-white/62">{homepage.hero.eyebrow}</p>
+                                <h1 className="text-[clamp(4rem,9vw,10.5rem)] font-black leading-[0.86] tracking-[-0.08em]" style={{ fontFamily: fonts.heading }}>
+                                    {firstWord} <span className="text-transparent [-webkit-text-stroke:1.4px_rgba(255,255,255,.86)]">{restTitle}</span>
+                                </h1>
+                                <div className="mt-10 flex flex-wrap gap-4">
+                                    <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#fff" color="#050505" />
+                                    <OutlineHeroButton label={homepage.hero.secondary_cta_label} onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)} />
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            </section>
+
+            <section id="about" className="grid gap-0 bg-[#111] lg:grid-cols-[1fr_.8fr]">
+                <div className="px-7 py-20 md:px-12 lg:py-28">
+                    <p className="mb-5 text-[11px] uppercase tracking-[0.34em] text-white/40">{homepage.about.eyebrow}</p>
+                    <h2 className="max-w-3xl text-5xl leading-[.95] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
+                    <p className="mt-8 max-w-2xl text-base leading-8 text-white/68">{homepage.about.body}</p>
+                    <div className="mt-10 grid gap-4 md:grid-cols-3">
+                        {homepage.about.stats.map((item) => <DarkMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
+                    </div>
+                </div>
+                <img src={homepage.about.image_url || featuredPhoto} alt="About" className="h-full min-h-[520px] w-full object-cover" />
+            </section>
+
+            <TettaGallery homepage={homepage} filteredPortfolio={filteredPortfolio} fonts={fonts} />
+            <CompactLeadSection homepage={homepage} palette={palette} fonts={fonts} leadForm={leadForm} dark />
+            <MinimalFooter palette={palette} />
+        </div>
+    );
+}
+
+function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadForm }) {
+    const portrait = homepage.about.image_url || homepage.hero.image_url;
+
+    return (
+        <div style={{ backgroundColor: '#f6efe4', color: '#221a14', fontFamily: fonts.body }}>
+            <Head title={homepage.brand.name} />
+
+            <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-7 md:px-10">
+                <p className="text-2xl font-semibold" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
+                <nav className="hidden items-center gap-8 text-sm font-semibold text-[#7a6655] md:flex">
+                    {['about', 'featured', 'gallery', 'contact'].map((item) => (
+                        <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)}>{sectionLabels[item]}</button>
+                    ))}
+                </nav>
+                <Link href="/booking" className="rounded-full bg-[#221a14] px-5 py-2.5 text-sm font-semibold text-white">Book now</Link>
+            </header>
+
+            <section id="hero" className="mx-auto grid max-w-7xl gap-10 px-6 pb-20 pt-8 md:px-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
+                <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
+                    <p className="mb-5 text-sm font-semibold uppercase tracking-[0.28em] text-[#b68156]">{homepage.hero.eyebrow || "Hello I'm Hardy"}</p>
+                    <h1 className="text-5xl leading-[1.02] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
+                    <p className="mt-7 max-w-xl text-base leading-8 text-[#716052]">{homepage.hero.description}</p>
+                    <div className="mt-9 flex flex-wrap gap-4">
+                        <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#221a14" color="#fff" />
+                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full border border-[#d9c7b3] px-7 py-3 text-sm font-semibold text-[#221a14]">View portfolio</Link>
+                    </div>
+                </div>
+                <div className="relative">
+                    <div className="absolute -left-5 top-10 hidden h-72 w-32 rounded-full bg-[#d7a676]/35 blur-3xl lg:block" />
+                    <img src={homepage.hero.image_url} alt={homepage.hero.title} className="relative h-[680px] w-full rounded-t-full object-cover shadow-[0_40px_90px_rgba(78,52,32,.18)]" />
+                    <div className="absolute bottom-8 left-8 rounded-[1.6rem] bg-white/88 p-5 shadow-xl backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.24em] text-[#b68156]">Professional photographer</p>
+                        <p className="mt-2 text-3xl" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="about" className="bg-white px-6 py-24 md:px-10">
+                <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
+                    <img src={portrait} alt="Portrait" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
+                    <div>
+                        <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#b68156]">{homepage.about.eyebrow}</p>
+                        <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
+                        <p className="mt-6 text-base leading-8 text-[#716052]">{homepage.about.body}</p>
+                        <div className="mt-8 grid gap-4 sm:grid-cols-4">
+                            {homepage.about.stats.map((item) => <LightMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} fonts={fonts} />)}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <HardyServices homepage={homepage} fonts={fonts} />
+            <HardyProjects homepage={homepage} filteredPortfolio={filteredPortfolio} fonts={fonts} />
+            <CompactLeadSection homepage={homepage} palette={palette} fonts={fonts} leadForm={leadForm} />
+            <MinimalFooter palette={palette} />
+        </div>
+    );
+}
+
+function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadForm }) {
+    return (
+        <div className="overflow-hidden bg-[#051015] text-white" style={{ fontFamily: fonts.body }}>
+            <Head title={homepage.brand.name} />
+
+            <section id="hero" className="relative min-h-screen px-6 py-7 md:px-10">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(183,255,60,.26),transparent_26%),linear-gradient(135deg,#051015_0%,#0d2028_52%,#020609_100%)]" />
+                <div className="absolute -right-24 top-24 h-[520px] w-[520px] rotate-12 border-[70px] border-[#b7ff3c]/10" />
+                <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between">
+                    <p className="text-2xl font-black uppercase tracking-[-0.04em]" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
+                    <nav className="hidden items-center gap-7 text-xs font-black uppercase tracking-[0.22em] text-white/60 md:flex">
+                        {['about', 'featured', 'gallery', 'contact'].map((item) => (
+                            <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)} className="hover:text-[#b7ff3c]">{sectionLabels[item]}</button>
+                        ))}
+                    </nav>
+                </header>
+                <div className="relative z-10 mx-auto grid min-h-[calc(100vh-80px)] max-w-7xl items-center gap-12 py-16 lg:grid-cols-[1fr_.9fr]">
+                    <div>
+                        <p className="mb-5 inline-flex rounded-full border border-[#b7ff3c]/30 px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-[#b7ff3c]">{homepage.hero.eyebrow || 'Game day visuals'}</p>
+                        <h1 className="text-6xl font-black uppercase leading-[.86] tracking-[-0.08em] md:text-8xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
+                        <p className="mt-7 max-w-2xl text-lg leading-8 text-white/66">{homepage.hero.description}</p>
+                        <div className="mt-9 flex flex-wrap gap-4">
+                            <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#b7ff3c" color="#051015" />
+                            <OutlineHeroButton label="Ver highlights" onClick={() => scrollToTarget('#gallery')} />
+                        </div>
+                    </div>
+                    <div className="relative">
+                        <img src={homepage.hero.image_url} alt={homepage.hero.title} className="h-[640px] w-full skew-y-[-3deg] rounded-[2rem] object-cover shadow-[0_40px_100px_rgba(0,0,0,.42)]" />
+                        <div className="absolute -bottom-6 left-5 grid w-[calc(100%-40px)] grid-cols-3 gap-3">
+                            {homepage.about.stats.map((item) => <ScoreMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="featured" className="px-6 py-24 md:px-10">
+                <div className="mx-auto max-w-7xl">
+                    <SectionKicker icon={Trophy} label={homepage.featured.eyebrow || 'Services'} />
+                    <h2 className="max-w-4xl text-5xl font-black uppercase leading-[.9] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
+                    <div className="mt-12 grid gap-5 lg:grid-cols-3">
+                        {homepage.featured.items.map((item, index) => <SportCard key={`${item.title}-${index}`} item={item} index={index} />)}
+                    </div>
+                </div>
+            </section>
+
+            <section id="gallery" className="bg-[#0a1a20] px-6 py-24 md:px-10">
+                <div className="mx-auto max-w-7xl">
+                    <SectionKicker icon={Zap} label={homepage.gallery.eyebrow || 'Highlights'} />
+                    <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <h2 className="max-w-3xl text-5xl font-black uppercase leading-[.9] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
+                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full bg-[#b7ff3c] px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#051015]">Portfolio <ArrowRight className="h-4 w-4" /></Link>
+                    </div>
+                    <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+                        {(filteredPortfolio.length ? filteredPortfolio : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Highlight ${id + 1}`, category: 'Sports' }))).slice(0, 6).map((item) => (
+                            <article key={item.id} className="group overflow-hidden rounded-[1.8rem] bg-white/5">
+                                <img src={item.image_url} alt={item.project_name} className="h-80 w-full object-cover transition duration-500 group-hover:scale-105" />
+                                <div className="p-5">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-[#b7ff3c]">{item.category}</p>
+                                    <h3 className="mt-2 text-2xl font-black uppercase" style={{ fontFamily: fonts.heading }}>{item.project_name}</h3>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <CompactLeadSection homepage={homepage} palette={palette} fonts={fonts} leadForm={leadForm} dark />
+            <MinimalFooter palette={palette} />
+        </div>
+    );
+}
+
+function CompactLeadSection({ homepage, palette, fonts, leadForm, dark = false }) {
+    const bg = dark ? '#080808' : '#fff';
+    const text = dark ? '#fff' : palette.text;
+    const muted = dark ? 'rgba(255,255,255,.66)' : palette.muted;
+
+    return (
+        <section id="contact" className="px-6 py-24 md:px-10" style={{ backgroundColor: bg, color: text }}>
+            <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[.85fr_1.15fr]">
+                <div>
+                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.contact.eyebrow}</p>
+                    <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.contact.heading}</h2>
+                    <p className="mt-6 max-w-lg text-base leading-8" style={{ color: muted }}>{homepage.contact.description}</p>
+                    <div className="mt-10 space-y-3">
+                        {homepage.contact.info_lines.map((line, index) => (
+                            <p key={`${line}-${index}`} className="flex items-center gap-3 text-sm" style={{ color: muted }}>
+                                <MapPin className="h-4 w-4" style={{ color: palette.accent }} />
+                                {line}
+                            </p>
+                        ))}
+                    </div>
+                </div>
+                <div className="rounded-[2.2rem] p-6 shadow-[0_30px_80px_rgba(0,0,0,.16)] md:p-8" style={{ backgroundColor: dark ? 'rgba(255,255,255,.06)' : palette.surface_alt }}>
+                    <LeadForm homepage={homepage} palette={palette} leadForm={leadForm} />
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function LeadForm({ homepage, palette, leadForm }) {
+    const { data, setData, processing, errors, recentlySuccessful, submit, availableSlots, eventTypes, busyCalendarEvents, businessHours, availabilitySettings, flash } = leadForm;
+
+    return (
+        <form onSubmit={submit} className="space-y-5">
+            {(flash?.success || recentlySuccessful) && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                    {flash?.success || 'Your inquiry was sent successfully.'}
+                </div>
+            )}
+            <div className="grid gap-5 md:grid-cols-2">
+                <Field label="Name" icon={Camera} value={data.name} error={errors.name} onChange={(value) => setData('name', value)} placeholder="Your full name" palette={palette} />
+                <Field label="Email" icon={Mail} type="email" value={data.email} error={errors.email} onChange={(value) => setData('email', value)} placeholder="you@example.com" palette={palette} />
+                <Field label="Phone" icon={Phone} value={data.phone} error={errors.phone} onChange={(value) => setData('phone', value)} placeholder="+506 0000 0000" palette={palette} />
+                <SelectField label="Project type" value={data.event_type} error={errors.event_type} onChange={(value) => setData('event_type', value)} options={eventTypes} palette={palette} />
+            </div>
+            <div className="grid gap-5 md:grid-cols-[1.15fr_.85fr]">
+                <AvailabilityCalendar
+                    label="Tentative date"
+                    value={data.tentative_date}
+                    onChange={(value) => setData('tentative_date', value)}
+                    error={errors.tentative_date}
+                    busyEvents={busyCalendarEvents}
+                    businessHours={businessHours}
+                    availabilitySettings={availabilitySettings}
+                    helperText="Selecciona un dia con disponibilidad real y luego una hora libre."
+                    tone="public"
+                />
+                <SelectField
+                    label="Available time"
+                    value={data.tentative_time}
+                    error={errors.tentative_time}
+                    onChange={(value) => setData('tentative_time', value)}
+                    options={availableSlots}
+                    placeholder={data.tentative_date ? 'Select an available time' : 'Select a date first'}
+                    disabled={!data.tentative_date || availableSlots.length === 0}
+                    palette={palette}
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-xs uppercase tracking-[0.24em]" style={{ color: palette.accent }}>Message</label>
+                <textarea
+                    value={data.message}
+                    onChange={(event) => setData('message', event.target.value)}
+                    rows={4}
+                    placeholder="Tell me about the project."
+                    className="w-full resize-none rounded-[1.5rem] border bg-transparent px-4 py-4 text-sm outline-none"
+                    style={{ borderColor: palette.accent_soft, color: palette.text }}
+                />
+                {errors.message && <p className="text-sm text-rose-600">{errors.message}</p>}
+            </div>
+            <button type="submit" disabled={processing} className="inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-4 text-sm font-semibold transition disabled:opacity-70" style={{ backgroundColor: palette.accent, color: palette.surface_dark }}>
+                {processing ? 'Sending...' : homepage.contact.submit_label}
+                <ArrowRight className="h-4 w-4" />
+            </button>
+        </form>
+    );
+}
+
+function TettaGallery({ homepage, filteredPortfolio, fonts }) {
+    const items = filteredPortfolio.length
+        ? filteredPortfolio.slice(0, 6)
+        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Frame ${id + 1}`, category: 'Editorial' }));
+
+    return (
+        <section id="gallery" className="bg-[#090909] px-7 py-24 md:px-12">
+            <div className="mx-auto max-w-7xl">
+                <p className="mb-5 text-[11px] uppercase tracking-[0.34em] text-white/40">{homepage.gallery.eyebrow}</p>
+                <h2 className="max-w-4xl text-5xl leading-[.92] text-white md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
+                <div className="mt-12 grid gap-5 md:grid-cols-3">
+                    {items.map((item, index) => (
+                        <article key={item.id} className={`group overflow-hidden rounded-[2rem] bg-white/5 ${index === 1 ? 'md:mt-16' : ''}`}>
+                            <img src={item.image_url} alt={item.project_name} className="h-[420px] w-full object-cover grayscale transition duration-500 group-hover:grayscale-0" />
+                            <div className="p-5">
+                                <p className="text-[10px] uppercase tracking-[0.24em] text-white/35">{item.category}</p>
+                                <h3 className="mt-2 text-2xl text-white" style={{ fontFamily: fonts.heading }}>{item.project_name}</h3>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function HardyServices({ homepage, fonts }) {
+    return (
+        <section id="featured" className="px-6 py-24 md:px-10">
+            <div className="mx-auto max-w-7xl">
+                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#b68156]">{homepage.featured.eyebrow || 'Our Services'}</p>
+                <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
+                <div className="mt-12 grid gap-6 lg:grid-cols-3">
+                    {homepage.featured.items.map((item, index) => (
+                        <article key={`${item.title}-${index}`} className="overflow-hidden rounded-[2rem] bg-white shadow-[0_24px_70px_rgba(78,52,32,.1)]">
+                            <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
+                            <div className="p-7">
+                                <p className="text-xs uppercase tracking-[0.24em] text-[#b68156]">Service</p>
+                                <h3 className="mt-3 text-3xl" style={{ fontFamily: fonts.heading }}>{item.title}</h3>
+                                <p className="mt-3 text-sm leading-7 text-[#716052]">{item.category}</p>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function HardyProjects({ homepage, filteredPortfolio, fonts }) {
+    const photos = filteredPortfolio.length
+        ? filteredPortfolio.slice(0, 4)
+        : homepage.gallery.images.slice(0, 4).map((image_url, id) => ({ id, image_url, project_name: `Project ${id + 1}`, category: 'Portrait' }));
+
+    return (
+        <section id="gallery" className="bg-[#211915] px-6 py-24 text-white md:px-10">
+            <div className="mx-auto max-w-7xl">
+                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#d7a676]">{homepage.gallery.eyebrow || 'Our Project'}</p>
+                <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
+                <div className="mt-12 grid gap-5 md:grid-cols-2">
+                    {photos.map((item) => (
+                        <article key={item.id} className="grid overflow-hidden rounded-[2rem] border border-white/10 bg-white/5 md:grid-cols-[.9fr_1fr]">
+                            <img src={item.image_url} alt={item.project_name} className="h-80 w-full object-cover md:h-full" />
+                            <div className="flex flex-col justify-end p-7">
+                                <p className="text-[10px] uppercase tracking-[0.24em] text-[#d7a676]">{item.category}</p>
+                                <h3 className="mt-3 text-3xl" style={{ fontFamily: fonts.heading }}>{item.project_name}</h3>
+                                <p className="mt-4 text-sm leading-7 text-white/60">{item.description || homepage.gallery.description}</p>
+                            </div>
+                        </article>
+                    ))}
+                </div>
+            </div>
+        </section>
+    );
+}
+
+function DarkMetric({ value, label }) {
+    return (
+        <div className="rounded-[1.4rem] border border-white/10 bg-white/5 p-5">
+            <p className="text-4xl font-black text-white">{value}</p>
+            <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-white/40">{label}</p>
+        </div>
+    );
+}
+
+function LightMetric({ value, label, fonts }) {
+    return (
+        <div className="rounded-[1.4rem] bg-[#f6efe4] p-5 text-center">
+            <p className="text-3xl" style={{ fontFamily: fonts.heading }}>{value}</p>
+            <p className="mt-2 text-[10px] uppercase tracking-[0.22em] text-[#b68156]">{label}</p>
+        </div>
+    );
+}
+
+function ScoreMetric({ value, label }) {
+    return (
+        <div className="rounded-2xl border border-[#b7ff3c]/20 bg-[#061015]/88 p-4 backdrop-blur">
+            <p className="text-2xl font-black text-[#b7ff3c]">{value}</p>
+            <p className="mt-1 text-[10px] font-black uppercase tracking-[0.2em] text-white/52">{label}</p>
+        </div>
+    );
+}
+
+function SectionKicker({ icon: Icon, label }) {
+    return (
+        <p className="mb-5 inline-flex items-center gap-3 rounded-full border border-[#b7ff3c]/25 px-4 py-2 text-[11px] font-black uppercase tracking-[0.24em] text-[#b7ff3c]">
+            <Icon className="h-4 w-4" />
+            {label}
+        </p>
+    );
+}
+
+function SportCard({ item, index }) {
+    return (
+        <article className="relative overflow-hidden rounded-[1.8rem] border border-white/10 bg-white/5 p-6">
+            <Star className="mb-8 h-8 w-8 text-[#b7ff3c]" />
+            <p className="absolute right-5 top-5 text-7xl font-black text-white/5">0{index + 1}</p>
+            <h3 className="text-3xl font-black uppercase">{item.title}</h3>
+            <p className="mt-4 text-sm leading-7 text-white/62">{item.category}</p>
+        </article>
+    );
+}
+
+function MinimalFooter({ palette }) {
+    return (
+        <footer className="border-t px-6 py-8 md:px-10" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_dark, color: palette.muted }}>
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 text-sm md:flex-row md:items-center md:justify-between">
+                <p>Desarrollado por PixelPRO</p>
+                <Link href="/login" className="inline-flex items-center gap-2 uppercase tracking-[0.22em]" style={{ color: palette.accent }}>
+                    <Grip className="h-4 w-4" />
+                    Login
+                </Link>
+            </div>
+        </footer>
     );
 }
 

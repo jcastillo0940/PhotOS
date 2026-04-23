@@ -36,6 +36,7 @@ class TenantSubscriptionPortalController extends Controller
 
         $subscription = $this->billing->currentSubscription($tenant);
         $billingState = $this->billing->billingStateFor($tenant);
+        $statement = $this->billing->accountStatementFor($tenant);
         $transactions = TenantSubscriptionTransaction::query()
             ->where('tenant_id', $tenant->id)
             ->latest('occurred_at')
@@ -67,9 +68,14 @@ class TenantSubscriptionPortalController extends Controller
                 'status' => $subscription->status,
                 'amount' => (float) $subscription->amount,
                 'currency' => $subscription->currency,
+                'discount_type' => $subscription->discount_type,
+                'discount_value' => $subscription->discount_value !== null ? (float) $subscription->discount_value : null,
+                'discount_reason' => $subscription->discount_reason,
+                'discount_ends_at' => optional($subscription->discount_ends_at)?->toIso8601String(),
                 'current_period_ends_at' => optional($subscription->current_period_ends_at)?->toIso8601String(),
                 'expires_at' => optional($subscription->expires_at)?->toIso8601String(),
             ] : null,
+            'statement' => $statement,
             'transactions' => $transactions->map(fn (TenantSubscriptionTransaction $transaction) => [
                 'id' => $transaction->id,
                 'provider' => $transaction->provider,

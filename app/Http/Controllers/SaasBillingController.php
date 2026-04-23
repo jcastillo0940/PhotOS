@@ -74,6 +74,39 @@ class SaasBillingController extends Controller
         return redirect()->back()->with('success', 'Estado de facturacion actualizado para este tenant.');
     }
 
+    public function recordManualPayment(Request $request, Tenant $tenant)
+    {
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:0.01',
+            'reference' => 'nullable|string|max:120',
+            'occurred_at' => 'nullable|date',
+            'paid_until' => 'nullable|date',
+            'note' => 'nullable|string|max:1500',
+        ]);
+
+        $this->billing->recordManualPayment($tenant, $validated);
+
+        return redirect()->back()->with('success', 'Cobro manual registrado y estado de cuenta actualizado.');
+    }
+
+    public function applyDiscount(Request $request, Tenant $tenant)
+    {
+        $validated = $request->validate([
+            'discount_type' => 'nullable|string|in:fixed,percent',
+            'discount_value' => 'nullable|numeric|min:0',
+            'discount_reason' => 'nullable|string|max:255',
+            'discount_ends_at' => 'nullable|date',
+        ]);
+
+        if (filled($validated['discount_type'] ?? null) && ! filled($validated['discount_value'] ?? null)) {
+            return redirect()->back()->with('error', 'Indica el valor del descuento antes de guardarlo.');
+        }
+
+        $this->billing->applyDiscount($tenant, $validated);
+
+        return redirect()->back()->with('success', filled($validated['discount_type'] ?? null) ? 'Descuento aplicado al tenant.' : 'Descuento removido del tenant.');
+    }
+
     public function createSetupToken(Tenant $tenant)
     {
         try {

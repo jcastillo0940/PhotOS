@@ -175,6 +175,7 @@ class SaasTenantController extends Controller
 
         $subscription = $tenant->subscriptions()->latest('id')->with('transactions')->first();
         $billing = $this->billing->billingStateFor($tenant);
+        $statement = $this->billing->accountStatementFor($tenant);
 
         return Inertia::render('Admin/Saas/Show', [
             'tenant' => [
@@ -198,6 +199,10 @@ class SaasTenantController extends Controller
                     'billing_cycle' => $subscription->billing_cycle,
                     'amount' => $subscription->amount,
                     'currency' => $subscription->currency,
+                    'discount_type' => $subscription->discount_type,
+                    'discount_value' => $subscription->discount_value !== null ? (float) $subscription->discount_value : null,
+                    'discount_reason' => $subscription->discount_reason,
+                    'discount_ends_at' => optional($subscription->discount_ends_at)?->toIso8601String(),
                     'paypal_subscription_id' => $subscription->paypal_subscription_id,
                     'paypal_plan_id' => $subscription->paypal_plan_id,
                     'current_period_ends_at' => optional($subscription->current_period_ends_at)?->toIso8601String(),
@@ -214,8 +219,10 @@ class SaasTenantController extends Controller
                         'currency' => $transaction->currency,
                         'reference' => $transaction->reference,
                         'occurred_at' => optional($transaction->occurred_at)?->toIso8601String(),
+                        'payload' => $transaction->payload,
                     ]),
                 ] : null,
+                'statement' => $statement,
                 'users' => $users->map(fn (User $user) => [
                     'id' => $user->id,
                     'name' => $user->name,

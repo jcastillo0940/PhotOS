@@ -23,9 +23,20 @@ function copy(value) {
     }
 }
 
+function money(amount, currency = 'USD') {
+    return `$${Number(amount || 0).toFixed(2)} ${currency || 'USD'}`;
+}
+
 export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const domainForm = useForm({ hostname: '', type: 'custom' });
     const billingForm = useForm({ action: 'activate_manual', note: '', paid_until: '' });
+    const paymentForm = useForm({ amount: '', reference: '', occurred_at: new Date().toISOString().slice(0, 10), paid_until: '', note: '' });
+    const discountForm = useForm({
+        discount_type: tenant.subscription?.discount_type || '',
+        discount_value: tenant.subscription?.discount_value || '',
+        discount_reason: tenant.subscription?.discount_reason || '',
+        discount_ends_at: tenant.subscription?.discount_ends_at ? String(tenant.subscription.discount_ends_at).slice(0, 10) : '',
+    });
     const [activeTab, setActiveTab] = React.useState('overview');
     const tenantForm = useForm({
         name: tenant.name || '',
@@ -45,6 +56,19 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
         billingForm.post(`/admin/saas/tenants/${tenant.id}/billing/manual`);
     };
 
+    const submitPayment = (event) => {
+        event.preventDefault();
+        paymentForm.post(`/admin/saas/tenants/${tenant.id}/billing/manual-payment`, {
+            preserveScroll: true,
+            onSuccess: () => paymentForm.reset('amount', 'reference', 'paid_until', 'note'),
+        });
+    };
+
+    const submitDiscount = (event) => {
+        event.preventDefault();
+        discountForm.post(`/admin/saas/tenants/${tenant.id}/billing/discount`, { preserveScroll: true });
+    };
+
     const submitTenant = (event) => {
         event.preventDefault();
         tenantForm.put(`/admin/saas/tenants/${tenant.id}`);
@@ -53,6 +77,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const subscriptionStatus = tenant.subscription?.status || tenant.billing?.status || 'Sin suscripcion';
     const loginDomain = tenant.login_url?.replace(/^https?:\/\//, '').replace(/\/login$/, '') || 'Sin dominio';
     const transactionCount = tenant.subscription?.transactions?.length || 0;
+    const statement = tenant.statement || {};
 
     return (
         <AdminLayout>
@@ -207,6 +232,69 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
 
                         {activeTab === 'billing' && (
                             <>
+                                <PanelCard title="Estado de cuenta" description="Saldo comercial del tenant, cobros aplicados y pagos reportados.">
+                                    <div className="grid gap-4 lg:grid-cols-4">
+                                        <InfoPanel title="Plan" value={money(statement.plan_amount, statement.currency)} helper={`${tenant.subscription?.plan_code || 'Sin plan'} · ${tenant.subscription?.billing_cycle || 'sin ciclo'}`} />
+                                        <InfoPanel title="Descuento" value={money(statement.discount_amount, statement.currency)} helper={statement.discount?.reason || 'Sin descuento activo'} />
+                                        <InfoPanel title="Pagado" value={money(statement.paid_total, statement.currency)} helper={`${money(statement.submitted_total, statement.currency)} pendiente de aprobar`} />
+                                        <InfoPanel title="Saldo" value={money(statement.balance_due, statement.currency)} helper={Number(statement.balance_due || 0) > 0 ? 'Monto pendiente del periodo' : 'Cuenta al dia'} />
+                                    </div>
+                                </PanelCard>
+
+                                <PanelCard title="Registrar cobro manual" description="Usalo para transferencias, efectivo, ACH, Yappy u otros pagos fuera de PayPal.">
+                                    <form onSubmit={submitPayment} className="grid gap-4 lg:grid-cols-2">
+                                        <Field label="Monto cobrado" error={paymentForm.errors.amount}>
+                                            <input type="number" min="0" step="0.01" value={paymentForm.data.amount} onChange={(event) => paymentForm.setData('amount', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="790.00" />
+                                        </Field>
+                                        <Field label="Referencia" error={paymentForm.errors.reference}>
+                                            <input value={paymentForm.data.reference} onChange={(event) => paymentForm.setData('reference', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="ACH-123, efectivo, recibo..." />
+                                        </Field>
+                                        <Field label="Fecha del pago" error={paymentForm.errors.occurred_at}>
+                                            <input type="date" value={paymentForm.data.occurred_at} onChange={(event) => paymentForm.setData('occurred_at', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
+                                        </Field>
+                                        <Field label="Pagado hasta" error={paymentForm.errors.paid_until}>
+                                            <input type="date" value={paymentForm.data.paid_until} onChange={(event) => paymentForm.setData('paid_until', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
+                                        </Field>
+                                        <div className="lg:col-span-2">
+                                            <Field label="Nota del cobro" error={paymentForm.errors.note}>
+                                                <textarea value={paymentForm.data.note} onChange={(event) => paymentForm.setData('note', event.target.value)} className="min-h-[100px] w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="Ej: pago anual recibido por transferencia. Aplicar acceso hasta abril 2027." />
+                                            </Field>
+                                        </div>
+                                        <div className="lg:col-span-2 flex justify-end">
+                                            <button type="submit" disabled={paymentForm.processing} className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#171411] px-5 py-3 text-sm font-semibold text-white transition hover:bg-black disabled:opacity-60">
+                                                <Wallet className="h-4 w-4" />
+                                                Registrar cobro
+                                            </button>
+                                        </div>
+                                    </form>
+                                </PanelCard>
+
+                                <PanelCard title="Descuento comercial" description="Aplica un descuento especial para este tenant sin cambiar el precio publico del plan.">
+                                    <form onSubmit={submitDiscount} className="grid gap-4 lg:grid-cols-2">
+                                        <Field label="Tipo de descuento" error={discountForm.errors.discount_type}>
+                                            <select value={discountForm.data.discount_type} onChange={(event) => discountForm.setData('discount_type', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none">
+                                                <option value="">Sin descuento</option>
+                                                <option value="fixed">Monto fijo</option>
+                                                <option value="percent">Porcentaje</option>
+                                            </select>
+                                        </Field>
+                                        <Field label="Valor" error={discountForm.errors.discount_value}>
+                                            <input type="number" min="0" step="0.01" value={discountForm.data.discount_value} onChange={(event) => discountForm.setData('discount_value', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="50 o 15%" />
+                                        </Field>
+                                        <Field label="Valido hasta" error={discountForm.errors.discount_ends_at}>
+                                            <input type="date" value={discountForm.data.discount_ends_at} onChange={(event) => discountForm.setData('discount_ends_at', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" />
+                                        </Field>
+                                        <Field label="Motivo" error={discountForm.errors.discount_reason}>
+                                            <input value={discountForm.data.discount_reason} onChange={(event) => discountForm.setData('discount_reason', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700 outline-none" placeholder="Cliente fundador, promo anual, convenio..." />
+                                        </Field>
+                                        <div className="lg:col-span-2 flex justify-end">
+                                            <button type="submit" disabled={discountForm.processing} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#171411] px-5 py-3 text-sm font-semibold text-[#171411] transition hover:bg-[#171411] hover:text-white disabled:opacity-60">
+                                                Guardar descuento
+                                            </button>
+                                        </div>
+                                    </form>
+                                </PanelCard>
+
                                 <PanelCard title="Control de cobro" description="Activa, restringe o suspende el tenant manualmente cuando haga falta soporte comercial.">
                                     <form onSubmit={submitBilling} className="grid gap-4 lg:grid-cols-2">
                                         <Field label="Accion" error={billingForm.errors.action}>
@@ -244,6 +332,10 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                                         <InfoPanel title="Modo de pago" value={tenant.subscription?.payment_mode || 'No definido'} helper={tenant.subscription?.provider || 'Sin proveedor activo'} />
                                         <InfoPanel title="Expiracion" value={tenant.subscription?.expires_at || 'Sin fecha'} helper="Usada por el motor operativo para acceso y limites." />
                                     </div>
+                                </PanelCard>
+
+                                <PanelCard title="Historial y estado de cuenta" description="Lineas contables visibles para soporte; pagos, descuentos y solicitudes.">
+                                    <StatementTable lines={statement.lines || []} currency={statement.currency || tenant.subscription?.currency || 'USD'} />
                                 </PanelCard>
                             </>
                         )}
@@ -499,6 +591,36 @@ function InstructionCard({ title, type, name, value }) {
                     <p className="break-all font-semibold text-slate-900">{value || 'Pendiente'}</p>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function StatementTable({ lines, currency }) {
+    if (!lines.length) {
+        return <EmptyState title="Sin lineas contables" description="Cuando registres pagos, descuentos o cambios de plan, el estado de cuenta aparecera aqui." />;
+    }
+
+    return (
+        <div className="overflow-hidden rounded-[1.4rem] border border-[#ece5d8]">
+            <div className="grid grid-cols-[1.2fr,2fr,1fr,1fr,1fr] gap-3 bg-[#171411] px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/65">
+                <p>Fecha</p>
+                <p>Concepto</p>
+                <p>Debito</p>
+                <p>Credito</p>
+                <p>Estado</p>
+            </div>
+            {lines.map((line, index) => (
+                <div key={`${line.type}-${line.reference}-${index}`} className="grid grid-cols-[1.2fr,2fr,1fr,1fr,1fr] gap-3 border-t border-[#ece5d8] bg-[#fbf9f6] px-4 py-3 text-sm text-slate-700">
+                    <p className="break-words">{line.date ? new Date(line.date).toLocaleDateString() : 'Sin fecha'}</p>
+                    <div className="min-w-0">
+                        <p className="break-words font-semibold text-slate-900">{line.description}</p>
+                        <p className="mt-1 break-all text-xs text-slate-500">{line.reference || line.type}</p>
+                    </div>
+                    <p className="font-semibold text-slate-900">{Number(line.debit || 0) > 0 ? money(line.debit, currency) : '-'}</p>
+                    <p className="font-semibold text-emerald-700">{Number(line.credit || 0) > 0 ? money(line.credit, currency) : '-'}</p>
+                    <div><StatusBadge label={line.status || 'n/a'} tone={billingTone(line.status)} /></div>
+                </div>
+            ))}
         </div>
     );
 }

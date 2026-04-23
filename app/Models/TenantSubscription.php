@@ -18,6 +18,10 @@ class TenantSubscription extends Model
         'status',
         'amount',
         'currency',
+        'discount_type',
+        'discount_value',
+        'discount_reason',
+        'discount_ends_at',
         'paypal_product_id',
         'paypal_plan_id',
         'paypal_subscription_id',
@@ -40,8 +44,10 @@ class TenantSubscription extends Model
 
     protected $casts = [
         'amount' => 'decimal:2',
+        'discount_value' => 'decimal:2',
         'auto_renew' => 'boolean',
         'metadata' => 'array',
+        'discount_ends_at' => 'datetime',
         'starts_at' => 'datetime',
         'current_period_starts_at' => 'datetime',
         'current_period_ends_at' => 'datetime',

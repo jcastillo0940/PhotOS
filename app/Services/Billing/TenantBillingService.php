@@ -364,6 +364,222 @@ class TenantBillingService
         return $subscription->fresh();
     }
 
+    public function recordManualPayment(Tenant $tenant, array $payload): TenantSubscriptionTransaction
+    {
+        $subscription = $this->currentSubscription($tenant)
+            ?: TenantSubscription::create([
+                'tenant_id' => $tenant->id,
+                'provider' => 'manual',
+                'payment_mode' => 'offline',
+                'plan_code' => $tenant->plan_code ?: 'starter',
+                'billing_cycle' => 'monthly',
+                'status' => 'pending_manual',
+                'currency' => 'USD',
+            ]);
+
+        $occurredAt = ! empty($payload['occurred_at']) ? Carbon::parse($payload['occurred_at']) : now();
+        $paidUntil = ! empty($payload['paid_until']) ? Carbon::parse($payload['paid_until']) : null;
+
+        $transaction = TenantSubscriptionTransaction::create([
+            'tenant_id' => $tenant->id,
+            'tenant_subscription_id' => $subscription->id,
+            'provider' => 'manual',
+            'type' => 'payment_manual',
+            'status' => 'completed',
+            'amount' => (float) $payload['amount'],
+            'currency' => $subscription->currency ?: ($payload['currency'] ?? 'USD'),
+            'reference' => $payload['reference'] ?? 'manual-payment-'.$subscription->id.'-'.now()->timestamp,
+            'occurred_at' => $occurredAt,
+            'payload' => [
+                'note' => $payload['note'] ?? null,
+                'source' => 'saas_admin',
+                'paid_until' => optional($paidUntil)?->toDateString(),
+            ],
+        ]);
+
+        $expiresAt = $paidUntil ?: $this->manualNextPeriodEnd($subscription);
+        $subscription->update([
+            'provider' => 'manual',
+            'payment_mode' => 'offline',
+            'status' => 'active',
+            'current_period_starts_at' => $subscription->current_period_starts_at ?: now(),
+            'current_period_ends_at' => $expiresAt,
+            'expires_at' => $expiresAt,
+            'grace_ends_at' => null,
+            'suspended_at' => null,
+            'manual_override_status' => 'active',
+            'manual_override_reason' => $payload['note'] ?? 'Pago manual registrado por administracion SaaS.',
+        ]);
+
+        $tenant->update(['status' => 'active', 'grace_period_ends_at' => null]);
+
+        return $transaction;
+    }
+
+    public function applyDiscount(Tenant $tenant, array $payload): TenantSubscription
+    {
+        $subscription = $this->currentSubscription($tenant)
+            ?: TenantSubscription::create([
+                'tenant_id' => $tenant->id,
+                'provider' => 'manual',
+                'payment_mode' => 'offline',
+                'plan_code' => $tenant->plan_code ?: 'starter',
+                'billing_cycle' => 'monthly',
+                'status' => 'pending_manual',
+                'currency' => 'USD',
+            ]);
+
+        $type = $payload['discount_type'] ?? null;
+        $value = $type ? (float) ($payload['discount_value'] ?? 0) : null;
+
+        $subscription->update([
+            'discount_type' => $type,
+            'discount_value' => $value,
+            'discount_reason' => $payload['discount_reason'] ?? null,
+            'discount_ends_at' => ! empty($payload['discount_ends_at']) ? Carbon::parse($payload['discount_ends_at']) : null,
+        ]);
+
+        TenantSubscriptionTransaction::create([
+            'tenant_id' => $tenant->id,
+            'tenant_subscription_id' => $subscription->id,
+            'provider' => 'manual',
+            'type' => $type ? 'discount_applied' : 'discount_removed',
+            'status' => 'completed',
+            'amount' => $type ? $this->discountAmount($subscription->fresh()) : 0,
+            'currency' => $subscription->currency ?: 'USD',
+            'reference' => 'discount-'.$subscription->id.'-'.now()->timestamp,
+            'occurred_at' => now(),
+            'payload' => [
+                'discount_type' => $type,
+                'discount_value' => $value,
+                'discount_reason' => $payload['discount_reason'] ?? null,
+                'discount_ends_at' => $payload['discount_ends_at'] ?? null,
+            ],
+        ]);
+
+        return $subscription->fresh();
+    }
+
+    public function accountStatementFor(Tenant $tenant): array
+    {
+        $subscription = $this->currentSubscription($tenant);
+
+        if (! $subscription) {
+            return [
+                'currency' => 'USD',
+                'plan_amount' => 0.0,
+                'discount_amount' => 0.0,
+                'effective_amount' => 0.0,
+                'paid_total' => 0.0,
+                'submitted_total' => 0.0,
+                'balance_due' => 0.0,
+                'lines' => [],
+            ];
+        }
+
+        $transactions = $subscription->transactions()
+            ->latest('occurred_at')
+            ->latest('id')
+            ->get();
+
+        $planAmount = (float) ($subscription->amount ?? 0);
+        $discountAmount = $this->discountAmount($subscription);
+        $effectiveAmount = max(0, $planAmount - $discountAmount);
+        $paidTotal = (float) $transactions
+            ->filter(fn (TenantSubscriptionTransaction $transaction) => $transaction->status === 'completed' && str_contains($transaction->type, 'payment'))
+            ->sum('amount');
+        $submittedTotal = (float) $transactions
+            ->filter(fn (TenantSubscriptionTransaction $transaction) => in_array($transaction->status, ['submitted', 'pending'], true) && str_contains($transaction->type, 'payment'))
+            ->sum('amount');
+
+        $lines = collect([
+            [
+                'date' => optional($subscription->current_period_starts_at ?: $subscription->starts_at ?: $subscription->created_at)?->toIso8601String(),
+                'type' => 'plan_charge',
+                'description' => 'Plan '.$subscription->plan_code.' '.$subscription->billing_cycle,
+                'debit' => $planAmount,
+                'credit' => 0.0,
+                'status' => $subscription->status,
+                'reference' => 'subscription-'.$subscription->id,
+            ],
+        ]);
+
+        if ($discountAmount > 0) {
+            $lines->push([
+                'date' => optional($subscription->updated_at)?->toIso8601String(),
+                'type' => 'discount',
+                'description' => $subscription->discount_reason ?: 'Descuento comercial',
+                'debit' => 0.0,
+                'credit' => $discountAmount,
+                'status' => 'completed',
+                'reference' => $subscription->discount_type,
+            ]);
+        }
+
+        $transactions->each(function (TenantSubscriptionTransaction $transaction) use ($lines) {
+            $isCredit = str_contains($transaction->type, 'payment') || str_contains($transaction->type, 'discount');
+
+            $lines->push([
+                'date' => optional($transaction->occurred_at ?: $transaction->created_at)?->toIso8601String(),
+                'type' => $transaction->type,
+                'description' => data_get($transaction->payload, 'note') ?: str_replace('_', ' ', $transaction->type),
+                'debit' => $isCredit ? 0.0 : (float) ($transaction->amount ?? 0),
+                'credit' => $isCredit ? (float) ($transaction->amount ?? 0) : 0.0,
+                'status' => $transaction->status,
+                'reference' => $transaction->reference,
+            ]);
+        });
+
+        return [
+            'currency' => $subscription->currency ?: 'USD',
+            'plan_amount' => $planAmount,
+            'discount_amount' => $discountAmount,
+            'effective_amount' => $effectiveAmount,
+            'paid_total' => $paidTotal,
+            'submitted_total' => $submittedTotal,
+            'balance_due' => max(0, $effectiveAmount - $paidTotal),
+            'discount' => [
+                'type' => $subscription->discount_type,
+                'value' => $subscription->discount_value !== null ? (float) $subscription->discount_value : null,
+                'reason' => $subscription->discount_reason,
+                'ends_at' => optional($subscription->discount_ends_at)?->toIso8601String(),
+            ],
+            'lines' => $lines
+                ->sortByDesc('date')
+                ->values()
+                ->all(),
+        ];
+    }
+
+    private function discountAmount(TenantSubscription $subscription): float
+    {
+        if (! $subscription->discount_type || ! $subscription->discount_value) {
+            return 0.0;
+        }
+
+        if ($subscription->discount_ends_at && $subscription->discount_ends_at->isPast()) {
+            return 0.0;
+        }
+
+        $amount = (float) ($subscription->amount ?? 0);
+        $value = (float) $subscription->discount_value;
+
+        return $subscription->discount_type === 'percent'
+            ? round($amount * min(100, max(0, $value)) / 100, 2)
+            : min($amount, max(0, $value));
+    }
+
+    private function manualNextPeriodEnd(TenantSubscription $subscription): Carbon
+    {
+        $base = $subscription->current_period_ends_at && $subscription->current_period_ends_at->isFuture()
+            ? $subscription->current_period_ends_at->copy()
+            : now();
+
+        return $subscription->billing_cycle === 'annual' || $subscription->billing_cycle === 'yearly'
+            ? $base->addYear()
+            : $base->addMonth();
+    }
+
     public function createVaultSetupToken(Tenant $tenant): array
     {
         if (! $this->paypal->enabled()) {
