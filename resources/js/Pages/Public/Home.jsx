@@ -46,7 +46,7 @@ export default function Home({
     businessHours,
     availabilitySettings,
 }) {
-    const { flash } = usePage().props;
+    const { flash, branding } = usePage().props;
     const [mobileOpen, setMobileOpen] = React.useState(false);
     const [activeCategory, setActiveCategory] = React.useState('All');
     const palette = { ...defaultTheme.palette, ...(theme?.palette || {}) };
@@ -123,6 +123,7 @@ export default function Home({
         filteredPortfolio,
         activeCategory,
         setActiveCategory,
+        branding,
         leadForm,
     };
 
@@ -132,6 +133,14 @@ export default function Home({
 
     if (theme?.home_layout === 'hardy-portrait') {
         return <HardyPortraitHome {...commonLayoutProps} />;
+    }
+
+    if (theme?.home_layout === 'wedding-event') {
+        return <WeddingEventHome {...commonLayoutProps} />;
+    }
+
+    if (theme?.home_layout === 'wild-nature') {
+        return <WildNatureHome {...commonLayoutProps} />;
     }
 
     if (theme?.home_layout === 'sports-dynamic') {
@@ -159,9 +168,7 @@ export default function Home({
                     </button>
 
                     <div className="flex-1 md:flex-none">
-                        <p className="text-lg uppercase tracking-[0.35em] text-white/90 md:text-xl" style={{ fontFamily: fonts.heading }}>
-                            {homepage.brand.name}
-                        </p>
+                        <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-lg uppercase tracking-[0.35em] text-white/90 md:text-xl" />
                     </div>
 
                     <nav className="hidden items-center gap-8 text-[11px] uppercase tracking-[0.28em] text-white/75 md:flex">
@@ -447,7 +454,7 @@ export default function Home({
     );
 }
 
-function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfolio, leadForm }) {
+function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfolio, leadForm, branding }) {
     const heroWords = (homepage.hero.title || homepage.brand.name || '').split(' ');
     const firstWord = heroWords.shift() || homepage.brand.name;
     const restTitle = heroWords.join(' ') || homepage.brand.tagline || 'The Explorer';
@@ -461,7 +468,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                 <div className="grid min-h-screen lg:grid-cols-[38vw_1fr]">
                     <aside className="relative z-10 flex min-h-[52vh] flex-col justify-between bg-[#090909] px-7 py-8 md:px-12 lg:min-h-screen">
                         <div className="flex items-center justify-between">
-                            <p className="text-3xl font-black tracking-tight" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}<span className="text-white/35">.</span></p>
+                            <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-3xl font-black tracking-tight" />
                             <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-white/55">Login</Link>
                         </div>
                         <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
@@ -521,7 +528,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
     );
 }
 
-function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadForm }) {
+function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
     const portrait = homepage.about.image_url || homepage.hero.image_url;
 
     return (
@@ -529,7 +536,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
             <Head title={homepage.brand.name} />
 
             <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-7 md:px-10">
-                <p className="text-2xl font-semibold" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
+                <BrandMark homepage={homepage} branding={branding} fonts={fonts} textClassName="text-2xl font-semibold" />
                 <nav className="hidden items-center gap-8 text-sm font-semibold text-[#7a6655] md:flex">
                     {['about', 'featured', 'gallery', 'contact'].map((item) => (
                         <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)}>{sectionLabels[item]}</button>
@@ -580,7 +587,182 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
     );
 }
 
-function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadForm }) {
+function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+    const storyImages = filteredPortfolio.length
+        ? filteredPortfolio.slice(0, 5)
+        : homepage.gallery.images.slice(0, 5).map((image_url, id) => ({ id, image_url, project_name: `Story ${id + 1}`, category: 'Wedding' }));
+
+    return (
+        <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
+            <Head title={homepage.brand.name} />
+
+            <section id="hero" className="relative min-h-screen overflow-hidden">
+                <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0" style={{ background: `linear-gradient(90deg, ${palette.hero_overlay}, rgba(255,248,245,.2) 58%, rgba(50,28,31,.45))` }} />
+                <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-7 md:px-10">
+                    <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-semibold" />
+                    <nav className="hidden items-center gap-8 text-sm font-semibold text-white/72 md:flex">
+                        {['about', 'featured', 'gallery', 'contact'].map((item) => (
+                            <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)} className="hover:text-white">{sectionLabels[item]}</button>
+                        ))}
+                    </nav>
+                </header>
+                <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-center px-6 pb-16 md:px-10">
+                    <div className="max-w-3xl rounded-[3rem] border border-white/14 bg-white/10 p-8 text-white shadow-[0_40px_100px_rgba(50,28,31,.25)] backdrop-blur md:p-12">
+                        <p className="mb-5 text-[11px] uppercase tracking-[0.36em] text-white/62">{homepage.hero.eyebrow || 'Wedding stories'}</p>
+                        <h1 className="text-5xl leading-[1.02] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
+                        <p className="mt-7 max-w-2xl text-base leading-8 text-white/76">{homepage.hero.description}</p>
+                        <div className="mt-9 flex flex-wrap gap-4">
+                            <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background={palette.accent_soft} color={palette.text} />
+                            <OutlineHeroButton label={homepage.hero.secondary_cta_label} onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)} />
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="about" className="px-6 py-24 md:px-10">
+                <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.75fr_1.25fr] lg:items-center">
+                    <div>
+                        <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.about.eyebrow}</p>
+                        <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
+                        <p className="mt-6 text-base leading-8" style={{ color: palette.muted }}>{homepage.about.body}</p>
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-3">
+                        {homepage.about.stats.map((item) => (
+                            <div key={`${item.value}-${item.label}`} className="rounded-[2rem] p-6 text-center" style={{ backgroundColor: palette.surface_alt }}>
+                                <p className="text-4xl" style={{ fontFamily: fonts.heading }}>{item.value}</p>
+                                <p className="mt-2 text-[10px] uppercase tracking-[0.22em]" style={{ color: palette.accent }}>{item.label}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section id="featured" className="px-6 py-24 md:px-10" style={{ backgroundColor: palette.surface_alt }}>
+                <div className="mx-auto max-w-7xl">
+                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Event collections'}</p>
+                    <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
+                    <div className="mt-12 grid gap-6 lg:grid-cols-3">
+                        {homepage.featured.items.map((item, index) => (
+                            <article key={`${item.title}-${index}`} className="overflow-hidden rounded-[2.2rem] bg-white shadow-[0_26px_70px_rgba(50,28,31,.1)]">
+                                <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
+                                <div className="p-7">
+                                    <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>Chapter {index + 1}</p>
+                                    <h3 className="mt-3 text-3xl" style={{ fontFamily: fonts.heading }}>{item.title}</h3>
+                                    <p className="mt-3 text-sm leading-7" style={{ color: palette.muted }}>{item.category}</p>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section id="gallery" className="px-6 py-24 md:px-10">
+                <div className="mx-auto max-w-7xl">
+                    <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+                        <h2 className="max-w-3xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
+                        <Link href="/portfolio" className="rounded-full px-6 py-3 text-sm font-semibold text-white" style={{ backgroundColor: palette.surface_dark }}>Ver historia completa</Link>
+                    </div>
+                    <div className="grid auto-rows-[220px] gap-4 md:grid-cols-4">
+                        {storyImages.map((item, index) => (
+                            <article key={item.id} className={`group overflow-hidden rounded-[2rem] ${index === 0 ? 'md:col-span-2 md:row-span-2' : ''}`}>
+                                <img src={item.image_url} alt={item.project_name} className="h-full w-full object-cover transition duration-500 group-hover:scale-105" />
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <CompactLeadSection homepage={homepage} palette={palette} fonts={fonts} leadForm={leadForm} />
+            <MinimalFooter palette={palette} />
+        </div>
+    );
+}
+
+function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
+    const natureItems = filteredPortfolio.length
+        ? filteredPortfolio.slice(0, 6)
+        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Expedition ${id + 1}`, category: 'Nature' }));
+
+    return (
+        <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
+            <Head title={homepage.brand.name} />
+
+            <section id="hero" className="relative min-h-screen overflow-hidden">
+                <img src={homepage.hero.image_url} alt={homepage.hero.title} className="absolute inset-0 h-full w-full object-cover" />
+                <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${palette.hero_overlay}, rgba(23,36,25,.8))` }} />
+                <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-7 text-white md:px-10">
+                    <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-black uppercase tracking-[0.08em]" />
+                    <Link href="/portfolio" className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/78">Explore</Link>
+                </header>
+                <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-end px-6 pb-16 md:px-10">
+                    <div className="grid w-full gap-10 lg:grid-cols-[1.15fr_.85fr] lg:items-end">
+                        <div>
+                            <p className="mb-5 text-[11px] uppercase tracking-[0.38em] text-white/62">{homepage.hero.eyebrow || 'Wild visual stories'}</p>
+                            <h1 className="max-w-5xl text-6xl font-black leading-[.9] tracking-[-0.06em] text-white md:text-8xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
+                            <p className="mt-7 max-w-2xl text-lg leading-8 text-white/72">{homepage.hero.description}</p>
+                        </div>
+                        <div className="rounded-[2rem] border border-white/12 bg-white/10 p-6 text-white backdrop-blur">
+                            <p className="text-[11px] uppercase tracking-[0.28em] text-white/45">{homepage.hero.floating_caption}</p>
+                            <div className="mt-6 grid gap-3">
+                                {homepage.about.stats.map((item) => <DarkMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="about" className="px-6 py-24 md:px-10" style={{ backgroundColor: palette.surface_dark, color: '#fff' }}>
+                <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[1fr_.9fr] lg:items-center">
+                    <div>
+                        <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.about.eyebrow}</p>
+                        <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
+                        <p className="mt-6 text-base leading-8 text-white/68">{homepage.about.body}</p>
+                    </div>
+                    <img src={homepage.about.image_url} alt="Nature story" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
+                </div>
+            </section>
+
+            <section id="featured" className="px-6 py-24 md:px-10">
+                <div className="mx-auto max-w-7xl">
+                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Field notes'}</p>
+                    <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
+                    <div className="mt-12 grid gap-5 lg:grid-cols-3">
+                        {homepage.featured.items.map((item) => (
+                            <article key={item.title} className="rounded-[2rem] border p-6" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt }}>
+                                <img src={item.image_url} alt={item.title} className="mb-6 h-64 w-full rounded-[1.4rem] object-cover" />
+                                <h3 className="text-3xl" style={{ fontFamily: fonts.heading }}>{item.title}</h3>
+                                <p className="mt-3 text-sm leading-7" style={{ color: palette.muted }}>{item.category}</p>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <section id="gallery" className="overflow-hidden px-6 py-24 md:px-10" style={{ backgroundColor: palette.surface_alt }}>
+                <div className="mx-auto max-w-7xl">
+                    <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
+                    <div className="mt-10 flex gap-5 overflow-x-auto pb-6">
+                        {natureItems.map((item) => (
+                            <article key={item.id} className="min-w-[300px] overflow-hidden rounded-[2rem] bg-white shadow-[0_20px_60px_rgba(30,42,29,.1)] md:min-w-[420px]">
+                                <img src={item.image_url} alt={item.project_name} className="h-[460px] w-full object-cover" />
+                                <div className="p-6">
+                                    <p className="text-[10px] uppercase tracking-[0.24em]" style={{ color: palette.accent }}>{item.category}</p>
+                                    <h3 className="mt-2 text-2xl" style={{ fontFamily: fonts.heading }}>{item.project_name}</h3>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            <CompactLeadSection homepage={homepage} palette={palette} fonts={fonts} leadForm={leadForm} />
+            <MinimalFooter palette={palette} />
+        </div>
+    );
+}
+
+function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding }) {
     return (
         <div className="overflow-hidden bg-[#051015] text-white" style={{ fontFamily: fonts.body }}>
             <Head title={homepage.brand.name} />
@@ -589,7 +771,7 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_15%,rgba(183,255,60,.26),transparent_26%),linear-gradient(135deg,#051015_0%,#0d2028_52%,#020609_100%)]" />
                 <div className="absolute -right-24 top-24 h-[520px] w-[520px] rotate-12 border-[70px] border-[#b7ff3c]/10" />
                 <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between">
-                    <p className="text-2xl font-black uppercase tracking-[-0.04em]" style={{ fontFamily: fonts.heading }}>{homepage.brand.name}</p>
+                    <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-black uppercase tracking-[-0.04em]" />
                     <nav className="hidden items-center gap-7 text-xs font-black uppercase tracking-[0.22em] text-white/60 md:flex">
                         {['about', 'featured', 'gallery', 'contact'].map((item) => (
                             <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)} className="hover:text-[#b7ff3c]">{sectionLabels[item]}</button>
@@ -874,6 +1056,23 @@ function MinimalFooter({ palette }) {
                 </Link>
             </div>
         </footer>
+    );
+}
+
+function BrandMark({ homepage, branding, fonts, className = '', textClassName = '', logoClassName = '' }) {
+    return (
+        <div className={`inline-flex min-w-0 items-center gap-3 ${className}`}>
+            {branding?.app_logo_url && (
+                <img
+                    src={branding.app_logo_url}
+                    alt={homepage.brand.name}
+                    className={`h-10 w-10 rounded-full object-cover ring-1 ring-current/15 ${logoClassName}`}
+                />
+            )}
+            <span className={`min-w-0 break-words ${textClassName}`} style={{ fontFamily: fonts.heading }}>
+                {homepage.brand.name}
+            </span>
+        </div>
     );
 }
 

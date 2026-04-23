@@ -87,6 +87,32 @@ class TenantThemeSettings
                     'accent_soft' => '#173621',
                 ],
             ],
+            'wedding-rose' => [
+                'label' => 'Wedding Rose',
+                'palette' => [
+                    'hero_overlay' => 'rgba(50,28,31,.52)',
+                    'surface' => '#fff8f5',
+                    'surface_alt' => '#f8ebe6',
+                    'surface_dark' => '#321c1f',
+                    'text' => '#2d1d1f',
+                    'muted' => '#7d6261',
+                    'accent' => '#c47d72',
+                    'accent_soft' => '#f4dcd5',
+                ],
+            ],
+            'wild-earth' => [
+                'label' => 'Wild Earth',
+                'palette' => [
+                    'hero_overlay' => 'rgba(18,32,22,.54)',
+                    'surface' => '#f4f1e8',
+                    'surface_alt' => '#e8ead8',
+                    'surface_dark' => '#172419',
+                    'text' => '#1e2a1d',
+                    'muted' => '#68705c',
+                    'accent' => '#8d9a55',
+                    'accent_soft' => '#dfe4c1',
+                ],
+            ],
         ];
     }
 
@@ -107,6 +133,16 @@ class TenantThemeSettings
                 'label' => 'Hardy Portrait',
                 'description' => 'Retrato premium con servicios, estadisticas y proyectos destacados.',
                 'recommended_preset' => 'editorial-warm',
+            ],
+            'wedding-event' => [
+                'label' => 'Wedding Event',
+                'description' => 'Home romantico para bodas, eventos sociales, paquetes y storytelling emocional.',
+                'recommended_preset' => 'wedding-rose',
+            ],
+            'wild-nature' => [
+                'label' => 'Wild Nature',
+                'description' => 'Visual inmersivo para naturaleza, aventura, turismo y fotografia outdoor.',
+                'recommended_preset' => 'wild-earth',
             ],
             'sports-dynamic' => [
                 'label' => 'Sports Dynamic',
