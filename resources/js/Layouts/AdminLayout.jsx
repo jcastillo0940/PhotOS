@@ -55,7 +55,7 @@ function getSections(userRole) {
                     { href: '/admin/saas/plans', icon: Layers3, label: 'Planes SaaS', match: ['/admin/saas/plans'] },
                     { href: '/admin/saas/subscriptions', icon: FileText, label: 'Suscripciones', match: ['/admin/saas/subscriptions'] },
                     { href: '/admin/saas/payments', icon: CirclePlus, label: 'Pagos PayPal', match: ['/admin/saas/payments'] },
-                    { href: '/admin/saas/templates', icon: Camera, label: 'Fronts de tenants', match: ['/admin/saas/templates'] },
+                    { href: '/admin/saas/templates', icon: Camera, label: 'Plantillas de galerias', match: ['/admin/saas/templates'] },
                     { href: '/admin/settings', icon: Settings2, label: 'Configuracion global', match: ['/admin/settings'] },
                 ],
             },
@@ -112,7 +112,7 @@ function getPageTitles(userRole) {
         { match: ['/admin/saas/plans'], title: 'Planes SaaS', description: 'Define precios, limites, cuotas IA y capacidades comerciales de cada plan.' },
         { match: ['/admin/saas/subscriptions'], title: 'Suscripciones y cobros', description: 'Control de periodos, pagos manuales y estados de cuenta.' },
         { match: ['/admin/saas/payments'], title: 'Historial de pagos PayPal', description: 'Seguimiento de transacciones recibidas por el gateway.' },
-        { match: ['/admin/saas/templates'], title: 'Fronts de tenants', description: 'Administra los estilos visuales y layouts que los tenants pueden usar en su front publico.' },
+        { match: ['/admin/saas/templates'], title: 'Plantillas de galerias', description: 'Administra presets visuales para galerias de entrega. Los fronts completos se asignan dentro de cada tenant.' },
         { match: ['/admin/settings'], title: isSystemOwner ? 'Configuracion global' : 'Branding del estudio', description: isSystemOwner ? 'R2, PayPal, Alanube, Cloudflare y parametros centrales del sistema.' : 'Nombre, logo, favicon y elementos visuales del estudio.' },
     ];
 }

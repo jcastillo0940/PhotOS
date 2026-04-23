@@ -10,8 +10,8 @@ export default function Website({ tenant, homepage, homepagePreview, theme }) {
             submitUrl={`/admin/saas/tenants/${tenant.id}/website`}
             tenantLabel={tenant.name}
             pageTitle={`White label | ${tenant.name}`}
-            heading={`Front white-label de ${tenant.name}`}
-            description="Edita el home publico de este tenant sin duplicar codigo. Todo se guarda aislado por tenant para que cada dominio tenga su propio contenido y estilo."
+            heading={`Front completo de ${tenant.name}`}
+            description="Esta es la pantalla correcta para asignar el diseno del home/front completo del tenant. Tambien puedes editar contenido, imagenes, secciones, logo/branding relacionado y estilo visual sin afectar a otros tenants."
             backHref={`/admin/saas/tenants/${tenant.id}`}
             backLabel="Volver al tenant"
         />

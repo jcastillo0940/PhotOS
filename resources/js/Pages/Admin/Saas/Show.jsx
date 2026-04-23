@@ -104,7 +104,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
-                                <QuickAction href={tenant.website_edit_url} icon={Palette} title="Editar front" helper="White-label y contenido visual" />
+                                <QuickAction href={tenant.website_edit_url} icon={Palette} title="Asignar front" helper="Diseno completo, home y contenido visual" />
                                 <QuickAction href={tenant.login_url} icon={ExternalLink} title="Abrir login" helper={loginDomain} external />
                             </div>
                         </div>

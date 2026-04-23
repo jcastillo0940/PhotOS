@@ -98,16 +98,16 @@ export default function Index({ templates }) {
 
     return (
         <AdminLayout>
-            <Head title="SaaS - Fronts de tenants" />
+            <Head title="SaaS - Plantillas de galerias" />
             <div className="space-y-6">
                 <div className="flex items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-900">Fronts de tenants</h2>
-                        <p className="text-sm text-slate-500">Administra los estilos visuales y layouts que los tenants pueden usar en su front publico.</p>
+                        <h2 className="text-2xl font-bold text-slate-900">Plantillas de galerias</h2>
+                        <p className="text-sm text-slate-500">Administra estilos visuales para galerias de entrega. El front completo del tenant se asigna desde la pantalla Website de cada tenant.</p>
                     </div>
                     <button onClick={() => setIsCreateOpen(true)} className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-5 py-3 text-sm font-semibold text-white transition hover:bg-black">
                         <Plus className="h-4 w-4" />
-                        Nuevo front
+                        Nueva plantilla
                     </button>
                 </div>
 
@@ -132,7 +132,7 @@ export default function Index({ templates }) {
 
                             <div className="mt-6 flex flex-wrap gap-2">
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-primary">
-                                    <Camera className="h-3 w-3" /> Front tenant
+                                    <Camera className="h-3 w-3" /> Galeria
                                 </span>
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-600">
                                     <Sparkles className="h-3 w-3" /> {tpl.mood}
