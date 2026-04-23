@@ -92,8 +92,9 @@ class ProjectInvitationController extends Controller
                     ->values()
                     ->map(fn (Photo $photo) => [
                         'id' => $photo->id,
-                        'thumbnail_url' => $photo->thumbnail_url ? $this->temporaryUrlOrFallback($photo->thumbnail_url) : ($photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url),
-                        'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url,
+                        'thumbnail_url' => $photo->thumbnail_url ? $this->temporaryUrlOrFallback($photo->thumbnail_url) : ($photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : null),
+                        'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : null,
+                        'processing_status' => $photo->processing_status,
                         'created_at' => optional($photo->created_at)?->toIso8601String(),
                     ])
                     ->all(),

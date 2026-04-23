@@ -11,10 +11,10 @@ class CloudflareDnsService
 {
     public function enabled(): bool
     {
-        return filled($this->apiToken()) && filled($this->accountId());
+        return filled($this->apiToken());
     }
 
-    public function ensureVanityRecords(string $zoneName, string $hostname, string $cnameTarget, ?string $dcvSuffix = null): array
+    public function ensureVanityRecords(string $zoneName, string $hostname, string $cnameTarget, ?string $dcvSuffix = null, ?array $validationRecord = null): array
     {
         if (! $this->enabled()) {
             throw new RuntimeException('Cloudflare DNS no esta configurado en este entorno.');
@@ -35,7 +35,20 @@ class CloudflareDnsService
             'ttl' => 1,
         ]);
 
-        if (filled($dcvSuffix)) {
+        if (is_array($validationRecord) && filled($validationRecord['name'] ?? null) && filled($validationRecord['value'] ?? null)) {
+            $validationPayload = [
+                'type' => strtoupper((string) ($validationRecord['type'] ?? 'TXT')),
+                'name' => $validationRecord['name'],
+                'content' => $validationRecord['value'],
+                'ttl' => 1,
+            ];
+
+            if ($validationPayload['type'] === 'CNAME') {
+                $validationPayload['proxied'] = false;
+            }
+
+            $records[] = $this->upsertRecord($zoneId, $validationPayload);
+        } elseif (filled($dcvSuffix)) {
             $records[] = $this->upsertRecord($zoneId, [
                 'type' => 'CNAME',
                 'name' => '_acme-challenge.'.$hostname,
@@ -50,11 +63,16 @@ class CloudflareDnsService
 
     public function zoneIdFor(string $zoneName): ?string
     {
-        $response = $this->request()->get('/zones', [
-            'account.id' => $this->accountId(),
+        $query = [
             'name' => strtolower(trim($zoneName)),
             'per_page' => 1,
-        ]);
+        ];
+
+        if (filled($this->accountId())) {
+            $query['account.id'] = $this->accountId();
+        }
+
+        $response = $this->request()->get('/zones', $query);
 
         $result = $this->parseResponse($response);
 
@@ -66,14 +84,15 @@ class CloudflareDnsService
         $recordName = strtolower(trim((string) $payload['name']));
         $type = strtoupper(trim((string) $payload['type']));
 
-        $existing = $this->request()->get("/zones/{$zoneId}/dns_records", [
+        $recordsForName = $this->request()->get("/zones/{$zoneId}/dns_records", [
             'name' => $recordName,
-            'type' => $type,
-            'per_page' => 1,
+            'per_page' => 100,
         ]);
 
-        $records = $this->parseResponse($existing);
-        $recordId = $records[0]['id'] ?? null;
+        $records = $this->parseResponse($recordsForName);
+        $recordId = collect($records)->firstWhere('type', $type)['id'] ?? null;
+
+        $this->deleteConflictingRecords($zoneId, $records, $type);
 
         $response = $recordId
             ? $this->request()->put("/zones/{$zoneId}/dns_records/{$recordId}", $payload)
@@ -114,6 +133,28 @@ class CloudflareDnsService
         }
 
         return $result;
+    }
+
+    protected function deleteConflictingRecords(string $zoneId, array $records, string $targetType): void
+    {
+        if ($targetType !== 'CNAME') {
+            return;
+        }
+
+        foreach ($records as $record) {
+            $type = strtoupper((string) ($record['type'] ?? ''));
+            $id = $record['id'] ?? null;
+
+            if (! $id || ! in_array($type, ['A', 'AAAA'], true)) {
+                continue;
+            }
+
+            $response = $this->request()->delete("/zones/{$zoneId}/dns_records/{$id}");
+
+            if ($response->failed()) {
+                throw new RuntimeException($response->json('errors.0.message') ?: ('Cloudflare DNS no pudo eliminar un registro conflictivo '.$type.'.'));
+            }
+        }
     }
 
     protected function accountId(): ?string

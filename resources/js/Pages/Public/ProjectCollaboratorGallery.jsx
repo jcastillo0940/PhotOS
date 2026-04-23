@@ -1,5 +1,5 @@
 ﻿import React from 'react';
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { Camera, CheckCircle2, ImagePlus, ShieldCheck, UploadCloud, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePhotoUploader } from '@/hooks/usePhotoUploader';
@@ -9,6 +9,7 @@ export default function ProjectCollaboratorGallery({ workspace }) {
     const fileInputRef = React.useRef(null);
     const canUpload = !!workspace?.project?.can_upload;
     const photos = workspace?.photos || [];
+    const queuedPhotos = photos.filter((photo) => ['queued', 'processing'].includes(photo.processing_status)).length;
     const photosCount = workspace?.project?.photos_count ?? photos.length;
     const acceptedImageFormats = 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp';
     const { state: upload, upload: startUpload } = usePhotoUploader({
@@ -20,6 +21,16 @@ export default function ProjectCollaboratorGallery({ workspace }) {
 
     const [isDragging, setIsDragging] = React.useState(false);
     const dragCounter = React.useRef(0);
+
+    React.useEffect(() => {
+        if (queuedPhotos <= 0 || upload.isUploading) return undefined;
+
+        const timer = window.setInterval(() => {
+            router.reload({ only: ['workspace'], preserveScroll: true });
+        }, 5000);
+
+        return () => window.clearInterval(timer);
+    }, [queuedPhotos, upload.isUploading]);
 
     const uploadPhotos = (files) => {
         if (!files?.length || !canUpload) return;
@@ -73,12 +84,19 @@ export default function ProjectCollaboratorGallery({ workspace }) {
                             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                                 {photos.length > 0 ? photos.map((photo) => (
                                     <article key={photo.id} className="overflow-hidden rounded-2xl border border-[#ece5d8] bg-white shadow-sm">
-                                        <img src={photo.thumbnail_url || photo.url} alt="Foto del proyecto" className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async" />
+                                        {photo.thumbnail_url || photo.url ? (
+                                            <img src={photo.thumbnail_url || photo.url} alt="Foto del proyecto" className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async" />
+                                        ) : (
+                                            <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-2 bg-slate-100 text-slate-500">
+                                                <UploadCloud className="h-6 w-6" />
+                                                <span className="text-xs font-semibold uppercase tracking-[0.16em]">Procesando</span>
+                                            </div>
+                                        )}
                                         <div className="flex items-center justify-between gap-3 p-3">
                                             <p className="truncate text-sm font-semibold text-slate-900">Foto #{photo.id}</p>
-                                            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
-                                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                                Lista
+                                            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${photo.processing_status === 'processed' || photo.thumbnail_url || photo.url ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                {photo.processing_status === 'processed' || photo.thumbnail_url || photo.url ? <CheckCircle2 className="h-3.5 w-3.5" /> : <UploadCloud className="h-3.5 w-3.5" />}
+                                                {photo.processing_status === 'processed' || photo.thumbnail_url || photo.url ? 'Lista' : 'En cola'}
                                             </span>
                                         </div>
                                     </article>

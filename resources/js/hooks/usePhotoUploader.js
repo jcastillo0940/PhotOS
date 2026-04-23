@@ -104,6 +104,19 @@ function makeUploadBatches(files, batchSize) {
     return batches;
 }
 
+function initialConcurrency(maxConcurrent) {
+    const requested = Math.max(1, Number(maxConcurrent) || 1);
+    const connection = typeof navigator !== 'undefined' ? navigator.connection : null;
+
+    if (connection?.saveData) return 1;
+    if (['slow-2g', '2g'].includes(connection?.effectiveType)) return 1;
+    if (connection?.effectiveType === '3g') return Math.min(2, requested);
+    if (connection?.downlink && connection.downlink < 1.5) return 1;
+    if (connection?.downlink && connection.downlink < 4) return Math.min(2, requested);
+
+    return requested;
+}
+
 export function usePhotoUploader({ uploadUrl, batchSize = 1, maxConcurrent = 3, reloadOnly = null }) {
     const [state, setState] = useState(INITIAL);
 
@@ -161,7 +174,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, maxConcurrent = 3, 
         }
 
         const uploadItems = makeUploadBatches(all, batchSize);
-        const concurrency = Math.max(1, Math.min(Number(maxConcurrent) || 1, uploadItems.length));
+        let concurrency = Math.min(initialConcurrency(maxConcurrent), uploadItems.length);
 
         setState({
             ...INITIAL,
@@ -212,10 +225,12 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, maxConcurrent = 3, 
                     if (!shouldRetryUploadError(err)) {
                         failed += batch.length;
                         errors.push(`${batchLabel}: ${err.message}`);
+                        concurrency = Math.max(1, concurrency - 1);
                         break;
                     }
 
                     attempts += 1;
+                    concurrency = Math.max(1, concurrency - 1);
                     const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
                     const retryDelay = offline ? 0 : Math.min(30000, 2000 * attempts);
 
@@ -261,7 +276,7 @@ export function usePhotoUploader({ uploadUrl, batchSize = 1, maxConcurrent = 3, 
 
         const msg = failed > 0
             ? `${uploaded} subidas, ${failed} fallaron`
-            : `${uploaded} foto${uploaded !== 1 ? 's' : ''} subida${uploaded !== 1 ? 's' : ''} correctamente`;
+            : `${uploaded} original${uploaded !== 1 ? 'es' : ''} subido${uploaded !== 1 ? 's' : ''}. El servidor seguira procesando; ya puedes cerrar esta pantalla.`;
 
         setState((prev) => ({ ...prev, isUploading: false, isDone: true, statusMessage: msg }));
 

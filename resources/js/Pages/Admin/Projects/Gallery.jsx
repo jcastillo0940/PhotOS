@@ -99,7 +99,10 @@ export default function Gallery({ project, faceRecognition }) {
     const recognitionReady = !!project.face_recognition_enabled && recognitionConfigured && !!faceRecognition?.database_ready;
     const analyzedPhotos = recognitionSummary.photos_processed || 0;
     const totalPhotos = (project.photos || []).length;
+    const processedAssets = (project.photos || []).filter((photo) => photo.processing_status === 'processed' || photo.thumbnail_url || photo.optimized_path).length;
+    const queuedAssets = (project.photos || []).filter((photo) => ['queued', 'processing'].includes(photo.processing_status)).length;
     const processedPercentage = Math.max(0, Math.min(100, totalPhotos > 0 ? (analyzedPhotos / totalPhotos) * 100 : 0));
+    const uploadProcessingPercentage = Math.max(0, Math.min(100, totalPhotos > 0 ? (processedAssets / totalPhotos) * 100 : 0));
     const sportsModeEnabled = !!faceRecognition?.sports_mode_enabled;
     const supportsSponsorDetection = !!project?.plan_capabilities?.supports_sponsor_detection;
 
@@ -132,6 +135,16 @@ export default function Gallery({ project, faceRecognition }) {
             return { ...base, ...pending };
         });
     }, [project.photos, buildPhotoState]);
+
+    React.useEffect(() => {
+        if (queuedAssets <= 0 || upload.isUploading) return undefined;
+
+        const timer = window.setInterval(() => {
+            router.reload({ only: ['project'], preserveScroll: true });
+        }, 5000);
+
+        return () => window.clearInterval(timer);
+    }, [queuedAssets, upload.isUploading]);
 
     const savePhoto = React.useCallback((photoId, nextState) => {
         const next = { ...(photoState[photoId] || {}), ...nextState };
@@ -502,6 +515,21 @@ export default function Gallery({ project, faceRecognition }) {
 
                     {canManageGallery && (
                         <div className="mt-8 rounded-[1.7rem] border border-[#e6e0d5] bg-[#fbf9f6] p-5 lg:p-6">
+                            {queuedAssets > 0 && (
+                                <div className="mb-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-amber-700">Procesamiento del servidor</p>
+                                            <p className="mt-1 text-sm text-amber-800">{processedAssets} de {totalPhotos} fotos listas. Puedes cerrar el navegador; la cola seguira trabajando.</p>
+                                        </div>
+                                        <p className="text-2xl font-semibold text-amber-800">{Math.round(uploadProcessingPercentage)}%</p>
+                                    </div>
+                                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-amber-100">
+                                        <div className="h-full rounded-full bg-amber-500 transition-all duration-1000" style={{ width: `${uploadProcessingPercentage}%` }} />
+                                    </div>
+                                </div>
+                            )}
+
                             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                                 <div className="max-w-3xl">
                                     <div className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[#e6e0d5] bg-white text-slate-700">
@@ -585,8 +613,15 @@ export default function Gallery({ project, faceRecognition }) {
                                 <article key={photo.id} className="overflow-hidden rounded-[1.5rem] border border-[#ece5d8] bg-white shadow-sm transition hover:shadow-md">
                                     <div className="relative group">
                                         {/* thumbnail — click opens lightbox */}
-                                        <button type="button" className="block w-full" onClick={() => openLightbox(photo.id)}>
-                                            <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" loading="lazy" decoding="async" />
+                                        <button type="button" className="block w-full" onClick={() => (photo.url || photo.thumbnail_url) && openLightbox(photo.id)}>
+                                            {photo.thumbnail_url || photo.url ? (
+                                                <img src={photo.thumbnail_url || photo.url} alt="" className="h-48 w-full object-cover" loading="lazy" decoding="async" />
+                                            ) : (
+                                                <div className="flex h-48 w-full flex-col items-center justify-center gap-3 bg-slate-100 text-slate-500">
+                                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                                    <span className="text-xs font-semibold uppercase tracking-[0.18em]">Procesando</span>
+                                                </div>
+                                            )}
                                         </button>
 
                                         {/* face detection boxes in grid (hidden when lightbox open) */}

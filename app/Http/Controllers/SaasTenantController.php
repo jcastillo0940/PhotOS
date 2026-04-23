@@ -331,10 +331,15 @@ class SaasTenantController extends Controller
         abort_unless($domain->tenant_id === $tenant->id, 404);
 
         try {
+            if ($domain->type === 'custom') {
+                $this->provisioning->provisionExistingTenantDomain($tenant, $domain);
+
+                return redirect()->back()->with('success', 'Dominio reintentado en Cloudflare. Si el DNS esta en Cloudflare, el sistema tambien intento crear/actualizar los registros.');
+            }
+
             $this->cloudflare->refreshStatus($domain);
-            return redirect()->back()->with('success', $domain->cf_custom_hostname_id
-                ? 'Estado del dominio sincronizado con Cloudflare.'
-                : 'Dominio enviado a Cloudflare for SaaS. Ya puedes revisar las instrucciones DNS.');
+
+            return redirect()->back()->with('success', 'Estado del dominio sincronizado con Cloudflare.');
         } catch (\Throwable $e) {
             return redirect()->back()->with('error', 'No se pudo sincronizar el dominio: '.$e->getMessage());
         }

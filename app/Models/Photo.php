@@ -12,7 +12,7 @@ class Photo extends Model
     use BelongsToTenant, HasFactory;
 
     protected $fillable = [
-        'tenant_id', 'project_id', 'url', 'thumbnail_url', 'optimized_path', 'original_path', 'gemini_path', 'optimized_bytes', 'original_bytes',
+        'tenant_id', 'project_id', 'url', 'thumbnail_url', 'optimized_path', 'original_path', 'gemini_path', 'processing_status', 'processing_note', 'processing_started_at', 'processed_at', 'optimized_bytes', 'original_bytes',
         'mime_type', 'is_selected', 'show_on_website', 'download_count', 'order_index', 'category', 'tags', 'people_tags',
         'brand_tags', 'jersey_numbers', 'sponsor_tags', 'context_tags', 'action_tags', 'people_count', 'people_count_label', 'shot_type',
         'recognition_status', 'recognition_note', 'recognition_processed_at',
@@ -39,6 +39,8 @@ class Photo extends Model
         'gemini_candidate_tokens' => 'integer',
         'gemini_total_tokens' => 'integer',
         'gemini_batch_size' => 'integer',
+        'processing_started_at' => 'datetime',
+        'processed_at' => 'datetime',
         'recognition_processed_at' => 'datetime',
     ];
 

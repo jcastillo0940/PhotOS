@@ -380,7 +380,7 @@ class ProjectController extends Controller
     {
         $resolvedUrl = $photo->optimized_path
             ? $this->temporaryUrlOrFallback($photo->optimized_path)
-            : $photo->url;
+            : null;
         $thumbnailUrl = $photo->thumbnail_url
             ? $this->temporaryUrlOrFallback($photo->thumbnail_url)
             : $resolvedUrl;

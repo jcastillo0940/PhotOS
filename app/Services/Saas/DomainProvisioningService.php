@@ -180,6 +180,89 @@ class DomainProvisioningService
         return $order->fresh();
     }
 
+    public function provisionExistingTenantDomain(Tenant $tenant, TenantDomain $tenantDomain): DomainOrder
+    {
+        $this->assertCustomDomainEnabled($tenant);
+
+        if ((int) $tenantDomain->tenant_id !== (int) $tenant->id || $tenantDomain->type !== 'custom') {
+            throw new RuntimeException('Ese dominio no pertenece al tenant o no es un dominio propio.');
+        }
+
+        $order = DomainOrder::updateOrCreate(
+            [
+                'tenant_id' => $tenant->id,
+                'domain_name' => $tenantDomain->hostname,
+                'type' => 'connect',
+            ],
+            [
+                'tenant_domain_id' => $tenantDomain->id,
+                'provider' => $this->dns->enabled() ? 'cloudflare' : 'external',
+                'status' => 'creating_custom_hostname',
+                'error_message' => null,
+                'verification_attempts' => 0,
+                'last_checked_at' => null,
+                'next_check_at' => null,
+                'manual_state' => 'manual_retry_requested',
+                'metadata' => ['flow' => 'connect_existing_tenant_domain'],
+            ]
+        );
+
+        try {
+            $this->customHostnames->refreshStatus($tenantDomain);
+
+            $freshDomain = $tenantDomain->fresh();
+            $instructions = $this->customHostnames->dnsInstructions($freshDomain);
+            $dnsRecords = [];
+
+            if ($this->dns->enabled()) {
+                $dnsRecords = $this->dns->ensureVanityRecords(
+                    $this->zoneNameForHostname($freshDomain->hostname),
+                    $freshDomain->hostname,
+                    (string) $this->customHostnames->managedCnameTarget(),
+                    config('services.cloudflare_saas.dcv_target'),
+                    $instructions['txt'] ?? null
+                );
+            }
+
+            $this->customHostnames->refreshStatus($freshDomain);
+            $freshDomain = $freshDomain->fresh();
+            $status = in_array($freshDomain->cf_status, ['active', 'pending_deployment'], true)
+                ? 'active'
+                : ($this->dns->enabled() ? 'verifying' : 'awaiting_dns');
+
+            $order->forceFill([
+                'tenant_domain_id' => $freshDomain->id,
+                'provider' => $this->dns->enabled() ? 'cloudflare' : 'external',
+                'status' => $status,
+                'completed_at' => $status === 'active' ? now() : null,
+                'error_message' => null,
+                'last_checked_at' => now(),
+                'next_check_at' => $status === 'active' ? null : now()->addMinutes(5),
+                'manual_state' => $status === 'active' ? 'active' : ($this->dns->enabled() ? 'auto_verifying' : 'awaiting_customer_dns'),
+                'metadata' => array_merge($order->metadata ?? [], [
+                    'instructions' => $this->customHostnames->dnsInstructions($freshDomain),
+                    'dns_records' => $dnsRecords,
+                    'provisioning_mode' => $this->dns->enabled() ? 'cloudflare_managed_dns' : 'manual_dns',
+                ]),
+            ])->save();
+
+            if ($status !== 'active') {
+                $this->scheduleAutoSync($order);
+            }
+
+            return $order->fresh();
+        } catch (\Throwable $e) {
+            $order->forceFill([
+                'status' => 'failed',
+                'error_message' => $e->getMessage(),
+                'last_checked_at' => now(),
+                'next_check_at' => null,
+            ])->save();
+
+            throw $e;
+        }
+    }
+
     public function syncOrderStatus(DomainOrder $order): DomainOrder
     {
         if (! $order->tenantDomain) {
@@ -346,6 +429,17 @@ class DomainProvisioningService
         $domainName = trim($domainName, '/');
 
         return $domainName;
+    }
+
+    protected function zoneNameForHostname(string $hostname): string
+    {
+        $parts = explode('.', strtolower(trim($hostname, '.')));
+
+        if (count($parts) <= 2) {
+            return implode('.', $parts);
+        }
+
+        return implode('.', array_slice($parts, -2));
     }
 
     protected function scheduleAutoSync(DomainOrder $order, int $minutes = 5): void

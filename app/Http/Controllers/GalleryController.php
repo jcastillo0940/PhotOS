@@ -791,8 +791,8 @@ class GalleryController extends Controller
         return [
             ...$photo->toArray(),
             'is_selected' => in_array($photo->id, $selectedPhotoIds, true),
-            'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url,
-            'thumbnail_url' => $photo->thumbnail_url ? $this->temporaryUrlOrFallback($photo->thumbnail_url) : ($photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : $photo->url),
+            'url' => $photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : null,
+            'thumbnail_url' => $photo->thumbnail_url ? $this->temporaryUrlOrFallback($photo->thumbnail_url) : ($photo->optimized_path ? $this->temporaryUrlOrFallback($photo->optimized_path) : null),
             'high_res_available' => $hasClientAccess && (bool) $photo->original_path && ! $photo->project?->originalsExpired(),
         ];
     }

@@ -8,7 +8,7 @@ Type=simple
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/photos
-ExecStart=/usr/bin/php artisan queue:work --sleep=1 --tries=3 --timeout=120 --max-jobs=250 --max-time=3600
+ExecStart=/usr/bin/php artisan queue:work --queue=photos,default --sleep=1 --tries=3 --timeout=120 --max-jobs=250 --max-time=3600
 Restart=always
 RestartSec=5
 RuntimeMaxSec=3700

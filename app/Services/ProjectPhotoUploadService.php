@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Jobs\DispatchFaceRecognitionTaskJob;
+use App\Jobs\ProcessUploadedPhotoJob;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
@@ -107,6 +108,42 @@ class ProjectPhotoUploadService
                 'size_bytes' => filesize($absoluteOriginalPath),
                 'memory_mb' => round(memory_get_usage(true) / 1048576, 2),
             ]);
+
+            $originalR2Path = $project->originalsBucketPrefix()."/{$originalFileName}";
+
+            Log::channel('single')->info("{$fileLabel} Subiendo original a R2", ['r2_path' => $originalR2Path]);
+            try {
+                Storage::disk('r2')->put($originalR2Path, fopen($absoluteOriginalPath, 'r'));
+                Log::channel('single')->info("{$fileLabel} Original subido a R2 OK");
+            } catch (\Throwable $e) {
+                Log::channel('single')->error("{$fileLabel} FALLO subida original R2", [
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+                throw $e;
+            }
+
+            $photo = Photo::create([
+                'project_id' => $project->id,
+                'url' => $originalR2Path,
+                'thumbnail_url' => null,
+                'optimized_path' => null,
+                'original_path' => $originalR2Path,
+                'gemini_path' => null,
+                'processing_status' => 'queued',
+                'processing_note' => 'Original subido. Esperando procesamiento en servidor.',
+                'optimized_bytes' => null,
+                'original_bytes' => @filesize($absoluteOriginalPath) ?: null,
+                'mime_type' => $file->getMimeType(),
+                'order_index' => ++$orderIndex,
+                'category' => 'Master Set',
+                'tags' => ['master-set'],
+            ]);
+
+            Log::channel('single')->info("{$fileLabel} Foto guardada en DB y enviada a cola", ['photo_id' => $photo->id]);
+            ProcessUploadedPhotoJob::dispatch($photo->id, $project->tenant_id);
+
+            continue;
 
             $optimizedLocalRelativePath = "{$tempMasterDirectory}/optimized/{$optimizedFileName}";
             $absoluteOptimizedPath = Storage::disk('local')->path($optimizedLocalRelativePath);
@@ -245,6 +282,96 @@ class ProjectPhotoUploadService
         ]);
 
         $this->automationService->runImmediate('gallery_published', $project->load('lead', 'client'));
+    }
+
+    public function processQueuedPhoto(int $photoId): void
+    {
+        $photo = Photo::withoutGlobalScope('tenant')->findOrFail($photoId);
+        $project = Project::withoutGlobalScope('tenant')->findOrFail($photo->project_id);
+
+        if (! $photo->original_path || ! Storage::disk('r2')->exists($photo->original_path)) {
+            $photo->update([
+                'processing_status' => 'error',
+                'processing_note' => 'No existe el original en R2 para procesar.',
+                'processed_at' => now(),
+            ]);
+            throw new \RuntimeException("Original no encontrado para foto {$photo->id}.");
+        }
+
+        $photo->update([
+            'processing_status' => 'processing',
+            'processing_note' => 'Generando version web y thumbnail.',
+            'processing_started_at' => now(),
+        ]);
+
+        $tempDirectory = "uploads/project_{$project->id}/queued_{$photo->id}_".uniqid();
+        $sourceExtension = strtolower(pathinfo($photo->original_path, PATHINFO_EXTENSION) ?: 'jpg');
+        $baseName = pathinfo($photo->original_path, PATHINFO_FILENAME) ?: ('photo_'.$photo->id);
+        $localOriginalRelativePath = "{$tempDirectory}/source.{$sourceExtension}";
+        $optimizedLocalRelativePath = "{$tempDirectory}/optimized/{$baseName}.webp";
+        $thumbnailLocalRelativePath = "{$tempDirectory}/thumbs/{$baseName}_thumb.webp";
+
+        $absoluteOriginalPath = Storage::disk('local')->path($localOriginalRelativePath);
+        $absoluteOptimizedPath = Storage::disk('local')->path($optimizedLocalRelativePath);
+        $absoluteThumbnailPath = Storage::disk('local')->path($thumbnailLocalRelativePath);
+
+        try {
+            foreach ([$absoluteOriginalPath, $absoluteOptimizedPath, $absoluteThumbnailPath] as $path) {
+                if (! file_exists(dirname($path))) {
+                    mkdir(dirname($path), 0755, true);
+                }
+            }
+
+            file_put_contents($absoluteOriginalPath, Storage::disk('r2')->get($photo->original_path));
+
+            $label = "[PROCESS_PHOTO:{$photo->id}]";
+            $this->createOptimizedWebp($absoluteOriginalPath, $absoluteOptimizedPath, $project, $label);
+            $this->createThumbnailWebp($absoluteOriginalPath, $absoluteThumbnailPath, $label);
+
+            if (! file_exists($absoluteOptimizedPath) || filesize($absoluteOptimizedPath) === 0) {
+                throw new \RuntimeException('La version web no se genero correctamente.');
+            }
+
+            $optimizedR2Path = $project->webBucketPrefix()."/{$baseName}.webp";
+            $thumbnailR2Path = file_exists($absoluteThumbnailPath) && filesize($absoluteThumbnailPath) > 0
+                ? $project->webBucketPrefix()."/thumbs/{$baseName}_thumb.webp"
+                : null;
+
+            Storage::disk('r2')->put($optimizedR2Path, fopen($absoluteOptimizedPath, 'r'), [
+                'ContentType' => 'image/webp',
+                'CacheControl' => 'public, max-age=31536000, immutable',
+            ]);
+
+            if ($thumbnailR2Path) {
+                Storage::disk('r2')->put($thumbnailR2Path, fopen($absoluteThumbnailPath, 'r'), [
+                    'ContentType' => 'image/webp',
+                    'CacheControl' => 'public, max-age=31536000, immutable',
+                ]);
+            }
+
+            $photo->update([
+                'url' => $optimizedR2Path,
+                'thumbnail_url' => $thumbnailR2Path ?: $optimizedR2Path,
+                'optimized_path' => $optimizedR2Path,
+                'optimized_bytes' => @filesize($absoluteOptimizedPath) ?: null,
+                'processing_status' => 'processed',
+                'processing_note' => 'Foto procesada correctamente.',
+                'processed_at' => now(),
+            ]);
+
+            if ($project->face_recognition_enabled && $this->faceRecognitionService->enabled()) {
+                DispatchFaceRecognitionTaskJob::dispatch('recognize_photo', $project->id, $photo->id, null);
+            }
+        } catch (\Throwable $e) {
+            $photo->update([
+                'processing_status' => 'error',
+                'processing_note' => mb_substr($e->getMessage(), 0, 255),
+                'processed_at' => now(),
+            ]);
+            throw $e;
+        } finally {
+            Storage::disk('local')->deleteDirectory($tempDirectory);
+        }
     }
 
     private function createGeminiWebp(string $originalPath, string $outputPath, string $logLabel = ''): void

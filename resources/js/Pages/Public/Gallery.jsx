@@ -100,16 +100,22 @@ const PhotoCard = ({ photo, isSelected, onClick, onToggleHeart, cardClass, showD
         className={clsx('group relative overflow-hidden rounded-[32px] cursor-zoom-in w-full transition-shadow hover:shadow-[0_20px_50px_rgba(0,0,0,0.15)]', cardClass)}
     >
         <div className="overflow-hidden aspect-auto">
-            <img
-                src={photo.thumbnail_url || photo.url}
-                alt="Gallery Shot"
-                className="w-full h-auto object-cover transition-transform duration-1000 group-hover:scale-110 block"
-                onClick={onClick}
-                loading="lazy"
-                decoding="async"
-                draggable={false}
-                onContextMenu={(e) => e.preventDefault()}
-            />
+            {photo.thumbnail_url || photo.url ? (
+                <img
+                    src={photo.thumbnail_url || photo.url}
+                    alt="Gallery Shot"
+                    className="w-full h-auto object-cover transition-transform duration-1000 group-hover:scale-110 block"
+                    onClick={onClick}
+                    loading="lazy"
+                    decoding="async"
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
+                />
+            ) : (
+                <div className="flex aspect-[4/3] w-full items-center justify-center bg-black/10 text-[10px] font-black uppercase tracking-[0.3em] opacity-50">
+                    Procesando
+                </div>
+            )}
         </div>
 
         <div className={clsx(
@@ -1080,4 +1086,3 @@ export default function Gallery({ project, photos, galleryTemplate, access, pagi
         </div>
     );
 }
-
