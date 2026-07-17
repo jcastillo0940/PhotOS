@@ -24,6 +24,12 @@ class EnsureTenantSessionMatchesHost
         $centralDomains = Arr::wrap(config('saas.central_domains', []));
         $routeName = (string) $request->route()?->getName();
 
+        // En el panel SaaS solo entran developers — la validación de rol la hace EnsureDeveloper.
+        $panelDomain = strtolower((string) config('saas.panel_domain', ''));
+        if ($panelDomain && $host === $panelDomain) {
+            return $next($request);
+        }
+
         if ($user->tenant_id === null && in_array($user->role, ['developer', 'operator'], true)) {
             return $next($request);
         }

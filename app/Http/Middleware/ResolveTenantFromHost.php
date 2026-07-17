@@ -24,6 +24,13 @@ class ResolveTenantFromHost
 
         $host = strtolower((string) $request->getHost());
 
+        // El panel SaaS no pertenece a ningún tenant — se sirve sin contexto de tenant.
+        $panelDomain = strtolower((string) config('saas.panel_domain', ''));
+        if ($panelDomain && $host === $panelDomain) {
+            $context->set(null, $host);
+            return $next($request);
+        }
+
         $tenant = TenantDomain::query()
             ->with('tenant')
             ->where('hostname', $host)

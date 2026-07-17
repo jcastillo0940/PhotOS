@@ -52,6 +52,11 @@ class User extends Authenticatable
         return $this->role === 'photographer';
     }
 
+    public function isClient(): bool
+    {
+        return $this->role === 'client';
+    }
+
     public function canManageTenant(): bool
     {
         return $this->isDeveloper() || $this->isOwner() || $this->isOperator();

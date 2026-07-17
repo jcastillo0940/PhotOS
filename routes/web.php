@@ -18,18 +18,10 @@ use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProjectCollaboratorController;
 use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectInvitationController;
-use App\Http\Controllers\Saas\PlanController;
-use App\Http\Controllers\Saas\CostController;
-use App\Http\Controllers\Saas\SubscriptionController;
-use App\Http\Controllers\Saas\TemplateController as SaasTemplateController;
-use App\Http\Controllers\Saas\UserController;
-use App\Http\Controllers\SaasBillingController;
 use App\Http\Controllers\SaasOnboardingController;
-use App\Http\Controllers\SaasTenantController;
-use App\Http\Controllers\SaasTenantWebsiteController;
+use App\Http\Controllers\SaasBillingController;
 use App\Http\Controllers\SeoController;
 use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\TenantSubscriptionPortalController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
@@ -65,67 +57,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     Route::get('/settings/branding', [SettingsController::class, 'branding'])->middleware('tenant.admin')->name('admin.settings.branding');
     Route::post('/settings/branding', [SettingsController::class, 'updateBranding'])->middleware('tenant.admin')->name('admin.settings.branding.update');
 
-    Route::middleware('developer')->group(function () {
-        Route::get('/settings/integrations', [SettingsController::class, 'integrations'])->name('admin.settings.integrations');
-        Route::put('/settings/integrations', [SettingsController::class, 'updateIntegrations'])->name('admin.settings.integrations.update');
-        Route::get('/settings/tests', [SettingsController::class, 'tests'])->name('admin.settings.tests');
-        Route::get('/settings/billing', [SettingsController::class, 'billing'])->name('admin.settings.billing');
-        Route::put('/settings/billing', [SettingsController::class, 'updateBilling'])->name('admin.settings.billing.update');
-        Route::post('/settings/test/smtp', [SettingsController::class, 'testSmtp'])->name('admin.settings.test.smtp');
-        Route::post('/settings/test/alanube', [SettingsController::class, 'testAlanube'])->name('admin.settings.test.alanube');
-        Route::post('/settings/test/cloudflare', [SettingsController::class, 'testCloudflare'])->name('admin.settings.test.cloudflare');
-        Route::post('/settings/test/cloudflare_saas', [SettingsController::class, 'testCloudflareSaas'])->name('admin.settings.test.cloudflare_saas');
-        Route::post('/settings/test/paypal', [SettingsController::class, 'testPaypal'])->name('admin.settings.test.paypal');
-        Route::post('/settings/test/tilopay', [SettingsController::class, 'testTilopay'])->name('admin.settings.test.tilopay');
-        Route::post('/invoices/{invoice}/alanube', [InvoiceController::class, 'submitAlanube'])->name('admin.invoices.alanube.submit');
-        Route::get('/templates', [TemplateController::class, 'index'])->name('admin.templates');
-        Route::put('/templates', [TemplateController::class, 'update'])->name('admin.templates.update');
-        Route::get('/saas/gemini-usage', [SaasTenantController::class, 'geminiUsage'])->name('admin.saas.gemini-usage');
-        Route::get('/saas/costs', [CostController::class, 'index'])->name('admin.saas.costs.index');
-        Route::post('/saas/costs', [CostController::class, 'store'])->name('admin.saas.costs.store');
-        Route::put('/saas/costs/{cost}', [CostController::class, 'update'])->name('admin.saas.costs.update');
-        Route::delete('/saas/costs/{cost}', [CostController::class, 'destroy'])->name('admin.saas.costs.destroy');
-        Route::get('/saas/tenants', [SaasTenantController::class, 'index'])->name('admin.saas.tenants.index');
-        Route::post('/saas/tenants', [SaasTenantController::class, 'store'])->name('admin.saas.tenants.store');
-        Route::get('/saas/tenants/{tenant}', [SaasTenantController::class, 'show'])->name('admin.saas.tenants.show');
-        Route::put('/saas/tenants/{tenant}', [SaasTenantController::class, 'update'])->name('admin.saas.tenants.update');
-        Route::post('/saas/tenants/{tenant}/domains', [SaasTenantController::class, 'storeDomain'])->name('admin.saas.tenants.domains.store');
-        Route::post('/saas/tenants/{tenant}/domains/{domain}/sync', [SaasTenantController::class, 'syncDomain'])->name('admin.saas.tenants.domains.sync');
-        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/dns-configured', [SaasTenantController::class, 'markDomainOrderDnsConfigured'])->name('admin.saas.tenants.domain-orders.dns-configured');
-        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/retry', [SaasTenantController::class, 'retryDomainOrder'])->name('admin.saas.tenants.domain-orders.retry');
-        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/cancel', [SaasTenantController::class, 'cancelDomainOrder'])->name('admin.saas.tenants.domain-orders.cancel');
-        Route::post('/saas/tenants/{tenant}/domain-orders/{domainOrder}/override', [SaasTenantController::class, 'overrideDomainOrder'])->name('admin.saas.tenants.domain-orders.override');
-        Route::get('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'edit'])->name('admin.saas.tenants.website.edit');
-        Route::put('/saas/tenants/{tenant}/website', [SaasTenantWebsiteController::class, 'update'])->name('admin.saas.tenants.website.update');
-
-        // New Detailed CRUDs for SaaS Admin
-        Route::get('/saas/users', [UserController::class, 'index'])->name('admin.saas.users.index');
-        Route::post('/saas/users', [UserController::class, 'store'])->name('admin.saas.users.store');
-        Route::put('/saas/users/{user}', [UserController::class, 'update'])->name('admin.saas.users.update');
-        Route::delete('/saas/users/{user}', [UserController::class, 'destroy'])->name('admin.saas.users.destroy');
-
-        Route::get('/saas/plans', [PlanController::class, 'index'])->name('admin.saas.plans.index');
-        Route::post('/saas/plans', [PlanController::class, 'store'])->name('admin.saas.plans.store');
-        Route::put('/saas/plans/{plan}', [PlanController::class, 'update'])->name('admin.saas.plans.update');
-        Route::delete('/saas/plans/{plan}', [PlanController::class, 'destroy'])->name('admin.saas.plans.destroy');
-
-        Route::get('/saas/templates', [SaasTemplateController::class, 'index'])->name('admin.saas.templates.index');
-        Route::post('/saas/templates', [SaasTemplateController::class, 'store'])->name('admin.saas.templates.store');
-        Route::put('/saas/templates/{template}', [SaasTemplateController::class, 'update'])->name('admin.saas.templates.update');
-        Route::delete('/saas/templates/{template}', [SaasTemplateController::class, 'destroy'])->name('admin.saas.templates.destroy');
-
-        Route::get('/saas/subscriptions', [SubscriptionController::class, 'index'])->name('admin.saas.subscriptions.index');
-        Route::post('/saas/subscriptions', [SubscriptionController::class, 'store'])->name('admin.saas.subscriptions.store');
-        Route::put('/saas/subscriptions/{subscription}', [SubscriptionController::class, 'update'])->name('admin.saas.subscriptions.update');
-        Route::post('/saas/subscriptions/{subscription}/manual-payment', [SubscriptionController::class, 'recordManualPayment'])->name('admin.saas.subscriptions.manual-payment');
-
-        Route::get('/saas/payments', [App\Http\Controllers\Saas\PaymentController::class, 'index'])->name('admin.saas.payments.index');
-
-        Route::post('/saas/tenants/{tenant}/billing/manual', [SaasBillingController::class, 'manualUpdate'])->name('admin.saas.tenants.billing.manual');
-        Route::post('/saas/tenants/{tenant}/billing/manual-payment', [SaasBillingController::class, 'recordManualPayment'])->name('admin.saas.tenants.billing.manual-payment');
-        Route::post('/saas/tenants/{tenant}/billing/discount', [SaasBillingController::class, 'applyDiscount'])->name('admin.saas.tenants.billing.discount');
-        Route::post('/saas/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('admin.saas.tenants.billing.setup-token');
-    });
+    // Las rutas de plataforma SaaS (tenants, planes, suscripciones, integraciones)
+    // ahora viven en routes/saas.php y solo son accesibles desde saas.misaeldavid.com.
 
     Route::middleware('studio.operator')->group(function () {
         Route::get('/website', [WebsiteController::class, 'index'])->middleware('tenant.admin')->name('admin.website');
@@ -217,7 +150,8 @@ Route::prefix('admin')->middleware('auth')->group(function () {
     });
 });
 
-Route::prefix('client')->middleware('auth')->group(function () {
+// Portal cliente — surface: app.misaeldavid.com
+Route::prefix('client')->middleware(['auth', 'client.role'])->group(function () {
     Route::get('/', [ClientDashboardController::class, 'index'])->name('client.dashboard');
 });
 

@@ -3,6 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use App\Http\Middleware\EnsureClientRole;
+use App\Http\Middleware\EnsureSaasDomain;
 use App\Http\Middleware\EnsureTenantFeatureAvailable;
 use App\Http\Middleware\EnsureTenantSessionMatchesHost;
 use App\Http\Middleware\EnsureDeveloper;
@@ -20,16 +22,22 @@ $app = Application::configure(basePath: dirname(__DIR__))
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
+        then: function () {
+            \Illuminate\Support\Facades\Route::middleware('web')
+                ->group(base_path('routes/saas.php'));
+        },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'developer' => EnsureDeveloper::class,
+            'developer'      => EnsureDeveloper::class,
+            'saas.domain'    => EnsureSaasDomain::class,
+            'client.role'    => EnsureClientRole::class,
             'studio.operator' => EnsureStudioOperator::class,
-            'tenant.admin' => EnsureTenantAdmin::class,
+            'tenant.admin'   => EnsureTenantAdmin::class,
             'tenant.finance' => EnsureTenantFinance::class,
             'project.access' => EnsureProjectAccess::class,
             'tenant.feature' => EnsureTenantFeatureAvailable::class,
-            'gemini.rate' => GeminiRateLimit::class,
+            'gemini.rate'    => GeminiRateLimit::class,
         ]);
 
         $middleware->web(
