@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import {
     Activity,
     BadgeDollarSign,
@@ -50,7 +50,7 @@ export default function Dashboard({ stats, finance, system, tenants, registratio
     ];
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS - Panel de Control" />
 
             <div className="space-y-8">
@@ -270,6 +270,6 @@ export default function Dashboard({ stats, finance, system, tenants, registratio
                     </Card>
                 </div>
             </div>
-        </AdminLayout>
+        </SaasLayout>
     );
 }

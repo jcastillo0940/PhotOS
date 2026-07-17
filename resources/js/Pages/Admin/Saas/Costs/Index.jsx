@@ -10,7 +10,7 @@ import {
     Trash2,
     Wrench,
 } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { Badge, Button, Card, Chart, Input, StatsCard } from '@/Components/UI';
 
 const emptyForm = {
@@ -115,7 +115,7 @@ export default function Index({ entries, stats, monthly, productOptions = [] }) 
     };
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS - Costos Mensuales" />
 
             <div className="space-y-8">
@@ -304,6 +304,6 @@ export default function Index({ entries, stats, monthly, productOptions = [] }) 
                     </div>
                 </Card>
             </div>
-        </AdminLayout>
+        </SaasLayout>
     );
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { Cpu, Database, Hash, Layers3, TrendingUp, Zap } from 'lucide-react';
 
 function fmt(n) {
@@ -35,7 +35,7 @@ function StatCard({ label, value, icon: Icon }) {
 
 export default function GeminiUsage({ rows, totals }) {
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="Uso Gemini por Tenant" />
 
             <div className="space-y-8">
@@ -161,7 +161,7 @@ export default function GeminiUsage({ rows, totals }) {
                     )}
                 </section>
             </div>
-        </AdminLayout>
+        </SaasLayout>
     );
 }
 

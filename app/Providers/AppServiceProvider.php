@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\Invoice;
+use App\Models\Project;
 use App\Models\Setting;
+use App\Policies\InvoicePolicy;
+use App\Policies\ProjectPolicy;
 use App\Services\Billing\TenantBillingService;
 use App\Support\Tenancy\TenantContext;
 use App\Support\TenantThemeSettings;
@@ -27,6 +31,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewPulse', function ($user) {
             return $user && ($user->isDeveloper() || $user->isOwner());
         });
+
+        Gate::policy(Project::class, ProjectPolicy::class);
+        Gate::policy(Invoice::class, InvoicePolicy::class);
 
         Inertia::share('auth', fn () => [
             'user' => auth()->user()

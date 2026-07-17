@@ -15,7 +15,7 @@ import {
     Wallet,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 
 function copy(value) {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -80,7 +80,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
     const statement = tenant.statement || {};
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title={`SaaS | ${tenant.name}`} />
 
             <div className="space-y-6">
@@ -441,7 +441,7 @@ export default function Show({ tenant, cloudflare, planOptions = [] }) {
                     </section>
                 </div>
             </div>
-        </AdminLayout>
+        </SaasLayout>
     );
 }
 

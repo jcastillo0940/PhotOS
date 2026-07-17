@@ -3,34 +3,25 @@ import { Link, usePage } from '@inertiajs/react';
 import {
     Bell,
     Bot,
-    Building2,
     CalendarRange,
     Camera,
     CreditCard,
-    CirclePlus,
     FileText,
     FolderKanban,
     Gauge,
     Globe2,
-    Layers3,
     LayoutDashboard,
     LogOut,
     Menu,
     PanelLeftClose,
     PanelLeftOpen,
     Settings2,
-    ShieldEllipsis,
-    Sparkles,
     Target,
-    UserRound,
-    Wrench,
-    X,
     ScanFace,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
 function getSections(userRole) {
-    const isSystemOwner = userRole === 'developer';
     const isTenantAdmin = ['owner', 'operator'].includes(userRole);
 
     if (userRole === 'photographer') {
@@ -39,24 +30,6 @@ function getSections(userRole) {
                 label: 'Trabajo',
                 items: [
                     { href: '/admin/projects', icon: FolderKanban, label: 'Mis proyectos', match: ['/admin/projects'] },
-                ],
-            },
-        ];
-    }
-
-    if (isSystemOwner) {
-        return [
-            {
-                label: 'Plataforma',
-                items: [
-                    { href: '/admin', icon: LayoutDashboard, label: 'Resumen SaaS', match: ['/admin', '/admin/dashboard'] },
-                    { href: '/admin/saas/tenants', icon: Building2, label: 'Tenants', match: ['/admin/saas/tenants'] },
-                    { href: '/admin/saas/users', icon: UserRound, label: 'Usuarios', match: ['/admin/saas/users'] },
-                    { href: '/admin/saas/plans', icon: Layers3, label: 'Planes SaaS', match: ['/admin/saas/plans'] },
-                    { href: '/admin/saas/subscriptions', icon: FileText, label: 'Suscripciones', match: ['/admin/saas/subscriptions'] },
-                    { href: '/admin/saas/payments', icon: CirclePlus, label: 'Pagos PayPal', match: ['/admin/saas/payments'] },
-                    { href: '/admin/saas/templates', icon: Camera, label: 'Plantillas de galerias', match: ['/admin/saas/templates'] },
-                    { href: '/admin/settings', icon: Settings2, label: 'Configuracion global', match: ['/admin/settings'] },
                 ],
             },
         ];
@@ -93,10 +66,8 @@ function getSections(userRole) {
 }
 
 function getPageTitles(userRole) {
-    const isSystemOwner = userRole === 'developer';
-
     return [
-        { match: ['/admin', '/admin/dashboard'], title: isSystemOwner ? 'Control SaaS' : 'Resumen del estudio', description: userRole === 'photographer' ? 'Tus accesos operativos por proyecto.' : (isSystemOwner ? 'Tenants, cobro, integraciones globales y salud operativa de la plataforma.' : 'Tus operaciones, colecciones e ingresos en un solo lugar.') },
+        { match: ['/admin', '/admin/dashboard'], title: 'Resumen del estudio', description: userRole === 'photographer' ? 'Tus accesos operativos por proyecto.' : 'Tus operaciones, colecciones e ingresos en un solo lugar.' },
         { match: ['/admin/leads'], title: 'Leads y oportunidades', description: 'Organiza consultas, briefings y conversiones sin salir del flujo.' },
         { match: ['/admin/projects'], title: userRole === 'photographer' ? 'Proyectos asignados' : 'Colecciones y entregas', description: userRole === 'photographer' ? 'Solo ves los proyectos donde tienes acceso.' : 'Administra galerias, material, contratos y facturacion.' },
         { match: ['/admin/calendar'], title: 'Agenda del estudio', description: 'Fechas, sesiones y disponibilidad del equipo.' },
@@ -106,14 +77,7 @@ function getPageTitles(userRole) {
         { match: ['/admin/automations'], title: 'Automatizaciones', description: 'Reglas, tareas y recordatorios por tipo de evento.' },
         { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
         { match: ['/admin/subscription'], title: 'Suscripcion y pagos', description: 'Plan activo, dias restantes, comprobantes y cambios de plan.' },
-        { match: ['/admin/templates'], title: 'Planes y presets', description: 'Plantillas base, planes y configuracion avanzada del SaaS.' },
-        { match: ['/admin/saas/tenants'], title: 'Tenants y dominios', description: 'Clientes, suscripciones, onboarding y dominios custom.' },
-        { match: ['/admin/saas/users'], title: 'Usuarios del sistema', description: 'Gestiona fotÃ³grafos, dueÃ±os de estudio y administradores globales.' },
-        { match: ['/admin/saas/plans'], title: 'Planes SaaS', description: 'Define precios, limites, cuotas IA y capacidades comerciales de cada plan.' },
-        { match: ['/admin/saas/subscriptions'], title: 'Suscripciones y cobros', description: 'Control de periodos, pagos manuales y estados de cuenta.' },
-        { match: ['/admin/saas/payments'], title: 'Historial de pagos PayPal', description: 'Seguimiento de transacciones recibidas por el gateway.' },
-        { match: ['/admin/saas/templates'], title: 'Plantillas de galerias', description: 'Administra presets visuales para galerias de entrega. Los fronts completos se asignan dentro de cada tenant.' },
-        { match: ['/admin/settings'], title: isSystemOwner ? 'Configuracion global' : 'Branding del estudio', description: isSystemOwner ? 'R2, PayPal, Alanube, Cloudflare y parametros centrales del sistema.' : 'Nombre, logo, favicon y elementos visuales del estudio.' },
+        { match: ['/admin/settings'], title: 'Branding del estudio', description: 'Nombre, logo, favicon y elementos visuales del estudio.' },
     ];
 }
 

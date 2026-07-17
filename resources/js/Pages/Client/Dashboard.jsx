@@ -1,17 +1,18 @@
 ﻿import React from 'react';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { Camera, CreditCard, FileText, FolderOpen, Wallet } from 'lucide-react';
 import { resolveTenantTheme } from '@/lib/tenantTheme';
+import ClientLayout from '@/Layouts/ClientLayout';
 
 export default function Dashboard({ projects = [], invoices = [], summary, statement = [] }) {
     const tenantTheme = resolveTenantTheme(usePage().props);
-    const { palette, headingFont, bodyFont, studioName } = tenantTheme;
+    const { palette, headingFont, bodyFont } = tenantTheme;
 
     return (
-        <div className="min-h-screen px-6 py-10 md:px-10" style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: bodyFont }}>
-            <Head title={`Portal cliente | ${studioName}`} />
+        <ClientLayout title="Portal cliente">
+        <div style={{ color: palette.text, fontFamily: bodyFont }}>
 
-            <div className="mx-auto max-w-6xl space-y-8">
+            <div className="space-y-8">
                 <section className="rounded-[2rem] bg-white p-8 shadow-sm">
                     <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>{studioName}</p>
                     <h1 className="mt-3 text-3xl font-semibold" style={{ color: palette.text, fontFamily: headingFont }}>Tus proyectos, facturas y estado de cuenta</h1>
@@ -118,6 +119,7 @@ export default function Dashboard({ projects = [], invoices = [], summary, state
                 </section>
             </div>
         </div>
+        </ClientLayout>
     );
 }
 

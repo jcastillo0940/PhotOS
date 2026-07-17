@@ -14,7 +14,7 @@ import {
     Layout,
     Activity
 } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { Card, StatsCard, Badge, Button, Input, Tabs } from '@/Components/UI';
 import CreateTenantDrawer from './Partials/CreateTenantDrawer';
 
@@ -35,7 +35,7 @@ export default function Index({ tenants, registrations = [], users = [], plans =
     );
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS — Gestión Multitenante" />
 
             <div className="space-y-8">
@@ -226,6 +226,6 @@ export default function Index({ tenants, registrations = [], users = [], plans =
                 plans={plans}
                 presets={presets}
             />
-        </AdminLayout>
+        </SaasLayout>
     );
 }

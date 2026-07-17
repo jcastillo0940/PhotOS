@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { UserPlus, Mail, Shield, Building2, Trash2, Edit2, X, Check } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { clsx } from 'clsx';
 
 function Field({ label, error, children }) {
@@ -117,7 +117,7 @@ export default function Index({ users, tenants }) {
     };
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS - Usuarios" />
 
             <div className="space-y-6">
@@ -199,6 +199,6 @@ export default function Index({ users, tenants }) {
 
             {isCreateOpen && <UserModal tenants={tenants} onClose={() => setIsCreateOpen(false)} />}
             {modalUser && <UserModal user={modalUser} tenants={tenants} onClose={() => setModalUser(null)} />}
-        </AdminLayout>
+        </SaasLayout>
     );
 }

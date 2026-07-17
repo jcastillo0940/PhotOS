@@ -16,7 +16,7 @@ import {
     XCircle,
     Activity
 } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { Card, StatsCard, Badge, Button, Input, Tabs } from '@/Components/UI';
 import SubscriptionDrawer from './Partials/SubscriptionDrawer';
 import ManualPaymentDrawer from './Partials/ManualPaymentDrawer';
@@ -54,7 +54,7 @@ export default function Index({ subscriptions, tenants, plans, stats }) {
     };
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS — Suscripciones" />
 
             <div className="space-y-8">
@@ -224,6 +224,6 @@ export default function Index({ subscriptions, tenants, plans, stats }) {
                 subscription={payingSub}
                 onClose={() => setPayingSub(null)}
             />
-        </AdminLayout>
+        </SaasLayout>
     );
 }

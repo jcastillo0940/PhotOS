@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { Camera, Plus, Edit2, Trash2, X, Layout, Palette, Sparkles } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 
 function TemplateModal({ template, onClose }) {
     const isEditing = !!template;
@@ -97,7 +97,7 @@ export default function Index({ templates }) {
     const { delete: destroy } = useForm();
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS - Plantillas de galerias" />
             <div className="space-y-6">
                 <div className="flex items-center justify-between gap-4">
@@ -153,6 +153,6 @@ export default function Index({ templates }) {
                     onClose={() => { setModalTemplate(null); setIsCreateOpen(false); }}
                 />
             )}
-        </AdminLayout>
+        </SaasLayout>
     );
 }

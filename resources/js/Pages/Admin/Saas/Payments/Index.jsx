@@ -14,7 +14,7 @@ import {
     Activity,
     Filter
 } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { Card, StatsCard, Badge, Input, Tabs, Button } from '@/Components/UI';
 
 function TransactionIcon({ type }) {
@@ -41,7 +41,7 @@ export default function Index({ transactions, stats }) {
     });
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS — Pagos y Finanzas" />
 
             <div className="space-y-8">
@@ -166,6 +166,6 @@ export default function Index({ transactions, stats }) {
                     </div>
                 </Card>
             </div>
-        </AdminLayout>
+        </SaasLayout>
     );
 }

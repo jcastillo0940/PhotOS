@@ -1,7 +1,7 @@
 import React from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { CheckCircle2, Edit2, Plus, Tags, Upload, Users, Wand2, X, Zap } from 'lucide-react';
-import AdminLayout from '@/Layouts/AdminLayout';
+import SaasLayout from '@/Layouts/SaasLayout';
 import { clsx } from 'clsx';
 
 const FEATURE_FIELDS = [
@@ -269,7 +269,7 @@ export default function Index({ plans }) {
     const { delete: destroy } = useForm();
 
     return (
-        <AdminLayout>
+        <SaasLayout>
             <Head title="SaaS - Planes" />
 
             <div className="space-y-8">
@@ -353,6 +353,6 @@ export default function Index({ plans }) {
             </div>
 
             {(isCreateOpen || modalPlan) && <PlanModal plan={modalPlan} onClose={() => { setModalPlan(null); setIsCreateOpen(false); }} />}
-        </AdminLayout>
+        </SaasLayout>
     );
 }
