@@ -185,7 +185,7 @@ export default function AdminLayout({ children }) {
                         </div>
                     )}
                     {!compact && (
-                        <Link href="/logout" method="post" as="button" className="text-slate-400 hover:text-red-500 transition-colors">
+                        <Link href="/logout" method="post" data={{ _surface: 'studio' }} as="button" className="text-slate-400 hover:text-red-500 transition-colors">
                             <LogOut className="h-4 w-4" />
                         </Link>
                     )}

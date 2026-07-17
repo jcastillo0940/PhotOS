@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Route;
 
 // Panel SaaS — acceso exclusivo: developer + dominio saas.*
 // El login/logout lo sirve web.php y funciona para todos los dominios.
-Route::middleware(['auth', 'developer', 'saas.domain'])->group(function () {
+Route::middleware(['auth:saas', 'developer', 'saas.domain'])->group(function () {
 
     // Tenants
     Route::get('/tenants', [SaasTenantController::class, 'index'])->name('saas.tenants.index');

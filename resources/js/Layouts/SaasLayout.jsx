@@ -151,7 +151,7 @@ export default function SaasLayout({ children }) {
                         </div>
                     )}
                     {!compact && (
-                        <Link href="/logout" method="post" as="button" className="text-slate-600 hover:text-red-400 transition-colors">
+                        <Link href="/logout" method="post" data={{ _surface: 'saas' }} as="button" className="text-slate-600 hover:text-red-400 transition-colors">
                             <LogOut className="h-4 w-4" />
                         </Link>
                     )}

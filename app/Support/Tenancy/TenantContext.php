@@ -9,6 +9,8 @@ class TenantContext
     public function __construct(
         protected ?Tenant $tenant = null,
         protected ?string $hostname = null,
+        protected string $guard = 'web',
+        protected string $surface = 'marketing',
     ) {
     }
 
@@ -16,6 +18,12 @@ class TenantContext
     {
         $this->tenant = $tenant;
         $this->hostname = $hostname;
+    }
+
+    public function setGuard(string $guard, string $surface): void
+    {
+        $this->guard = $guard;
+        $this->surface = $surface;
     }
 
     public function tenant(): ?Tenant
@@ -31,6 +39,16 @@ class TenantContext
     public function hostname(): ?string
     {
         return $this->hostname;
+    }
+
+    public function guard(): string
+    {
+        return $this->guard;
+    }
+
+    public function surface(): string
+    {
+        return $this->surface;
     }
 
     public function hasTenant(): bool

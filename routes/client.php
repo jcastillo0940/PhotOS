@@ -10,6 +10,6 @@
 use App\Http\Controllers\ClientDashboardController;
 use Illuminate\Support\Facades\Route;
 
-Route::prefix('client')->middleware(['auth', 'client.role'])->group(function () {
+Route::prefix('client')->middleware(['auth:client', 'client.role'])->group(function () {
     Route::get('/', [ClientDashboardController::class, 'index'])->name('client.dashboard');
 });

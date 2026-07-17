@@ -32,6 +32,7 @@ export default function ClientLayout({ children, title }) {
                     <Link
                         href="/logout"
                         method="post"
+                        data={{ _surface: 'client' }}
                         as="button"
                         className="flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-widest transition-colors"
                         style={{ color: palette.muted }}

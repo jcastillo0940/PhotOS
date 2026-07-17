@@ -18,6 +18,18 @@ class AuthController extends Controller
     private const MAX_ATTEMPTS = 5;
     private const DECAY_SECONDS = 900;
 
+    /**
+     * Guards that each role is permitted to authenticate against.
+     * A client can never log into the studio guard; a developer can never log into studio.
+     * This prevents surface escalation through the login form.
+     */
+    private const ROLE_GUARD_MAP = [
+        'saas'   => ['developer'],
+        'client' => ['client'],
+        'studio' => ['owner', 'operator', 'photographer'],
+        'web'    => ['owner', 'operator', 'photographer', 'developer', 'client'], // fallback
+    ];
+
     public function loginView()
     {
         if (request()->filled('redirect')) {
@@ -30,9 +42,10 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'email' => 'required|string|max:255',
-            'password' => 'required|string|max:255',
-            'remember' => 'nullable|boolean',
+            'email'     => 'required|string|max:255',
+            'password'  => 'required|string|max:255',
+            'remember'  => 'nullable|boolean',
+            '_surface'  => 'nullable|string|in:studio,client,saas,web',
         ]);
 
         if ($validator->fails()) {
@@ -42,28 +55,25 @@ class AuthController extends Controller
         }
 
         $credentials = $validator->validated();
-
         $throttleKey = $this->throttleKey($request);
 
         if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_ATTEMPTS)) {
             $seconds = RateLimiter::availableIn($throttleKey);
-
             throw ValidationException::withMessages([
                 'auth' => "Demasiados intentos. Intenta de nuevo en {$seconds} segundos.",
             ]);
         }
 
+        $guard    = app(TenantContext::class)->guard();
         $tenantId = app(TenantContext::class)->id();
-        $email = Str::lower(trim((string) $credentials['email']));
+        $email    = Str::lower(trim((string) $credentials['email']));
 
         $user = User::withoutGlobalScope('tenant')
             ->where(function ($query) use ($tenantId) {
-                // If on a tenant domain, allow users assigned to this tenant OR global global/system users
                 if ($tenantId) {
                     $query->where('tenant_id', $tenantId)
                           ->orWhereNull('tenant_id');
                 } else {
-                    // If on the root domain, ONLY allow global/system users
                     $query->whereNull('tenant_id');
                 }
             })
@@ -71,24 +81,32 @@ class AuthController extends Controller
             ->first();
 
         if ($user && Hash::check($credentials['password'], $user->password)) {
-            // Re-verify that if a global user logged in, their role actually permits cross-tenant access.
-            if (
-                $tenantId
-                && $user->tenant_id === null
-                && !in_array($user->role, ['developer', 'operator'], true)
-                && !$user->hasActiveProjectAccessForTenant((int) $tenantId)
+
+            // Enforce role → guard mapping: prevents surface escalation via login form.
+            $allowed = self::ROLE_GUARD_MAP[$guard] ?? [];
+            if (! in_array($user->role, $allowed, true)) {
+                RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+                throw ValidationException::withMessages([
+                    'auth' => $this->guardMismatchMessage($user->role, $guard),
+                ]);
+            }
+
+            // Failsafe: global user without tenant_id on a tenant domain must be developer/operator.
+            if ($tenantId && $user->tenant_id === null
+                && ! in_array($user->role, ['developer', 'operator'], true)
+                && ! $user->hasActiveProjectAccessForTenant((int) $tenantId)
             ) {
-                // Failsafe: A normal user without a tenant id somehow exists but isn't an admin.
                 RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
                 throw ValidationException::withMessages([
                     'auth' => 'Acceso denegado a este dominio.',
                 ]);
             }
+
             RateLimiter::clear($throttleKey);
-            Auth::login($user, (bool) ($credentials['remember'] ?? false));
+            Auth::guard($guard)->login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();
 
-            return redirect()->intended($this->defaultRedirectForUser($user, $request));
+            return redirect()->intended($this->defaultRedirectForUser($user));
         }
 
         RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
@@ -100,33 +118,43 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        Auth::logout();
+        $guard = app(TenantContext::class)->guard();
+        Auth::guard($guard)->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect('/');
     }
 
-    private function defaultRedirectForUser(\App\Models\User $user, Request $request): string
+    private function defaultRedirectForUser(User $user): string
     {
-        if ($user->isClient()) {
-            return route('client.dashboard');
-        }
+        return match (true) {
+            $user->isClient()    => route('client.dashboard'),
+            $user->isDeveloper() => route('saas.tenants.index'),
+            default              => route('admin.dashboard'),
+        };
+    }
 
-        if ($user->isDeveloper()) {
-            $panelDomain = strtolower((string) config('saas.panel_domain', ''));
-            $host = strtolower((string) $request->getHost());
-            if ($panelDomain && $host === $panelDomain) {
-                return route('saas.tenants.index');
-            }
+    private function guardMismatchMessage(string $role, string $guard): string
+    {
+        if ($role === 'client' && $guard === 'studio') {
+            return 'Este acceso es para el personal del estudio. Tu portal de cliente se encuentra en una URL diferente.';
         }
-
-        return route('admin.dashboard');
+        if ($role === 'developer' && $guard !== 'saas') {
+            return 'El acceso de desarrollador es exclusivo del panel SaaS.';
+        }
+        if ($guard === 'saas' && $role !== 'developer') {
+            return 'Solo los desarrolladores pueden acceder al panel SaaS.';
+        }
+        if ($role === 'client' && $guard === 'saas') {
+            return 'Tu acceso de cliente no corresponde a este panel.';
+        }
+        return 'Tu acceso no corresponde a esta superficie. Ingresa desde la URL correcta.';
     }
 
     private function throttleKey(Request $request): string
     {
         return Str::transliterate(
-            Str::lower(trim((string) $request->input('email'))).'|'.$request->ip()
+            Str::lower(trim((string) $request->input('email'))) . '|' . $request->ip()
         );
     }
 }

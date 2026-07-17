@@ -13,25 +13,25 @@ class EnsureTenantSessionMatchesHost
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
+        $guard = app(TenantContext::class)->guard();
+        $user  = Auth::guard($guard)->user();
 
-        if (!$user) {
+        if (! $user) {
             return $next($request);
         }
 
-        $tenantId = app(TenantContext::class)->id();
-        $host = strtolower((string) $request->getHost());
+        $tenantId     = app(TenantContext::class)->id();
+        $host         = strtolower((string) $request->getHost());
         $centralDomains = Arr::wrap(config('saas.central_domains', []));
-        $routeName = (string) $request->route()?->getName();
+        $routeName    = (string) $request->route()?->getName();
 
-        // En el panel SaaS solo entran developers — la validación de rol la hace EnsureDeveloper.
+        // SaaS panel: developer role validation is handled by EnsureDeveloper middleware.
         $panelDomain = strtolower((string) config('saas.panel_domain', ''));
         if ($panelDomain && $host === $panelDomain) {
             return $next($request);
         }
 
-        // Solo el rol developer puede operar sin tenant_id asignado.
-        // Operator siempre debe pertenecer a un tenant específico.
+        // Developer accounts have no tenant_id — they can operate globally.
         if ($user->tenant_id === null && $user->isDeveloper()) {
             return $next($request);
         }
@@ -40,6 +40,7 @@ class EnsureTenantSessionMatchesHost
             return $next($request);
         }
 
+        // External collaborators access projects via invitation tokens.
         if (str_starts_with($routeName, 'project.invitations.')) {
             return $next($request);
         }
@@ -52,12 +53,13 @@ class EnsureTenantSessionMatchesHost
             return $next($request);
         }
 
-        Auth::logout();
+        // Session belongs to a different tenant or domain — log the user out of this guard only.
+        Auth::guard($guard)->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
         return redirect()
-            ->route('login')
+            ->route('login', ['s' => $guard])
             ->with('error', 'Tu sesion pertenece a otra cuenta o dominio. Ingresa con el acceso correcto de este estudio.');
     }
 }

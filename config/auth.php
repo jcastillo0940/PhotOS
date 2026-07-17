@@ -42,6 +42,18 @@ return [
             'driver' => 'session',
             'provider' => 'users',
         ],
+        'studio' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'client' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
+        'saas' => [
+            'driver' => 'session',
+            'provider' => 'users',
+        ],
     ],
 
     /*

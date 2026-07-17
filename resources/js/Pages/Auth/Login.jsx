@@ -6,12 +6,13 @@ import { resolveTenantTheme } from '@/lib/tenantTheme';
 
 export default function Login() {
     const page = usePage().props;
-    const { branding, tenant, flash } = page;
+    const { branding, tenant, flash, surface } = page;
     const { palette, headingFont, bodyFont, studioName, studioTagline } = resolveTenantTheme(page);
     const { data, setData, post, processing, errors } = useForm({
         email: '',
         password: '',
         remember: false,
+        _surface: surface || 'studio',
     });
 
     const submit = (event) => {
