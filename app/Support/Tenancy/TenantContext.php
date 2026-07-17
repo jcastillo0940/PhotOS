@@ -37,4 +37,15 @@ class TenantContext
     {
         return $this->tenant !== null;
     }
+
+    /**
+     * Lanza 404 si no hay tenant resuelto para este request.
+     * Usar en controllers que NUNCA deben ejecutarse sin contexto de tenant.
+     */
+    public function assertHasTenant(): void
+    {
+        if ($this->tenant === null) {
+            abort(404, 'No se encontro un estudio asociado a este dominio.');
+        }
+    }
 }

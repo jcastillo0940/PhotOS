@@ -27,6 +27,25 @@ class ProcessUploadedPhotoJob implements ShouldQueue
     {
         $this->configureR2RootForTenant($this->tenantId);
 
+        // Verificar que la foto pertenece al tenant para el que se despachó este job.
+        // Un mismatch indicaría un bug en el dispatch — se aborta para no escribir en el bucket incorrecto.
+        if ($this->tenantId) {
+            $photo = \App\Models\Photo::withoutGlobalScope('tenant')
+                ->with('project:id,tenant_id')
+                ->find($this->photoId);
+
+            $actualTenantId = $photo?->project?->tenant_id ?? $photo?->tenant_id;
+
+            if ($actualTenantId && (int) $actualTenantId !== (int) $this->tenantId) {
+                \Illuminate\Support\Facades\Log::error('[ProcessUploadedPhotoJob] Tenant mismatch — job abortado', [
+                    'photo_id'         => $this->photoId,
+                    'job_tenant_id'    => $this->tenantId,
+                    'actual_tenant_id' => $actualTenantId,
+                ]);
+                return;
+            }
+        }
+
         $service->processQueuedPhoto($this->photoId);
     }
 

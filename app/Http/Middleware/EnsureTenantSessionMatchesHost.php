@@ -30,7 +30,9 @@ class EnsureTenantSessionMatchesHost
             return $next($request);
         }
 
-        if ($user->tenant_id === null && in_array($user->role, ['developer', 'operator'], true)) {
+        // Solo el rol developer puede operar sin tenant_id asignado.
+        // Operator siempre debe pertenecer a un tenant específico.
+        if ($user->tenant_id === null && $user->isDeveloper()) {
             return $next($request);
         }
 

@@ -22,8 +22,17 @@ trait BelongsToTenant
 
             $tenantId = app(TenantContext::class)->id();
 
-            if ($tenantId) {
+            if ($tenantId !== null) {
                 $builder->where($model->qualifyColumn('tenant_id'), $tenantId);
+                return;
+            }
+
+            // En un proceso CLI (comando/job) el scope se omite: pueden operar cross-tenant
+            // usando withoutGlobalScope('tenant') + filtro explícito de tenant_id.
+            // En un request HTTP sin tenant resuelto el scope devuelve cero filas para
+            // evitar que datos de otro tenant sean visibles por error de configuración.
+            if (!app()->runningInConsole()) {
+                $builder->whereRaw('0 = 1');
             }
         });
 

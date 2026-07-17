@@ -88,7 +88,7 @@ class AuthController extends Controller
             Auth::login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();
 
-            return redirect()->intended(route('admin.dashboard'));
+            return redirect()->intended($this->defaultRedirectForUser($user, $request));
         }
 
         RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
@@ -104,6 +104,23 @@ class AuthController extends Controller
         $request->session()->invalidate();
         $request->session()->regenerateToken();
         return redirect('/');
+    }
+
+    private function defaultRedirectForUser(\App\Models\User $user, Request $request): string
+    {
+        if ($user->isClient()) {
+            return route('client.dashboard');
+        }
+
+        if ($user->isDeveloper()) {
+            $panelDomain = strtolower((string) config('saas.panel_domain', ''));
+            $host = strtolower((string) $request->getHost());
+            if ($panelDomain && $host === $panelDomain) {
+                return route('saas.tenants.index');
+            }
+        }
+
+        return route('admin.dashboard');
     }
 
     private function throttleKey(Request $request): string

@@ -46,15 +46,23 @@ class ResolveTenantFromHost
         $centralDomains = Arr::wrap(config('saas.central_domains', []));
 
         if (! $tenant && in_array($host, $centralDomains, true)) {
-            $tenant = Tenant::query()
-                ->where('status', 'active')
-                ->orderBy('id')
-                ->first();
+            // El fallback al primer tenant activo solo aplica en entorno local.
+            // En producción un dominio central sin registro explícito en tenant_domains
+            // no sirve datos de ningún estudio — el tenant queda null.
+            if (app()->environment('local')) {
+                $tenant = Tenant::query()
+                    ->where('status', 'active')
+                    ->orderBy('id')
+                    ->first();
+            }
         }
 
         $context->set($tenant, $host);
 
         if ($tenant) {
+            if (! $tenant->slug) {
+                abort(503, 'La cuenta asociada a este dominio no tiene un identificador de almacenamiento configurado.');
+            }
             config(['filesystems.disks.r2.root' => "tenants/{$tenant->slug}"]);
             Storage::forgetDisk('r2');
         }
