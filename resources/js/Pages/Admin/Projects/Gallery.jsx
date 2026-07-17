@@ -2,10 +2,29 @@ import React from 'react';
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { Bot, ChevronLeft, ChevronRight, CheckCircle2, Crosshair, Globe2, Loader2, Sparkles, Trash2, UploadCloud, UserRound, X, XCircle } from 'lucide-react';
+import { Bot, ChevronLeft, ChevronRight, CheckCircle2, Crosshair, Globe2, Loader2, Sparkles, Trash2, UploadCloud, UserRound, WifiOff, X, XCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
 import { usePhotoUploader } from '@/hooks/usePhotoUploader';
+
+function formatSpeed(bps) {
+    if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+    return `${Math.round(bps / 1024)} KB/s`;
+}
+
+function formatEta(seconds) {
+    if (seconds < 5) return 'ya';
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function formatBytes(bytes) {
+    if (bytes >= 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return `${Math.round(bytes / 1024)} KB`;
+}
 
 const PEOPLE_COUNT_OPTIONS = ['0 personas', '1 persona', '2 personas', '3 personas', '4 o mas personas'];
 
@@ -653,7 +672,7 @@ export default function Gallery({ project, faceRecognition }) {
                                             </div>
                                         )}
 
-                                        {canManageGallery && <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/60 to-transparent p-4 opacity-0 transition-opacity group-hover:opacity-100">
+                                        {canManageGallery && <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/60 to-[rgba(0,0,0,0)] p-4 opacity-0 transition-opacity group-hover:opacity-100">
                                             <button type="button" onClick={() => { setHeroPhotoId(photo.id); router.put(`/admin/projects/${project.id}`, { hero_photo_id: photo.id }, { preserveScroll: true, preserveState: true }); }} className={clsx('rounded-full px-3 py-1.5 text-[11px] font-semibold shadow-sm backdrop-blur-sm', heroPhotoId === photo.id ? 'bg-[#171411] text-white border border-[#171411]' : 'border border-white/40 bg-white/30 text-white')}>
                                                 {heroPhotoId === photo.id ? 'Portada de Galeria' : 'Hacer Portada'}
                                             </button>
@@ -708,7 +727,7 @@ export default function Gallery({ project, faceRecognition }) {
                         <div className="relative flex max-h-[95vh] w-full max-w-7xl overflow-hidden rounded-2xl bg-[#141210] shadow-2xl" style={{ minHeight: 0 }}>
 
                             {/* header */}
-                            <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent px-4 py-3">
+                            <div className="absolute inset-x-0 top-0 z-20 flex items-center justify-between bg-gradient-to-b from-black/70 to-[rgba(0,0,0,0)] px-4 py-3">
                                 <div className="flex items-center gap-2">
                                     <button
                                         type="button"
@@ -880,65 +899,97 @@ export default function Gallery({ project, faceRecognition }) {
             {/* ── Upload progress modal ─────────────────────────────────────────── */}
             <AnimatePresence>
                 {(upload.isUploading || upload.isDone) && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md">
-                        <div className="w-[420px] rounded-[2rem] bg-white p-10 shadow-2xl">
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/80 backdrop-blur-md px-4"
+                    >
+                        <motion.div
+                            initial={{ scale: 0.97, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.97, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="w-full max-w-sm rounded-3xl bg-white p-8 shadow-2xl"
+                        >
+                            {/* Icon + title */}
                             <div className="flex flex-col items-center text-center">
                                 {upload.isDone && upload.failedFiles === 0 ? (
-                                    <CheckCircle2 className="mb-4 h-14 w-14 text-emerald-500" />
+                                    <CheckCircle2 className="mb-3 h-12 w-12 text-emerald-500" />
                                 ) : upload.isDone ? (
-                                    <XCircle className="mb-4 h-14 w-14 text-rose-500" />
+                                    <XCircle className="mb-3 h-12 w-12 text-rose-500" />
+                                ) : upload.offline ? (
+                                    <WifiOff className="mb-3 h-12 w-12 text-amber-400" />
                                 ) : (
-                                    <UploadCloud className="mb-4 h-14 w-14 animate-pulse text-slate-700" />
+                                    <UploadCloud className="mb-3 h-12 w-12 text-slate-800" style={{ animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' }} />
                                 )}
-                                <h2 className="text-xl font-semibold text-slate-900">
-                                    {upload.isDone ? (upload.failedFiles === 0 ? 'Subida completa' : 'Subida con errores') : 'Subiendo fotos'}
+                                <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+                                    {upload.isDone
+                                        ? (upload.failedFiles === 0 ? 'Subida completa' : 'Subida con errores')
+                                        : upload.offline
+                                            ? 'Sin conexión'
+                                            : `Subiendo ${upload.totalFiles} foto${upload.totalFiles !== 1 ? 's' : ''}`}
                                 </h2>
-                                <p className="mt-2 text-sm text-slate-500">{upload.statusMessage}</p>
+                                {upload.offline && (
+                                    <p className="mt-1.5 text-sm text-amber-600">Esperando conexión para continuar...</p>
+                                )}
                             </div>
 
-                            {upload.isUploading && (
-                                <div className="mt-6 space-y-3">
-                                    <div>
-                                        <div className="mb-1 flex justify-between text-xs text-slate-400">
-                                            <span>Progreso general</span>
-                                            <span className="font-semibold text-slate-600">{upload.uploadedFiles} / {upload.totalFiles} fotos</span>
+                            {/* Progress while uploading */}
+                            {upload.isUploading && !upload.offline && (
+                                <div className="mt-6">
+                                    {/* Main bar */}
+                                    <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100">
+                                        <motion.div
+                                            className="h-full rounded-full bg-slate-800"
+                                            animate={{ width: upload.totalBytes > 0 ? `${Math.min(100, Math.round((upload.loadedBytes / upload.totalBytes) * 100))}%` : '0%' }}
+                                            transition={{ duration: 0.25, ease: 'easeOut' }}
+                                        />
+                                    </div>
+
+                                    {/* Stats row */}
+                                    <div className="mt-4 grid grid-cols-3 text-center">
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Fotos</p>
+                                            <p className="mt-1 text-base font-black text-slate-800 tabular-nums">
+                                                {upload.uploadedFiles}<span className="text-slate-300"> / {upload.totalFiles}</span>
+                                            </p>
                                         </div>
-                                        <div className="h-2.5 overflow-hidden rounded-full bg-slate-100">
-                                            <motion.div
-                                                className="h-full rounded-full bg-slate-800"
-                                                animate={{ width: upload.totalFiles > 0 ? `${Math.round((upload.uploadedFiles / upload.totalFiles) * 100)}%` : '0%' }}
-                                                transition={{ duration: 0.3 }}
-                                            />
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Velocidad</p>
+                                            <p className="mt-1 text-base font-black text-slate-800 tabular-nums">
+                                                {upload.speedBps > 0 ? formatSpeed(upload.speedBps) : '—'}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">Falta</p>
+                                            <p className="mt-1 text-base font-black text-slate-800 tabular-nums">
+                                                {upload.etaSeconds != null ? formatEta(upload.etaSeconds) : '—'}
+                                            </p>
                                         </div>
                                     </div>
-                                    {upload.totalBatches > 1 && (
-                                        <div>
-                                            <div className="mb-1 flex justify-between text-xs text-slate-400">
-                                                <span>Lote actual {upload.currentBatch} de {upload.totalBatches}</span>
-                                                <span className="font-semibold text-slate-600">{upload.batchProgress}%</span>
-                                            </div>
-                                            <div className="h-1.5 overflow-hidden rounded-full bg-slate-100">
-                                                <motion.div
-                                                    className="h-full rounded-full bg-slate-400"
-                                                    animate={{ width: `${upload.batchProgress}%` }}
-                                                    transition={{ duration: 0.1 }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
+
+                                    {/* Bytes transferred */}
+                                    <p className="mt-3 text-center text-[11px] text-slate-400 tabular-nums">
+                                        {formatBytes(upload.loadedBytes)} de {formatBytes(upload.totalBytes)}
+                                    </p>
                                 </div>
                             )}
 
+                            {/* Done — errors */}
                             {upload.isDone && upload.errors.length > 0 && (
-                                <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700 space-y-1">
-                                    {upload.errors.map((e, i) => <p key={i}>{e}</p>)}
+                                <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 space-y-1">
+                                    {upload.errors.map((e, i) => (
+                                        <p key={i} className="text-xs text-rose-700">{e}</p>
+                                    ))}
                                 </div>
                             )}
 
-                            {!upload.isUploading && (
-                                <p className="mt-4 text-center text-xs text-slate-400">Actualizando galeria...</p>
+                            {/* Done — success note */}
+                            {upload.isDone && upload.failedFiles === 0 && (
+                                <p className="mt-4 text-center text-xs text-slate-400">Actualizando galería...</p>
                             )}
-                        </div>
+                        </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>

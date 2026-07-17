@@ -191,6 +191,7 @@ Route::prefix('admin')->middleware('auth')->group(function () {
         Route::get('/projects/{project}/ai', [ProjectController::class, 'ai'])->middleware('project.access:view')->name('admin.projects.ai');
         Route::get('/projects/{project}/management', [ProjectController::class, 'management'])->middleware(['project.access:view', 'tenant.finance'])->name('admin.projects.management');
         Route::put('/projects/{project}', [ProjectController::class, 'update'])->middleware('project.access:manage_gallery')->name('admin.projects.update');
+        Route::delete('/projects/{project}', [ProjectController::class, 'destroy'])->middleware('project.access:manage_gallery')->name('admin.projects.destroy');
         Route::post('/projects/{project}/photos', [GalleryController::class, 'upload'])->middleware(['project.access:upload', 'tenant.feature:photo_uploads'])->name('admin.projects.photos.upload');
         Route::put('/projects/{project}/photos/{photo}', [GalleryController::class, 'updatePhoto'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.update');
         Route::delete('/projects/{project}/photos/{photo}', [GalleryController::class, 'destroyPhoto'])->middleware('project.access:manage_gallery')->name('admin.projects.photos.delete');
@@ -232,6 +233,7 @@ Route::post('/gallery/{token}/unlock', [GalleryController::class, 'unlock'])->na
 Route::post('/gallery/photo/{photo}/toggle', [GalleryController::class, 'toggleHeart'])->name('public.gallery.heart');
 Route::get('/gallery/photo/{photo}/download', [GalleryController::class, 'download'])->name('public.gallery.download');
 Route::get('/gallery/{token}/download/full', [GalleryController::class, 'downloadFullGallery'])->name('public.gallery.download.full');
+Route::get('/gallery/{token}/download/zip', [GalleryController::class, 'downloadZip'])->name('public.gallery.download.zip');
 
 // Public: Payments
 Route::post('/gallery/{token}/buy/full', [PaymentController::class, 'purchaseFullGallery'])->name('public.gallery.buy.full');

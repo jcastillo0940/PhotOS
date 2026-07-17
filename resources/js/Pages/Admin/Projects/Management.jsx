@@ -2,10 +2,161 @@ import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { ChevronLeft, Download, FileText, Heart, ImageDown, Mail, Video } from 'lucide-react';
+import { ChevronLeft, Download, FileText, Heart, ImageDown, Mail, Video, Users, Camera, CheckCircle2, Copy, Check, FileDown } from 'lucide-react';
 import { clsx } from 'clsx';
 
 const formatDateTime = (value) => value ? new Date(value).toLocaleString() : 'Sin fecha';
+const formatDate = (value) => value ? new Date(value).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+
+function downloadCsv(filename, rows) {
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function ClientInitial({ name, email }) {
+    const letter = (name || email || '?').trim()[0].toUpperCase();
+    const colors = [
+        'bg-violet-100 text-violet-700',
+        'bg-sky-100 text-sky-700',
+        'bg-emerald-100 text-emerald-700',
+        'bg-amber-100 text-amber-700',
+        'bg-rose-100 text-rose-700',
+        'bg-indigo-100 text-indigo-700',
+    ];
+    const color = colors[(letter.charCodeAt(0) || 0) % colors.length];
+    return (
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold ${color}`}>
+            {letter}
+        </div>
+    );
+}
+
+function PhotoThumb({ photo }) {
+    if (!photo.thumbnail_url) {
+        return (
+            <div className="flex aspect-square items-center justify-center rounded-xl bg-slate-100 text-slate-300">
+                <Camera className="h-4 w-4" />
+            </div>
+        );
+    }
+    return (
+        <div className="group relative aspect-square overflow-hidden rounded-xl bg-slate-100">
+            <img
+                src={photo.thumbnail_url}
+                alt={photo.filename}
+                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                loading="lazy"
+            />
+            <div className="absolute inset-0 flex items-end justify-start bg-gradient-to-t from-black/40 to-[rgba(0,0,0,0)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+                <span className="truncate px-1.5 pb-1 text-[9px] font-medium text-white">{photo.filename}</span>
+            </div>
+        </div>
+    );
+}
+
+function ClientSelectionCard({ client }) {
+    const MAX_VISIBLE = 18;
+    const visiblePhotos = client.photos.slice(0, MAX_VISIBLE);
+    const remaining = client.photo_count - MAX_VISIBLE;
+    const [copied, setCopied] = React.useState(false);
+
+    const filenames = client.photos.map(p => p.filename);
+
+    const handleCopy = () => {
+        const text = filenames.join('\n');
+        const tryFallback = () => {
+            const el = document.createElement('textarea');
+            el.value = text;
+            el.style.cssText = 'position:fixed;top:0;left:0;width:2em;height:2em;opacity:0;border:none;outline:none';
+            document.body.appendChild(el);
+            el.focus();
+            el.setSelectionRange(0, el.value.length);
+            document.execCommand('copy');
+            document.body.removeChild(el);
+        };
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).catch(tryFallback);
+        } else {
+            tryFallback();
+        }
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleCsv = () => {
+        const label = client.visitor_name || client.visitor_email || 'cliente';
+        const rows = ['Archivo', ...filenames];
+        downloadCsv(`seleccion-${label.replace(/[^a-z0-9]/gi, '-')}.csv`, rows);
+    };
+
+    return (
+        <div className="rounded-[1.6rem] border border-[#ece5d8] bg-white p-5">
+            <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                    <ClientInitial name={client.visitor_name} email={client.visitor_email} />
+                    <div className="min-w-0">
+                        <p className="truncate font-semibold text-slate-900">
+                            {client.visitor_name || 'Cliente sin nombre'}
+                        </p>
+                        <p className="truncate text-sm text-slate-500">{client.visitor_email || 'Sin correo'}</p>
+                    </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                    <div className="flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                        <span className="text-xs font-semibold text-emerald-700">
+                            {client.photo_count} {client.photo_count === 1 ? 'foto' : 'fotos'}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            onClick={handleCopy}
+                            title="Copiar nombres de archivo"
+                            className={clsx(
+                                'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] font-semibold transition-colors',
+                                copied
+                                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                    : 'border-[#e2dbd3] bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                            )}
+                        >
+                            {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                            {copied ? 'Copiado' : 'Copiar'}
+                        </button>
+                        <button
+                            onClick={handleCsv}
+                            title="Descargar CSV"
+                            className="flex items-center gap-1.5 rounded-full border border-[#e2dbd3] bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+                        >
+                            <FileDown className="h-3 w-3" />
+                            CSV
+                        </button>
+                    </div>
+                    {client.updated_at && (
+                        <p className="text-[11px] text-slate-400">{formatDate(client.updated_at)}</p>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-4 grid grid-cols-6 gap-1.5 sm:grid-cols-8 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-9">
+                {visiblePhotos.map((photo) => (
+                    <PhotoThumb key={photo.id} photo={photo} />
+                ))}
+                {remaining > 0 && (
+                    <div className="flex aspect-square items-center justify-center rounded-xl bg-slate-100 text-xs font-semibold text-slate-500">
+                        +{remaining}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+}
 
 export default function Management({ project, installationPlan, billingSettings, analytics }) {
     const { flash } = usePage().props;
@@ -17,6 +168,9 @@ export default function Management({ project, installationPlan, billingSettings,
         itbms_enabled: !!billingSettings?.itbms_enabled,
         alanube_enabled: !!billingSettings?.alanube_enabled,
     });
+
+    const clientSelections = analytics?.client_selections || [];
+    const totalSelectedPhotos = clientSelections.reduce((sum, c) => sum + c.photo_count, 0);
 
     const createInvoice = (event) => {
         event.preventDefault();
@@ -35,8 +189,73 @@ export default function Management({ project, installationPlan, billingSettings,
 
                 <ProjectWorkspaceNav project={project} current="management" />
 
-                {(flash?.success || flash?.error) && <div className={`rounded-[1.4rem] border px-4 py-4 text-sm shadow-sm ${flash?.error ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>{flash?.error || flash?.success}</div>}
+                {(flash?.success || flash?.error) && (
+                    <div className={`rounded-[1.4rem] border px-4 py-4 text-sm shadow-sm ${flash?.error ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'}`}>
+                        {flash?.error || flash?.success}
+                    </div>
+                )}
 
+                {/* Fotos seleccionadas por cliente */}
+                <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Para editar</p>
+                            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900">Fotos seleccionadas por cliente</h2>
+                            <p className="mt-2 text-sm leading-7 text-slate-500">
+                                Las fotos que cada cliente marco con corazon en la galeria. Estas son las que debes editar y entregar.
+                            </p>
+                        </div>
+                        <div className="flex flex-wrap items-start gap-3">
+                            <div className="rounded-[1.3rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-3 text-center">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Clientes</p>
+                                <p className="mt-2 text-xl font-semibold text-slate-900">{clientSelections.length}</p>
+                            </div>
+                            <div className="rounded-[1.3rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-3 text-center">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Fotos a editar</p>
+                                <p className="mt-2 text-xl font-semibold text-emerald-700">{totalSelectedPhotos}</p>
+                            </div>
+                            {clientSelections.length > 0 && (
+                                <button
+                                    onClick={() => {
+                                        const rows = ['Cliente,Correo,Archivo'];
+                                        clientSelections.forEach(c => {
+                                            c.photos.forEach(p => {
+                                                rows.push(`"${(c.visitor_name || '').replace(/"/g, '""')}","${(c.visitor_email || '').replace(/"/g, '""')}","${p.filename.replace(/"/g, '""')}"`);
+                                            });
+                                        });
+                                        downloadCsv(`selecciones-completas.csv`, rows);
+                                    }}
+                                    className="flex items-center gap-2 self-start rounded-[1.3rem] border border-[#ece5d8] bg-[#fbf9f6] px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900"
+                                >
+                                    <FileDown className="h-4 w-4" />
+                                    Exportar todo
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-6">
+                        {clientSelections.length > 0 ? (
+                            <div className="space-y-4">
+                                {clientSelections.map((client) => (
+                                    <ClientSelectionCard key={client.client_hash} client={client} />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] bg-[#fbf9f6] px-6 py-20 text-center">
+                                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                                    <Heart className="h-7 w-7 text-slate-300" />
+                                </div>
+                                <h4 className="mt-5 text-lg font-semibold text-slate-900">Ningun cliente ha seleccionado fotos aun</h4>
+                                <p className="mx-auto mt-3 max-w-md text-sm leading-7 text-slate-500">
+                                    Cuando tus clientes marquen fotos con corazon en la galeria, apareceran aqui organizadas por cliente para que sepas exactamente cuales editar.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* Contrato, plan y facturas */}
                 <div className="grid gap-8 xl:grid-cols-[0.8fr_1.2fr]">
                     <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Gestion</p>
@@ -49,7 +268,9 @@ export default function Management({ project, installationPlan, billingSettings,
                                     {project.contract ? (
                                         <>
                                             <Link href="/admin/contracts" className="rounded-2xl border border-[#ddd5c9] bg-white px-4 py-3 text-sm font-semibold text-slate-700">Editar contrato</Link>
-                                            <Link href={`/sign/${project.contract.token}/print`} target="_blank" className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white"><Download className="h-4 w-4" />PDF</Link>
+                                            <Link href={`/sign/${project.contract.token}/print`} target="_blank" className="inline-flex items-center gap-2 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white">
+                                                <Download className="h-4 w-4" />PDF
+                                            </Link>
                                         </>
                                     ) : (
                                         <button onClick={() => router.post(`/admin/projects/${project.id}/contract`)} className="rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white">Generar contrato</button>
@@ -67,9 +288,9 @@ export default function Management({ project, installationPlan, billingSettings,
                             <form onSubmit={createInvoice} className="rounded-[1.6rem] border border-[#ece5d8] bg-[#fbf9f6] p-5">
                                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Nueva factura</p>
                                 <div className="mt-4 space-y-3">
-                                    <input type="number" min="0" step="0.01" value={invoiceForm.data.amount} onChange={(event) => invoiceForm.setData('amount', event.target.value)} placeholder="Monto base" className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
-                                    <input type="text" value={invoiceForm.data.concept} onChange={(event) => invoiceForm.setData('concept', event.target.value)} placeholder="Concepto" className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
-                                    <input type="date" value={invoiceForm.data.due_date} onChange={(event) => invoiceForm.setData('due_date', event.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
+                                    <input type="number" min="0" step="0.01" value={invoiceForm.data.amount} onChange={(e) => invoiceForm.setData('amount', e.target.value)} placeholder="Monto base" className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
+                                    <input type="text" value={invoiceForm.data.concept} onChange={(e) => invoiceForm.setData('concept', e.target.value)} placeholder="Concepto" className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
+                                    <input type="date" value={invoiceForm.data.due_date} onChange={(e) => invoiceForm.setData('due_date', e.target.value)} className="w-full rounded-2xl border border-[#e6e0d5] bg-white px-4 py-3 text-sm text-slate-700 outline-none" />
                                 </div>
                                 <button type="submit" disabled={invoiceForm.processing} className="mt-5 rounded-2xl bg-[#171411] px-4 py-3 text-sm font-semibold text-white">
                                     {invoiceForm.processing ? 'Creando...' : 'Crear factura'}
@@ -120,11 +341,14 @@ export default function Management({ project, installationPlan, billingSettings,
                                         )}
                                     </div>
                                 </div>
-                            )) : <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] px-6 py-16 text-center text-sm text-slate-400">Todavia no hay facturas en esta coleccion.</div>}
+                            )) : (
+                                <div className="rounded-[1.8rem] border border-dashed border-[#ddd5c9] px-6 py-16 text-center text-sm text-slate-400">Todavia no hay facturas en esta coleccion.</div>
+                            )}
                         </div>
                     </section>
                 </div>
 
+                {/* Actividad de la coleccion */}
                 <section className="rounded-[2rem] border border-[#e6e0d5] bg-white p-7 shadow-sm">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
@@ -217,7 +441,7 @@ export default function Management({ project, installationPlan, billingSettings,
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
                                         <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Actividad de favoritos</p>
-                                        <h3 className="mt-2 text-lg font-semibold text-slate-900">Nueva lista de favoritos</h3>
+                                        <h3 className="mt-2 text-lg font-semibold text-slate-900">Historial reciente</h3>
                                     </div>
                                     <Heart className="h-5 w-5 text-slate-300" />
                                 </div>

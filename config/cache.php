@@ -125,6 +125,12 @@ return [
     |
     */
 
-    'serializable_classes' => false,
+    'serializable_classes' => [
+        \Illuminate\Support\Collection::class,
+        \Illuminate\Database\Eloquent\Collection::class,
+        \Carbon\CarbonImmutable::class,
+        \Carbon\Carbon::class,
+        \stdClass::class,
+    ],
 
 ];

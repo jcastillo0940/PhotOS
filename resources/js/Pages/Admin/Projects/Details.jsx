@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import AdminLayout from '@/Layouts/AdminLayout';
 import ProjectWorkspaceNav from '@/Pages/Admin/Projects/Partials/ProjectWorkspaceNav';
-import { ChevronLeft } from 'lucide-react';
+import { AlertTriangle, ChevronLeft, Trash2 } from 'lucide-react';
 
 const statuses = [
     { value: 'active', label: 'Activo' },
@@ -14,6 +14,9 @@ const statuses = [
 export default function Details({ project, installationPlan }) {
     const { flash } = usePage().props;
     const collaboratorForm = useForm({ email: '', can_upload: true, can_manage_gallery: false });
+    const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = React.useState('');
+    const [deleting, setDeleting] = React.useState(false);
     const [form, setForm] = React.useState({
         name: project.name || '',
         event_date: project.event_date ? new Date(project.event_date).toISOString().slice(0, 10) : '',
@@ -132,7 +135,86 @@ export default function Details({ project, installationPlan }) {
                         )}
                     </div>
                 </section>
+
+                {/* ── Danger zone ───────────────────────────────────────────────── */}
+                <section className="rounded-[1.8rem] border border-rose-200 bg-rose-50 p-6 md:p-8">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.18em] text-rose-700">
+                                <AlertTriangle className="h-4 w-4" /> Zona de peligro
+                            </h2>
+                            <p className="mt-2 text-sm text-rose-600">
+                                Eliminar esta colección borrará permanentemente todas las fotos, archivos en R2, reconocimiento facial, accesos y datos asociados. Esta acción no se puede deshacer.
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => setShowDeleteModal(true)}
+                            className="shrink-0 flex items-center gap-2 rounded-2xl border border-rose-300 bg-white px-4 py-2.5 text-xs font-bold uppercase tracking-[0.16em] text-rose-700 transition hover:bg-rose-700 hover:text-white hover:border-rose-700"
+                        >
+                            <Trash2 className="h-3.5 w-3.5" /> Eliminar colección
+                        </button>
+                    </div>
+                </section>
             </div>
+
+            {/* ── Delete confirmation modal ──────────────────────────────────────── */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm px-4">
+                    <div className="w-full max-w-md rounded-3xl bg-white p-8 shadow-2xl">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-rose-100">
+                                <Trash2 className="h-5 w-5 text-rose-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-bold text-slate-900">Eliminar colección</h3>
+                                <p className="text-xs text-slate-500">Esta acción no se puede deshacer</p>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-slate-600 mb-5">
+                            Se eliminarán <strong>todas las fotos, archivos en almacenamiento, reconocimiento facial y accesos</strong> asociados a esta colección.
+                        </p>
+
+                        <div className="mb-5">
+                            <label className="block text-xs font-semibold uppercase tracking-[0.16em] text-slate-500 mb-2">
+                                Escribe <span className="text-rose-600 font-bold">{project.name}</span> para confirmar
+                            </label>
+                            <input
+                                type="text"
+                                value={deleteConfirmation}
+                                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                                placeholder={project.name}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-rose-400 focus:bg-white"
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => { setShowDeleteModal(false); setDeleteConfirmation(''); }}
+                                disabled={deleting}
+                                className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                disabled={deleteConfirmation !== project.name || deleting}
+                                onClick={() => {
+                                    if (deleteConfirmation !== project.name) return;
+                                    setDeleting(true);
+                                    router.delete(`/admin/projects/${project.id}`, {
+                                        data: { confirmation: deleteConfirmation },
+                                        onError: () => setDeleting(false),
+                                    });
+                                }}
+                                className="flex-1 rounded-2xl bg-rose-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {deleting ? 'Eliminando...' : 'Eliminar para siempre'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </AdminLayout>
     );
 }

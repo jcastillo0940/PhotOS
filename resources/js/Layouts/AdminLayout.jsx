@@ -237,7 +237,7 @@ export default function AdminLayout({ children }) {
             {/* Mobile Overlay */}
             {mobileOpen && (
                 <div className="fixed inset-0 z-[100] flex animate-in fade-in duration-300 lg:hidden">
-                    <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+                    <div className="absolute inset-0 bg-slate-900/50" onClick={() => setMobileOpen(false)} />
                     <div className="relative animate-in slide-in-from-left duration-300">
                         {renderSidebar(true)}
                     </div>
@@ -290,7 +290,7 @@ export default function AdminLayout({ children }) {
                 </header>
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 md:p-8 custom-scrollbar">
-                    <div className="mx-auto w-full max-w-7xl animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <div className="mx-auto w-full max-w-7xl animate-in fade-in duration-300">
                         {children}
                     </div>
                     <footer className="mt-12 py-6 text-center text-[11px] font-bold uppercase tracking-widest text-slate-300">

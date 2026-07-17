@@ -13,6 +13,7 @@ use App\Http\Middleware\EnsureProjectAccess;
 use App\Http\Middleware\GeminiRateLimit;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveTenantFromHost;
+use App\Http\Middleware\SecurityHeaders;
 
 $app = Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -33,6 +34,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(
             prepend: [
+                SecurityHeaders::class,
                 ResolveTenantFromHost::class,
             ],
             append: [

@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\DeleteProjectJob;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DownloadLog;
 use App\Models\Event;
 use App\Models\FaceIdentity;
 use App\Models\GalleryEmailRegistration;
+use App\Models\GalleryFavorite;
 use App\Models\GalleryFavoriteLog;
 use App\Models\Lead;
 use App\Models\Project;
@@ -66,33 +68,33 @@ class ProjectController extends Controller
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
 
-        return Inertia::render('Admin/Projects/Details', $this->projectAdminPayload($project));
+        return Inertia::render('Admin/Projects/Details', $this->projectAdminPayload($project, 'details'));
     }
 
     public function gallery(Project $project)
     {
-        return Inertia::render('Admin/Projects/Gallery', $this->projectAdminPayload($project));
+        return Inertia::render('Admin/Projects/Gallery', $this->projectAdminPayload($project, 'gallery'));
     }
 
     public function design(Project $project)
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
 
-        return Inertia::render('Admin/Projects/Design', $this->projectAdminPayload($project));
+        return Inertia::render('Admin/Projects/Design', $this->projectAdminPayload($project, 'design'));
     }
 
     public function ai(Project $project)
     {
         abort_unless($project->userCan(request()->user(), 'manage_gallery'), 403);
 
-        return Inertia::render('Admin/Projects/Ai', $this->projectAdminPayload($project));
+        return Inertia::render('Admin/Projects/Ai', $this->projectAdminPayload($project, 'ai'));
     }
 
     public function management(Project $project)
     {
         abort_unless($project->userCan(request()->user(), 'finance'), 403);
 
-        return Inertia::render('Admin/Projects/Management', $this->projectAdminPayload($project));
+        return Inertia::render('Admin/Projects/Management', $this->projectAdminPayload($project, 'management'));
     }
 
     public function storeDirect(Request $request)
@@ -131,8 +133,8 @@ class ProjectController extends Controller
             'status' => 'active',
             'gallery_token' => Str::random(40),
             'gallery_password' => strtoupper(Str::random(8)),
-            'download_limit' => $plan['weekly_download_limit'] ?? null,
-            'weekly_download_limit' => $plan['weekly_download_limit'] ?? null,
+            'download_limit' => null,
+            'weekly_download_limit' => null,
             'downloads_window_started_at' => now(),
             'retention_days' => $plan['retention_days'] ?? null,
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
@@ -179,8 +181,8 @@ class ProjectController extends Controller
             'status' => 'pending_payment',
             'gallery_token' => Str::random(40),
             'gallery_password' => strtoupper(Str::random(8)),
-            'download_limit' => $plan['weekly_download_limit'] ?? null,
-            'weekly_download_limit' => $plan['weekly_download_limit'] ?? null,
+            'download_limit' => null,
+            'weekly_download_limit' => null,
             'downloads_window_started_at' => now(),
             'retention_days' => $plan['retention_days'] ?? null,
             'storage_limit_bytes' => $this->gigabytesToBytes($plan['storage_limit_gb'] ?? null),
@@ -430,7 +432,7 @@ class ProjectController extends Controller
             ->all();
     }
 
-    private function projectAdminPayload(Project $project): array
+    private function projectAdminPayload(Project $project, string $page = 'full'): array
     {
         if (! $project->gallery_token) {
             $project->update(['gallery_token' => Str::random(40)]);
@@ -440,63 +442,45 @@ class ProjectController extends Controller
             $project->update(['gallery_password' => strtoupper(Str::random(8))]);
         }
 
-        $project->load(['lead', 'contract', 'invoices', 'heroPhoto', 'photos' => function ($q) {
-            $q->with(['unknownDetections' => function ($q) {
-                $q->where('status', 'unknown')->select(['id', 'photo_id', 'face_index', 'bbox', 'best_confidence']);
-            }]);
-        }]);
-        $serializedPhotos = $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values();
-        $supportsSponsorDetection = $project->supportsSponsorDetection();
-        $sponsorCatalog = $supportsSponsorDetection ? $this->sponsorCatalogForProject() : [];
-        $selectedSponsors = $supportsSponsorDetection ? $project->selectedSponsors() : [];
+        $needsPhotos     = in_array($page, ['gallery', 'ai', 'full']);
+        $needsFinance    = in_array($page, ['management', 'full']);
+        $needsAnalytics  = in_array($page, ['management', 'full']);
+        $needsFaceAi     = in_array($page, ['ai', 'full']);
+        $needsCollabs    = in_array($page, ['details', 'full']);
+        $needsDesign     = in_array($page, ['design', 'full']);
 
-        return [
-            'project' => [
-                ...$project->toArray(),
-                'photos' => $serializedPhotos,
-                'heroPhoto' => $project->heroPhoto ? $this->serializePhotoForAdmin($project->heroPhoto) : null,
-                'originals_usage_bytes' => $project->originalsUsageBytes(),
-                'high_res_available' => $project->highResAvailable(),
-                'remaining_weekly_downloads' => $project->remainingWeeklyDownloads(),
-                'public_gallery_url' => URL::route('public.gallery.show', $project->gallery_token),
-                'selected_sponsors' => $selectedSponsors,
-                'sponsor_catalog' => $sponsorCatalog,
-                'plan_capabilities' => [
-                    'plan_name' => $project->planName(),
-                    'supports_face_recognition' => (bool) $project->tenant?->supportsFaceRecognition(),
-                    'supports_sponsor_detection' => $supportsSponsorDetection,
-                    'sponsor_selection_limit' => $project->sponsorSelectionLimit(),
-                    'requires_explicit_sponsors' => $project->requiresExplicitSponsors(),
-                    'photos_per_month_limit' => $project->tenant?->photosPerMonthLimit(),
-                    'ai_scans_monthly_limit' => $project->tenant?->aiScansMonthlyLimit(),
-                    'remaining_photo_quota' => $project->tenant?->remainingPhotoProcessingQuota(),
-                ],
-                'permissions' => [
-                    'can_upload' => $project->userCan(request()->user(), 'upload'),
-                    'can_manage_gallery' => $project->userCan(request()->user(), 'manage_gallery'),
-                    'can_manage_finance' => $project->userCan(request()->user(), 'finance'),
-                ],
-                'collaborators' => $project->collaborators()
-                    ->with('user:id,name,email,role')
-                    ->latest()
-                    ->get()
-                    ->map(fn (ProjectCollaborator $collaborator) => [
-                        'id' => $collaborator->id,
-                        'name' => $collaborator->user?->name,
-                        'email' => $collaborator->user?->email ?: $collaborator->invited_email,
-                        'role' => $collaborator->role,
-                        'status' => $collaborator->status,
-                        'can_upload' => $collaborator->can_upload,
-                        'can_manage_gallery' => $collaborator->can_manage_gallery,
-                        'access_code' => $collaborator->access_code,
-                        'access_url' => $collaborator->plainAccessToken()
-                            ? route('project.invitations.show', $collaborator->plainAccessToken())
-                            : null,
-                    ])
-                    ->values()
-                    ->all(),
-            ],
-            'faceRecognition' => [
+        // Build eager-load list based on page needs
+        $relations = ['lead'];
+        if ($needsFinance) {
+            $relations[] = 'contract';
+            $relations[] = 'invoices';
+        }
+        if ($needsPhotos || $needsDesign) {
+            $relations['heroPhoto'] = fn ($q) => $q;
+        }
+        if ($needsPhotos) {
+            $relations['photos'] = function ($q) use ($needsFaceAi) {
+                if ($needsFaceAi) {
+                    $q->with(['unknownDetections' => function ($q) {
+                        $q->where('status', 'unknown')->select(['id', 'photo_id', 'face_index', 'bbox', 'best_confidence']);
+                    }]);
+                }
+            };
+        }
+
+        $project->load($relations);
+
+        $serializedPhotos = $needsPhotos
+            ? $project->photos->map(fn ($photo) => $this->serializePhotoForAdmin($photo))->values()
+            : collect();
+
+        $supportsSponsorDetection = $project->supportsSponsorDetection();
+        $sponsorCatalog   = ($needsFaceAi && $supportsSponsorDetection) ? $this->sponsorCatalogForProject() : [];
+        $selectedSponsors = ($needsFaceAi && $supportsSponsorDetection) ? $project->selectedSponsors() : [];
+
+        // faceRecognition section — full only for 'ai', minimal for other pages
+        if ($needsFaceAi) {
+            $faceRecognition = [
                 'enabled' => $project->face_recognition_enabled,
                 'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
                 'gemini_enabled' => filled(config('services.gemini.api_key')),
@@ -554,15 +538,85 @@ class ProjectController extends Controller
                     ])
                     ->values()
                     ->all(),
+            ];
+        } else {
+            // Minimal stub — pages that don't use faceRecognition still receive the shape
+            $faceRecognition = [
+                'enabled' => $project->face_recognition_enabled,
+                'sports_mode_enabled' => false,
+                'gemini_enabled' => false,
+                'tenant_scope_enabled' => false,
+                'service_configured' => false,
+                'database_ready' => false,
+                'global_identities_count' => 0,
+                'sponsor_catalog' => [],
+                'selected_sponsors' => [],
+                'summary' => [],
+                'identities' => [],
+            ];
+        }
+
+        $heroPhoto = ($project->relationLoaded('heroPhoto') && $project->heroPhoto)
+            ? $this->serializePhotoForAdmin($project->heroPhoto)
+            : null;
+
+        return [
+            'project' => [
+                ...$project->toArray(),
+                'photos' => $serializedPhotos,
+                'heroPhoto' => $heroPhoto,
+                'originals_usage_bytes' => $needsFinance ? $project->originalsUsageBytes() : null,
+                'high_res_available' => $needsFinance ? $project->highResAvailable() : false,
+                'remaining_weekly_downloads' => $needsFinance ? $project->remainingWeeklyDownloads() : null,
+                'public_gallery_url' => URL::route('public.gallery.show', $project->gallery_token),
+                'selected_sponsors' => $selectedSponsors,
+                'sponsor_catalog' => $sponsorCatalog,
+                'plan_capabilities' => [
+                    'plan_name' => $project->planName(),
+                    'supports_face_recognition' => (bool) $project->tenant?->supportsFaceRecognition(),
+                    'supports_sponsor_detection' => $supportsSponsorDetection,
+                    'sponsor_selection_limit' => $project->sponsorSelectionLimit(),
+                    'requires_explicit_sponsors' => $project->requiresExplicitSponsors(),
+                    'photos_per_month_limit' => $project->tenant?->photosPerMonthLimit(),
+                    'ai_scans_monthly_limit' => $project->tenant?->aiScansMonthlyLimit(),
+                    'remaining_photo_quota' => $project->tenant?->remainingPhotoProcessingQuota(),
+                ],
+                'permissions' => [
+                    'can_upload' => $project->userCan(request()->user(), 'upload'),
+                    'can_manage_gallery' => $project->userCan(request()->user(), 'manage_gallery'),
+                    'can_manage_finance' => $project->userCan(request()->user(), 'finance'),
+                ],
+                'collaborators' => $needsCollabs
+                    ? $project->collaborators()
+                        ->with('user:id,name,email,role')
+                        ->latest()
+                        ->get()
+                        ->map(fn (ProjectCollaborator $collaborator) => [
+                            'id' => $collaborator->id,
+                            'name' => $collaborator->user?->name,
+                            'email' => $collaborator->user?->email ?: $collaborator->invited_email,
+                            'role' => $collaborator->role,
+                            'status' => $collaborator->status,
+                            'can_upload' => $collaborator->can_upload,
+                            'can_manage_gallery' => $collaborator->can_manage_gallery,
+                            'access_code' => $collaborator->access_code,
+                            'access_url' => $collaborator->plainAccessToken()
+                                ? route('project.invitations.show', $collaborator->plainAccessToken())
+                                : null,
+                        ])
+                        ->values()
+                        ->all()
+                    : [],
             ],
-            'analytics' => $this->projectAnalytics($project),
+            'faceRecognition' => $faceRecognition,
+            'analytics' => $needsAnalytics ? $this->projectAnalytics($project) : [],
             'installationPlan' => InstallationPlan::current(),
-            'availableTemplates' => $this->availableTemplatesForCurrentPlan(),
-            'billingSettings' => [
+            'availableTemplates' => $needsDesign ? $this->availableTemplatesForCurrentPlan() : [],
+            'billingSettings' => $needsFinance ? [
                 'itbms_enabled' => filter_var(Setting::get('tax_itbms_enabled', '1'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? true,
                 'itbms_rate' => (float) Setting::get('tax_itbms_rate', '7'),
                 'alanube_enabled' => filter_var(Setting::get('alanube_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
-            ],
+            ] : ['itbms_enabled' => false, 'itbms_rate' => 0.0, 'alanube_enabled' => false],
         ];
     }
 
@@ -676,6 +730,44 @@ class ProjectController extends Controller
             ->values()
             ->all();
 
+        $registrationsByHash = GalleryEmailRegistration::query()
+            ->where('project_id', $project->id)
+            ->get()
+            ->keyBy('client_hash');
+
+        $clientSelections = GalleryFavorite::query()
+            ->with('photo')
+            ->where('project_id', $project->id)
+            ->get()
+            ->groupBy('client_hash')
+            ->map(function ($favorites, $clientHash) use ($registrationsByHash) {
+                $registration = $registrationsByHash->get($clientHash);
+                $photos = $favorites->map(function ($fav) {
+                    $photo = $fav->photo;
+                    if (! $photo) {
+                        return null;
+                    }
+                    $thumbPath = $photo->thumbnail_url ?: $photo->optimized_path;
+                    return [
+                        'id' => $photo->id,
+                        'thumbnail_url' => $thumbPath ? $this->temporaryUrlOrFallback($thumbPath) : null,
+                        'filename' => $this->cleanPhotoFilename($photo->original_path ?: $photo->url ?: ('foto-'.$photo->id)),
+                    ];
+                })->filter()->values()->all();
+
+                return [
+                    'client_hash' => $clientHash,
+                    'visitor_name' => $registration?->visitor_name,
+                    'visitor_email' => $registration?->visitor_email ?? $favorites->first()->visitor_email,
+                    'photo_count' => count($photos),
+                    'photos' => $photos,
+                    'updated_at' => optional($favorites->sortByDesc('updated_at')->first()->updated_at)?->toIso8601String(),
+                ];
+            })
+            ->sortByDesc('updated_at')
+            ->values()
+            ->all();
+
         return [
             'downloads' => [
                 'gallery' => $downloadGallery,
@@ -699,7 +791,56 @@ class ProjectController extends Controller
                 'activity' => $emailRegistrations,
                 'count' => GalleryEmailRegistration::query()->where('project_id', $project->id)->count(),
             ],
+            'client_selections' => $clientSelections,
         ];
+    }
+
+    public function destroy(Request $request, Project $project)
+    {
+        abort_unless($project->userCan($request->user(), 'manage_gallery'), 403);
+
+        $request->validate([
+            'confirmation' => ['required', 'string', 'in:' . $project->name],
+        ], [
+            'confirmation.in' => 'El nombre de la colección no coincide.',
+        ]);
+
+        // Gather R2 paths before deleting DB records
+        $photoData = $project->photos()
+            ->select(['optimized_path', 'original_path', 'thumbnail_url', 'gemini_path'])
+            ->get()
+            ->map(fn ($p) => $p->only(['optimized_path', 'original_path', 'thumbnail_url', 'gemini_path']))
+            ->all();
+
+        $identityPaths = $project->faceIdentities()
+            ->pluck('path_reference')
+            ->filter()
+            ->values()
+            ->all();
+
+        $tenantId = $project->tenant_id;
+
+        // Delete all DB records (cascade via DB or explicit)
+        $project->photos()->each(fn ($photo) => $photo->unknownDetections()->delete());
+        $project->photos()->delete();
+        $project->faceIdentities()->each(function ($identity) {
+            $identity->vectors()->delete();
+            $identity->delete();
+        });
+        $project->collaborators()->delete();
+        $project->galleryEmailRegistrations()->delete();
+        $project->galleryFavorites()->delete();
+        $project->galleryFavoriteLogs()->delete();
+        $project->downloadLogs()->delete();
+        $project->delete();
+
+        // Dispatch background job to clean R2
+        if (!empty($photoData) || !empty($identityPaths)) {
+            DeleteProjectJob::dispatch($project->id, $tenantId, $photoData, $identityPaths);
+        }
+
+        return to_route('admin.projects', status: 303)
+            ->with('success', "Colección \"{$project->name}\" eliminada correctamente.");
     }
 
     private function serializeDownloadLog(DownloadLog $log): array
@@ -712,5 +853,12 @@ class ProjectController extends Controller
             'photo_id' => $log->photo_id,
             'photo_label' => $log->photo_id ? 'Foto #'.$log->photo_id : null,
         ];
+    }
+
+    private function cleanPhotoFilename(string $path): string
+    {
+        $basename = basename($path);
+        // Strip the uniqid() suffix added during upload: name_13hexchars.ext → name.ext
+        return preg_replace('/_[0-9a-f]{13}(\.[^.]+)$/i', '$1', $basename) ?? $basename;
     }
 }

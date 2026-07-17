@@ -17,7 +17,6 @@ use App\Services\GeminiService;
 use App\Services\ProjectPhotoUploadService;
 use App\Support\GeminiPricing;
 use App\Support\Tenancy\TenantContext;
-use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -46,8 +45,10 @@ class GalleryController extends Controller
         $ownerViewing = $this->isOwnerViewing($request, $project);
         $registeredVisitor = $this->registeredVisitor($request, $project);
         $hasClientAccess = $this->hasClientGalleryAccess($request, $project);
-        $visiblePhotos = $this->paginatePhotos($request, $project, $hasClientAccess);
-        $allPhotos = $project->photos()->get();
+        $allPhotos = $project->photos()->orderBy('order_index')->get();
+        $visiblePhotos = $hasClientAccess
+            ? $allPhotos
+            : $allPhotos->where('show_on_website', true)->values();
         $selectedPhotoIds = $registeredVisitor
             ? GalleryFavorite::query()
                 ->where('project_id', $project->id)
@@ -55,6 +56,12 @@ class GalleryController extends Controller
                 ->pluck('photo_id')
                 ->all()
             : [];
+
+        // La foto de portada siempre se pasa aunque no esté marcada como "mostrar en web",
+        // para que el hero nunca quede en blanco en vista pública.
+        $heroPhotoModel = $project->hero_photo_id
+            ? $allPhotos->firstWhere('id', $project->hero_photo_id)
+            : $allPhotos->first();
 
         return Inertia::render('Public/Gallery', [
             'project' => [
@@ -64,7 +71,8 @@ class GalleryController extends Controller
                 'sports_mode_enabled' => filter_var(Setting::get('ai_sports_mode_enabled', '0'), FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? false,
                 'supports_sponsor_detection' => $project->supportsSponsorDetection(),
             ],
-            'photos' => $visiblePhotos->getCollection()->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess, $selectedPhotoIds))->values(),
+            'photos' => $visiblePhotos->map(fn (Photo $photo) => $this->serializePhoto($photo, $hasClientAccess, $selectedPhotoIds))->values(),
+            'heroPhoto' => $heroPhotoModel ? $this->serializePhoto($heroPhotoModel, $hasClientAccess, $selectedPhotoIds) : null,
             'galleryTemplate' => $project->resolvedGalleryTemplate(),
             'access' => [
                 'mode' => $hasClientAccess ? 'client' : 'public',
@@ -77,13 +85,6 @@ class GalleryController extends Controller
                 'is_owner_session' => $ownerViewing,
                 'registered_email' => $registeredVisitor['visitor_email'] ?? null,
                 'registered_name' => $registeredVisitor['visitor_name'] ?? null,
-            ],
-            'pagination' => [
-                'current_page' => $visiblePhotos->currentPage(),
-                'last_page' => $visiblePhotos->lastPage(),
-                'per_page' => $visiblePhotos->perPage(),
-                'total' => $visiblePhotos->total(),
-                'has_more_pages' => $visiblePhotos->hasMorePages(),
             ],
             'galleryTitle' => 'Selected work: A gallery shaped by emotion, landscape, and movement',
         ]);
@@ -224,7 +225,7 @@ class GalleryController extends Controller
             'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
         ]);
 
-        return redirect()->back(status: 303);
+        return response()->json(['status' => $action]);
     }
 
     public function updatePhoto(Request $request, Project $project, Photo $photo)
@@ -737,34 +738,56 @@ class GalleryController extends Controller
             abort(403, 'Periodo de descarga de alta resolucion finalizado.');
         }
 
-        $visitor = $this->registeredVisitor($request, $project);
+        $visitor    = $this->registeredVisitor($request, $project);
         $clientHash = $this->clientHash($request, $project);
         $weeklyLimit = $project->effectiveWeeklyDownloadLimit();
 
-        if ($weeklyLimit !== null) {
-            $downloadsInWindow = DownloadLog::query()
+        // Idempotencia: si este cliente ya descargó esta foto en la ventana activa,
+        // la re-descarga es gratuita y no consume cuota.
+        $isRepeat = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('photo_id', $photo->id)
+            ->where('client_hash', $clientHash)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->exists();
+
+        if (! $isRepeat && $weeklyLimit !== null) {
+            $uniqueDownloaded = DownloadLog::query()
                 ->where('project_id', $project->id)
                 ->where('client_hash', $clientHash)
                 ->where('created_at', '>=', now()->subDays(7))
-                ->count();
+                ->distinct('photo_id')
+                ->count('photo_id');
 
-            if ($downloadsInWindow >= $weeklyLimit) {
-                abort(403, 'Limite semanal alcanzado.');
+            if ($uniqueDownloaded >= $weeklyLimit) {
+                $oldestInWindow = DownloadLog::query()
+                    ->where('project_id', $project->id)
+                    ->where('client_hash', $clientHash)
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->orderBy('created_at')
+                    ->first();
+                $nextDate = $oldestInWindow?->created_at->addDays(7)->translatedFormat('d \d\e F');
+                abort(403, $nextDate
+                    ? "Limite semanal alcanzado. Podras descargar nuevamente el {$nextDate}."
+                    : 'Limite semanal alcanzado. Intenta de nuevo en 7 dias.');
             }
         }
 
         DownloadLog::create([
-            'project_id' => $project->id,
-            'photo_id' => $photo->id,
-            'asset_type' => 'photo',
-            'client_hash' => $clientHash,
+            'project_id'    => $project->id,
+            'photo_id'      => $photo->id,
+            'asset_type'    => 'photo',
+            'client_hash'   => $clientHash,
             'visitor_email' => $visitor['visitor_email'] ?? null,
-            'ip_address' => $request->ip(),
-            'user_agent' => Str::limit((string) $request->userAgent(), 65535, ''),
+            'ip_address'    => $request->ip(),
+            'user_agent'    => Str::limit((string) $request->userAgent(), 65535, ''),
         ]);
 
         $photo->increment('download_count');
-        $project->increment('downloads_used_in_window');
+
+        if (! $isRepeat) {
+            $project->increment('downloads_used_in_window');
+        }
 
         try {
             $ext = strtolower(pathinfo((string) $photo->original_path, PATHINFO_EXTENSION)) ?: 'jpg';
@@ -781,9 +804,213 @@ class GalleryController extends Controller
         }
     }
 
-    public function downloadFullGallery($token)
+    public function downloadFullGallery(Request $request, $token)
     {
-        abort(403, 'La descarga desde la galeria esta deshabilitada.');
+        $project = Project::where('gallery_token', $token)->firstOrFail();
+
+        abort_unless($this->hasClientGalleryAccess($request, $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
+
+        if ($project->originalsExpired()) {
+            return response()->json(['error' => 'Periodo de descarga de alta resolucion finalizado.'], 403);
+        }
+
+        $visitor    = $this->registeredVisitor($request, $project);
+        $clientHash = $this->clientHash($request, $project);
+        $weeklyLimit = $project->effectiveWeeklyDownloadLimit();
+
+        $allPhotos = $project->photos()
+            ->whereNotNull('original_path')
+            ->orderBy('order_index')
+            ->get();
+
+        if ($allPhotos->isEmpty()) {
+            return response()->json(['error' => 'No hay originales disponibles para descargar.'], 404);
+        }
+
+        // Idempotencia: fotos ya descargadas por este cliente en la ventana activa
+        // se pueden re-descargar sin consumir cuota adicional.
+        $alreadyDownloadedIds = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('client_hash', $clientHash)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->whereNotNull('photo_id')
+            ->pluck('photo_id')
+            ->unique()
+            ->flip(); // flip para O(1) lookup
+
+        $repeatPhotos = $allPhotos->filter(fn ($p) => $alreadyDownloadedIds->has($p->id));
+        $newPhotos    = $allPhotos->filter(fn ($p) => ! $alreadyDownloadedIds->has($p->id));
+
+        if ($weeklyLimit !== null) {
+            $uniqueAlreadyDownloaded = $alreadyDownloadedIds->count();
+            $remaining = max(0, $weeklyLimit - $uniqueAlreadyDownloaded);
+
+            if ($remaining === 0 && $newPhotos->isNotEmpty()) {
+                $oldest = DownloadLog::query()
+                    ->where('project_id', $project->id)
+                    ->where('client_hash', $clientHash)
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->orderBy('created_at')
+                    ->first();
+                $nextDate = $oldest?->created_at->addDays(7)->translatedFormat('d \d\e F');
+                return response()->json([
+                    'error' => $nextDate
+                        ? "Limite semanal alcanzado. Podras descargar nuevamente el {$nextDate}."
+                        : 'Limite semanal alcanzado. Intenta de nuevo en 7 dias.',
+                ], 403);
+            }
+
+            $newPhotos = $newPhotos->values()->take($remaining);
+        }
+
+        $photosToDeliver = $repeatPhotos->values()->merge($newPhotos);
+
+        $urls    = [];
+        $newUrls = 0;
+        $now     = now();
+
+        foreach ($photosToDeliver as $photo) {
+            $isRepeat = $alreadyDownloadedIds->has($photo->id);
+            try {
+                $ext      = strtolower(pathinfo((string) $photo->original_path, PATHINFO_EXTENSION)) ?: 'jpg';
+                $filename = 'photo-' . $photo->id . '.' . $ext;
+                $signed   = Storage::disk('r2')->temporaryUrl(
+                    $photo->original_path,
+                    $now->copy()->addMinutes(30),
+                    ['ResponseContentDisposition' => 'attachment; filename="' . $filename . '"'],
+                );
+                $urls[] = ['url' => $signed, 'filename' => $filename, 'photo_id' => $photo->id];
+
+                DownloadLog::create([
+                    'project_id'    => $project->id,
+                    'photo_id'      => $photo->id,
+                    'asset_type'    => 'photo',
+                    'client_hash'   => $clientHash,
+                    'visitor_email' => $visitor['visitor_email'] ?? null,
+                    'ip_address'    => $request->ip(),
+                    'user_agent'    => Str::limit((string) $request->userAgent(), 65535, ''),
+                ]);
+
+                $photo->increment('download_count');
+
+                if (! $isRepeat) {
+                    $newUrls++;
+                }
+            } catch (\Throwable) {
+                // foto sin URL firmada — se omite silenciosamente
+            }
+        }
+
+        if ($newUrls > 0) {
+            $project->increment('downloads_used_in_window', $newUrls);
+        }
+
+        return response()->json([
+            'urls'  => $urls,
+            'total' => count($urls),
+        ]);
+    }
+
+    public function downloadZip(Request $request, $token)
+    {
+        $project = Project::where('gallery_token', $token)->firstOrFail();
+
+        abort_unless($this->hasClientGalleryAccess($request, $project), 403, 'Debes desbloquear la galeria del cliente para descargar originales.');
+
+        if ($project->originalsExpired()) {
+            abort(403, 'Periodo de descarga de alta resolucion finalizado.');
+        }
+
+        $visitor     = $this->registeredVisitor($request, $project);
+        $clientHash  = $this->clientHash($request, $project);
+        $weeklyLimit = $project->effectiveWeeklyDownloadLimit();
+
+        $allPhotos = $project->photos()
+            ->whereNotNull('original_path')
+            ->orderBy('order_index')
+            ->get();
+
+        abort_if($allPhotos->isEmpty(), 404, 'No hay originales disponibles para descargar.');
+
+        // Idempotencia: fotos ya descargadas se incluyen sin consumir cuota adicional.
+        $alreadyIds = DownloadLog::query()
+            ->where('project_id', $project->id)
+            ->where('client_hash', $clientHash)
+            ->where('created_at', '>=', now()->subDays(7))
+            ->whereNotNull('photo_id')
+            ->pluck('photo_id')
+            ->unique()
+            ->flip();
+
+        $repeatPhotos = $allPhotos->filter(fn ($p) => $alreadyIds->has($p->id));
+        $newPhotos    = $allPhotos->filter(fn ($p) => ! $alreadyIds->has($p->id));
+
+        if ($weeklyLimit !== null) {
+            $remaining = max(0, $weeklyLimit - $alreadyIds->count());
+            if ($remaining === 0 && $newPhotos->isNotEmpty()) {
+                $oldest = DownloadLog::query()
+                    ->where('project_id', $project->id)
+                    ->where('client_hash', $clientHash)
+                    ->where('created_at', '>=', now()->subDays(7))
+                    ->orderBy('created_at')
+                    ->first();
+                $nextDate = $oldest?->created_at->addDays(7)->translatedFormat('d \d\e F');
+                abort(403, $nextDate
+                    ? "Limite semanal alcanzado. Podras descargar nuevamente el {$nextDate}."
+                    : 'Limite semanal alcanzado. Intenta de nuevo en 7 dias.');
+            }
+            $newPhotos = $newPhotos->values()->take($remaining);
+        }
+
+        $photosToDeliver = $repeatPhotos->values()->merge($newPhotos);
+
+        // Registrar descargas antes del streaming para no perder el log si el cliente cancela.
+        $newCount = 0;
+        foreach ($photosToDeliver as $photo) {
+            $isRepeat = $alreadyIds->has($photo->id);
+            DownloadLog::create([
+                'project_id'    => $project->id,
+                'photo_id'      => $photo->id,
+                'asset_type'    => 'photo',
+                'client_hash'   => $clientHash,
+                'visitor_email' => $visitor['visitor_email'] ?? null,
+                'ip_address'    => $request->ip(),
+                'user_agent'    => Str::limit((string) $request->userAgent(), 65535, ''),
+            ]);
+            $photo->increment('download_count');
+            if (! $isRepeat) {
+                $newCount++;
+            }
+        }
+        if ($newCount > 0) {
+            $project->increment('downloads_used_in_window', $newCount);
+        }
+
+        $zipName = Str::slug($project->name ?: 'galeria') . '-fotos.zip';
+
+        return response()->streamDownload(function () use ($photosToDeliver) {
+            set_time_limit(300);
+
+            $tmpPath = tempnam(sys_get_temp_dir(), 'gallery_zip_');
+            $zip     = new \ZipArchive();
+            $zip->open($tmpPath, \ZipArchive::CREATE | \ZipArchive::OVERWRITE);
+
+            foreach ($photosToDeliver as $photo) {
+                try {
+                    $content = Storage::disk('r2')->get($photo->original_path);
+                    if ($content !== null) {
+                        $ext = strtolower(pathinfo((string) $photo->original_path, PATHINFO_EXTENSION)) ?: 'jpg';
+                        $zip->addFromString('photo-' . $photo->id . '.' . $ext, $content);
+                    }
+                } catch (\Throwable) {
+                    // foto inaccesible — se omite
+                }
+            }
+
+            $zip->close();
+            readfile($tmpPath);
+            @unlink($tmpPath);
+        }, $zipName, ['Content-Type' => 'application/zip']);
     }
 
     private function serializePhoto(Photo $photo, bool $hasClientAccess, array $selectedPhotoIds = []): array
@@ -824,21 +1051,6 @@ class GalleryController extends Controller
     private function gallerySessionKey(Project $project): string
     {
         return 'gallery_client_access.'.$project->gallery_token;
-    }
-
-    private function paginatePhotos(Request $request, Project $project, bool $hasClientAccess): LengthAwarePaginator
-    {
-        $perPage = $this->galleryPerPage($hasClientAccess);
-
-        return $project->photos()
-            ->when(! $hasClientAccess, fn ($query) => $query->where('show_on_website', true))
-            ->paginate($perPage)
-            ->withQueryString();
-    }
-
-    private function galleryPerPage(bool $hasClientAccess): int
-    {
-        return $hasClientAccess ? 20 : 12;
     }
 
     private function temporaryUrlOrFallback(string $path): string
