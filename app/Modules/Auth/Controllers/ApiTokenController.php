@@ -3,7 +3,7 @@
 namespace App\Modules\Auth\Controllers;
 use App\Http\Controllers\Controller;
 
-use App\Services\AuditService;
+use App\Modules\Tenancy\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;

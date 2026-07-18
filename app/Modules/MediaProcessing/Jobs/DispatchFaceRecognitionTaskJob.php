@@ -6,7 +6,7 @@ use App\Models\FaceIdentity;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Tenant;
-use App\Services\FaceRecognitionService;
+use App\Modules\MediaProcessing\Services\FaceRecognitionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;

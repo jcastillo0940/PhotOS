@@ -5,7 +5,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\Photo;
 use App\Models\ProjectCollaborator;
-use App\Services\ProjectPhotoUploadService;
+use App\Modules\Projects\Services\ProjectPhotoUploadService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;

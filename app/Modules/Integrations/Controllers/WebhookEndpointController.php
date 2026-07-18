@@ -5,7 +5,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\WebhookDelivery;
 use App\Models\WebhookEndpoint;
-use App\Services\WebhookDispatchService;
+use App\Modules\Integrations\Services\WebhookDispatchService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;

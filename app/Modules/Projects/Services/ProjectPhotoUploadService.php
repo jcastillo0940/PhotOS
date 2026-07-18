@@ -2,8 +2,8 @@
 
 namespace App\Modules\Projects\Services;
 
-use App\Jobs\DispatchFaceRecognitionTaskJob;
-use App\Jobs\ProcessUploadedPhotoJob;
+use App\Modules\MediaProcessing\Jobs\DispatchFaceRecognitionTaskJob;
+use App\Modules\Projects\Jobs\ProcessUploadedPhotoJob;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;

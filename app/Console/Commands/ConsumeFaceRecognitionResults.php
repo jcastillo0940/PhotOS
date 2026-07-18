@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\FaceRecognitionService;
+use App\Modules\MediaProcessing\Services\FaceRecognitionService;
 use Illuminate\Console\Command;
 
 class ConsumeFaceRecognitionResults extends Command

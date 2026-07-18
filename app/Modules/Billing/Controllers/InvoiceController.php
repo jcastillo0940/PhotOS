@@ -8,11 +8,11 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Setting;
-use App\Services\AuditService;
-use App\Services\Billing\AccountStatementService;
-use App\Services\WebhookDispatchService;
+use App\Modules\Tenancy\Services\AuditService;
+use App\Modules\Billing\Services\AccountStatementService;
+use App\Modules\Integrations\Services\WebhookDispatchService;
 use App\Support\Tenancy\TenantContext;
-use App\Services\Billing\AlanubeService;
+use App\Modules\Billing\Services\AlanubeService;
 use Illuminate\Http\Request;
 
 class InvoiceController extends Controller

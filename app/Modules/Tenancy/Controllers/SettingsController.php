@@ -4,12 +4,12 @@ namespace App\Modules\Tenancy\Controllers;
 use App\Http\Controllers\Controller;
 
 use App\Models\Setting;
-use App\Services\Billing\AlanubeService;
+use App\Modules\Billing\Services\AlanubeService;
 use App\Support\EventTypeSettings;
 use App\Support\HomepageSettings;
 use App\Support\InstallationPlan;
-use App\Services\Billing\PayPalApiService;
-use App\Services\Saas\CloudflareCustomHostnameService;
+use App\Modules\Billing\Services\PayPalApiService;
+use App\Modules\SaasManagement\Services\CloudflareCustomHostnameService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;

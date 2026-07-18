@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\SaasPlan;
-use App\Services\Billing\TenantBillingService;
+use App\Modules\Billing\Services\TenantBillingService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 

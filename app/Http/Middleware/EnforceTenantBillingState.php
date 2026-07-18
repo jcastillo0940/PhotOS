@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Services\Billing\TenantBillingService;
+use App\Modules\Billing\Services\TenantBillingService;
 use App\Support\Tenancy\TenantContext;
 use Closure;
 use Illuminate\Http\Request;

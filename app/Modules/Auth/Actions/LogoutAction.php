@@ -2,7 +2,7 @@
 
 namespace App\Modules\Auth\Actions;
 
-use App\Services\AuditService;
+use App\Modules\Tenancy\Services\AuditService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

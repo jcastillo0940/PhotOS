@@ -3,7 +3,7 @@
 namespace App\Modules\Projects\Jobs;
 
 use App\Models\Tenant;
-use App\Services\ProjectPhotoUploadService;
+use App\Modules\Projects\Services\ProjectPhotoUploadService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Storage;

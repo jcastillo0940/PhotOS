@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\ProcessUploadedPhotoJob;
+use App\Modules\Projects\Jobs\ProcessUploadedPhotoJob;
 use App\Models\Photo;
 use Illuminate\Console\Command;
 

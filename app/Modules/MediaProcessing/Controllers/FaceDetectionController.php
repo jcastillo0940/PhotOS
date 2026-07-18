@@ -8,7 +8,7 @@ use App\Models\FaceIdentityVector;
 use App\Models\FaceUnknownDetection;
 use App\Models\Project;
 use App\Models\Setting;
-use App\Services\FaceRecognitionService;
+use App\Modules\MediaProcessing\Services\FaceRecognitionService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;

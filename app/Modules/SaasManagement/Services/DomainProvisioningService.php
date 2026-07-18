@@ -2,7 +2,7 @@
 
 namespace App\Modules\SaasManagement\Services;
 
-use App\Jobs\SyncDomainProvisioningJob;
+use App\Modules\SaasManagement\Jobs\SyncDomainProvisioningJob;
 use App\Models\DomainOrder;
 use App\Models\Tenant;
 use App\Models\TenantDomain;

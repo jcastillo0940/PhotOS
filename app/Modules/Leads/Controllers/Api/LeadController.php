@@ -3,7 +3,7 @@
 namespace App\Modules\Leads\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\LeadResource;
+use App\Modules\Leads\Resources\LeadResource;
 use App\Models\Client;
 use App\Models\Lead;
 use Illuminate\Http\JsonResponse;

@@ -5,7 +5,7 @@ use App\Http\Controllers\Controller;
 
 use App\Models\Project;
 use App\Models\Purchase;
-use App\Services\Billing\PayPalApiService;
+use App\Modules\Billing\Services\PayPalApiService;
 use Illuminate\Http\Request;
 use RuntimeException;
 

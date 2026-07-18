@@ -2,12 +2,24 @@
 
 namespace App\Providers;
 
+use App\Models\AutomationRule;
+use App\Models\Contract;
+use App\Models\FaceIdentity;
 use App\Models\Invoice;
+use App\Models\Lead;
+use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Models\WebhookEndpoint;
+use App\Modules\Automations\Policies\AutomationPolicy;
 use App\Modules\Billing\Policies\InvoicePolicy;
-use App\Modules\Projects\Policies\ProjectPolicy;
 use App\Modules\Billing\Services\TenantBillingService;
+use App\Modules\Contracts\Policies\ContractPolicy;
+use App\Modules\Gallery\Policies\PhotoPolicy;
+use App\Modules\Integrations\Policies\WebhookEndpointPolicy;
+use App\Modules\Leads\Policies\LeadPolicy;
+use App\Modules\MediaProcessing\Policies\FaceIdentityPolicy;
+use App\Modules\Projects\Policies\ProjectPolicy;
 use App\Support\Tenancy\TenantContext;
 use App\Support\TenantThemeSettings;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +46,12 @@ class AppServiceProvider extends ServiceProvider
 
         Gate::policy(Project::class, ProjectPolicy::class);
         Gate::policy(Invoice::class, InvoicePolicy::class);
+        Gate::policy(Lead::class, LeadPolicy::class);
+        Gate::policy(Contract::class, ContractPolicy::class);
+        Gate::policy(Photo::class, PhotoPolicy::class);
+        Gate::policy(FaceIdentity::class, FaceIdentityPolicy::class);
+        Gate::policy(AutomationRule::class, AutomationPolicy::class);
+        Gate::policy(WebhookEndpoint::class, WebhookEndpointPolicy::class);
 
         Inertia::share('auth', fn () => [
             'user' => auth()->user()

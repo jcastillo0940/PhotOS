@@ -3,7 +3,7 @@
 namespace App\Modules\Projects\Controllers;
 use App\Http\Controllers\Controller;
 
-use App\Jobs\DeleteProjectJob;
+use App\Modules\Projects\Jobs\DeleteProjectJob;
 use App\Models\Client;
 use App\Models\Contract;
 use App\Models\DownloadLog;
@@ -16,9 +16,9 @@ use App\Models\Lead;
 use App\Models\Project;
 use App\Models\ProjectCollaborator;
 use App\Models\Setting;
-use App\Services\AuditService;
-use App\Services\CrmAutomationService;
-use App\Services\WebhookDispatchService;
+use App\Modules\Tenancy\Services\AuditService;
+use App\Modules\Leads\Services\CrmAutomationService;
+use App\Modules\Integrations\Services\WebhookDispatchService;
 use App\Support\ContractTemplate;
 use App\Support\EventTypeSettings;
 use App\Support\GalleryTemplate;

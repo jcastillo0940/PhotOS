@@ -5,7 +5,7 @@ namespace App\Modules\SaasManagement\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
-use App\Services\AuditService;
+use App\Modules\Tenancy\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;

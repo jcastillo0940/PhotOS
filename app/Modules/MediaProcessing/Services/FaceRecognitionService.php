@@ -2,7 +2,7 @@
 
 namespace App\Modules\MediaProcessing\Services;
 
-use App\Jobs\DispatchFaceRecognitionTaskJob;
+use App\Modules\MediaProcessing\Jobs\DispatchFaceRecognitionTaskJob;
 use App\Models\FaceIdentity;
 use App\Models\FaceIdentityVector;
 use App\Models\FaceUnknownDetection;

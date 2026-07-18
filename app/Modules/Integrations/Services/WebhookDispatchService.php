@@ -2,7 +2,7 @@
 
 namespace App\Modules\Integrations\Services;
 
-use App\Jobs\DispatchWebhookJob;
+use App\Modules\Integrations\Jobs\DispatchWebhookJob;
 use App\Models\Tenant;
 use App\Models\WebhookEndpoint;
 

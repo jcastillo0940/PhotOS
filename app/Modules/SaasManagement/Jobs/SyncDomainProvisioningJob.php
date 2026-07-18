@@ -3,7 +3,7 @@
 namespace App\Modules\SaasManagement\Jobs;
 
 use App\Models\DomainOrder;
-use App\Services\Saas\DomainProvisioningService;
+use App\Modules\SaasManagement\Services\DomainProvisioningService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 

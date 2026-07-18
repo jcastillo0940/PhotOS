@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AutomationRule;
 use App\Models\AutomationRun;
 use App\Models\CrmTask;
-use App\Services\CrmAutomationService;
+use App\Modules\Leads\Services\CrmAutomationService;
 use App\Support\EventTypeSettings;
 use Illuminate\Http\Request;
 use Inertia\Inertia;

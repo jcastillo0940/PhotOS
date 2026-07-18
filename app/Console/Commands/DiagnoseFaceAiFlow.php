@@ -6,7 +6,7 @@ use App\Models\FaceIdentity;
 use App\Models\Photo;
 use App\Models\Project;
 use App\Models\Setting;
-use App\Services\FaceRecognitionService;
+use App\Modules\MediaProcessing\Services\FaceRecognitionService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Redis;
 use Illuminate\Support\Facades\Storage;

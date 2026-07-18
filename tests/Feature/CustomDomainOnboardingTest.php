@@ -6,7 +6,7 @@ use App\Models\SaasPlan;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\User;
-use App\Services\Saas\CloudflareCustomHostnameService;
+use App\Modules\SaasManagement\Services\CloudflareCustomHostnameService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery\MockInterface;
 use Tests\TestCase;

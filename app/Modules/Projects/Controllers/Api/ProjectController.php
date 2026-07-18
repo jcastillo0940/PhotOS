@@ -4,7 +4,7 @@ namespace App\Modules\Projects\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\Api\PhotoResource;
-use App\Http\Resources\Api\ProjectResource;
+use App\Modules\Projects\Resources\ProjectResource;
 use App\Models\Client;
 use App\Models\Lead;
 use App\Models\Project;

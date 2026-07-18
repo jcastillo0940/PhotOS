@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\DispatchFaceRecognitionTaskJob;
+use App\Modules\MediaProcessing\Jobs\DispatchFaceRecognitionTaskJob;
 use App\Models\FaceIdentity;
 use App\Models\Tenant;
 use Illuminate\Console\Command;

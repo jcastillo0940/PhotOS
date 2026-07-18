@@ -3,7 +3,7 @@
 namespace App\Modules\Auth\Actions;
 
 use App\Models\User;
-use App\Services\AuditService;
+use App\Modules\Tenancy\Services\AuditService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;

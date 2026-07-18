@@ -3,7 +3,7 @@
 namespace App\Modules\Automations\Actions;
 
 use App\Models\AutomationRule;
-use App\Services\CrmAutomationService;
+use App\Modules\Leads\Services\CrmAutomationService;
 
 class RunAutomationAction
 {

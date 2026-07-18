@@ -3,7 +3,7 @@
 namespace App\Modules\Billing\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Http\Resources\Api\InvoiceResource;
+use App\Modules\Billing\Resources\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\Project;
 use Illuminate\Http\JsonResponse;

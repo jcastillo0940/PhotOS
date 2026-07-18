@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\CrmAutomationService;
+use App\Modules\Leads\Services\CrmAutomationService;
 use Illuminate\Console\Command;
 
 class RunCrmAutomations extends Command

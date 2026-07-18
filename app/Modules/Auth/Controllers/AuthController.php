@@ -4,7 +4,7 @@ namespace App\Modules\Auth\Controllers;
 use App\Http\Controllers\Controller;
 
 use App\Models\User;
-use App\Services\AuditService;
+use App\Modules\Tenancy\Services\AuditService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
