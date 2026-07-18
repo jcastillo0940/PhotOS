@@ -6,16 +6,16 @@
  * Dominio: {studio}.com, misaeldavid.com
  */
 
-use App\Http\Controllers\BookingController;
-use App\Http\Controllers\GalleryController;
-use App\Http\Controllers\HomeController;
-use App\Http\Controllers\LeadController;
-use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\ContractController;
-use App\Http\Controllers\SaasBillingController;
-use App\Http\Controllers\SaasOnboardingController;
-use App\Http\Controllers\SeoController;
+use App\Modules\Tenancy\Controllers\BookingController;
+use App\Modules\Gallery\Controllers\GalleryController;
+use App\Modules\Tenancy\Controllers\HomeController;
+use App\Modules\Leads\Controllers\LeadController;
+use App\Modules\Billing\Controllers\PaymentController;
+use App\Modules\Projects\Controllers\ProjectController;
+use App\Modules\Contracts\Controllers\ContractController;
+use App\Modules\Billing\Controllers\SaasBillingController;
+use App\Modules\SaasManagement\Controllers\SaasOnboardingController;
+use App\Modules\Domains\Controllers\SeoController;
 use Illuminate\Support\Facades\Route;
 
 // Studio website (marketing del estudio)

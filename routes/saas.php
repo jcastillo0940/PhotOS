@@ -1,18 +1,18 @@
 <?php
 
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\Saas\AuditLogController as SaasAuditLogController;
-use App\Http\Controllers\Saas\CostController;
-use App\Http\Controllers\Saas\PaymentController as SaasPaymentController;
-use App\Http\Controllers\Saas\PlanController;
-use App\Http\Controllers\Saas\SubscriptionController;
-use App\Http\Controllers\Saas\TemplateController as SaasTemplateController;
-use App\Http\Controllers\Saas\UserController;
-use App\Http\Controllers\SaasBillingController;
-use App\Http\Controllers\SaasTenantController;
-use App\Http\Controllers\SaasTenantWebsiteController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\TemplateController;
+use App\Modules\Billing\Controllers\InvoiceController;
+use App\Modules\SaasManagement\Controllers\AuditLogController as SaasAuditLogController;
+use App\Modules\SaasManagement\Controllers\CostController;
+use App\Modules\SaasManagement\Controllers\SaasPaymentController as SaasPaymentController;
+use App\Modules\SaasManagement\Controllers\PlanController;
+use App\Modules\SaasManagement\Controllers\SubscriptionController;
+use App\Modules\SaasManagement\Controllers\TemplateController as SaasTemplateController;
+use App\Modules\SaasManagement\Controllers\UserController;
+use App\Modules\Billing\Controllers\SaasBillingController;
+use App\Modules\SaasManagement\Controllers\SaasTenantController;
+use App\Modules\SaasManagement\Controllers\SaasTenantWebsiteController;
+use App\Modules\Tenancy\Controllers\SettingsController;
+use App\Modules\Tenancy\Controllers\TenantTemplateController as TemplateController;
 use Illuminate\Support\Facades\Route;
 
 // Panel SaaS — acceso exclusivo: developer + dominio saas.*

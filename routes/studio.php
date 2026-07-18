@@ -7,24 +7,24 @@
  * Guards: auth, studio.operator, tenant.admin, tenant.finance, project.access
  */
 
-use App\Http\Controllers\ApiTokenController;
-use App\Http\Controllers\AuditLogController;
-use App\Http\Controllers\WebhookEndpointController;
-use App\Http\Controllers\AutomationController;
-use App\Http\Controllers\ClientAccountingController;
-use App\Http\Controllers\ContractController;
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\EventController;
-use App\Http\Controllers\FaceDetectionController;
-use App\Http\Controllers\GalleryController;
-use App\Http\Controllers\InvoiceController;
-use App\Http\Controllers\LeadController;
-use App\Http\Controllers\LimitsController;
-use App\Http\Controllers\ProjectCollaboratorController;
-use App\Http\Controllers\ProjectController;
-use App\Http\Controllers\SettingsController;
-use App\Http\Controllers\TenantSubscriptionPortalController;
-use App\Http\Controllers\WebsiteController;
+use App\Modules\Auth\Controllers\ApiTokenController;
+use App\Modules\Tenancy\Controllers\AuditLogController;
+use App\Modules\Integrations\Controllers\WebhookEndpointController;
+use App\Modules\Automations\Controllers\AutomationController;
+use App\Modules\Billing\Controllers\ClientAccountingController;
+use App\Modules\Contracts\Controllers\ContractController;
+use App\Modules\Reports\Controllers\DashboardController;
+use App\Modules\Tenancy\Controllers\EventController;
+use App\Modules\MediaProcessing\Controllers\FaceDetectionController;
+use App\Modules\Gallery\Controllers\GalleryController;
+use App\Modules\Billing\Controllers\InvoiceController;
+use App\Modules\Leads\Controllers\LeadController;
+use App\Modules\Tenancy\Controllers\LimitsController;
+use App\Modules\Projects\Controllers\ProjectCollaboratorController;
+use App\Modules\Projects\Controllers\ProjectController;
+use App\Modules\Tenancy\Controllers\SettingsController;
+use App\Modules\Billing\Controllers\TenantSubscriptionPortalController;
+use App\Modules\Domains\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('admin')->middleware('auth:studio')->group(function () {

@@ -7,7 +7,7 @@
  * Guards: auth, client.role
  */
 
-use App\Http\Controllers\ClientDashboardController;
+use App\Modules\Tenancy\Controllers\ClientDashboardController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('client')->middleware(['auth:client', 'client.role'])->group(function () {

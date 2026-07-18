@@ -6,8 +6,8 @@
  * Aplica a todas las superficies (studio, client, saas)
  */
 
-use App\Http\Controllers\AuthController;
-use App\Http\Controllers\ProjectInvitationController;
+use App\Modules\Auth\Controllers\AuthController;
+use App\Modules\Projects\Controllers\ProjectInvitationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/login', [AuthController::class, 'loginView'])->name('login');

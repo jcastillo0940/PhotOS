@@ -7,10 +7,10 @@
  * Middleware: api.tenant (ResolveApiTenant)
  */
 
-use App\Http\Controllers\Api\V1\InvoiceController;
-use App\Http\Controllers\Api\V1\LeadController;
-use App\Http\Controllers\Api\V1\MeController;
-use App\Http\Controllers\Api\V1\ProjectController;
+use App\Modules\Billing\Controllers\Api\InvoiceController;
+use App\Modules\Leads\Controllers\Api\LeadController;
+use App\Modules\Tenancy\Controllers\Api\MeController;
+use App\Modules\Projects\Controllers\Api\ProjectController;
 use App\Http\Middleware\ResolveApiTenant;
 use Illuminate\Support\Facades\Route;
 
