@@ -19,6 +19,11 @@ class EnforceTenantBillingState
 
     public function handle(Request $request, Closure $next): Response
     {
+        // API requests enforce billing state via ResolveApiTenant middleware.
+        if (str_starts_with(ltrim($request->getPathInfo(), '/'), 'api/')) {
+            return $next($request);
+        }
+
         $tenant = app(TenantContext::class)->tenant();
         $host = strtolower((string) $request->getHost());
         $centralDomains = Arr::wrap(config('saas.central_domains', []));

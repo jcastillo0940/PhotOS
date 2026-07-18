@@ -15,7 +15,9 @@ use App\Models\Lead;
 use App\Models\Project;
 use App\Models\ProjectCollaborator;
 use App\Models\Setting;
+use App\Services\AuditService;
 use App\Services\CrmAutomationService;
+use App\Services\WebhookDispatchService;
 use App\Support\ContractTemplate;
 use App\Support\EventTypeSettings;
 use App\Support\GalleryTemplate;
@@ -32,6 +34,8 @@ class ProjectController extends Controller
 {
     public function __construct(
         private readonly CrmAutomationService $automationService,
+        private readonly AuditService $audit,
+        private readonly WebhookDispatchService $webhooks,
     ) {}
 
     public function index()
@@ -144,7 +148,12 @@ class ProjectController extends Controller
             'selected_sponsors' => [],
         ]);
 
-        $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
+        $project->load('lead', 'client');
+        $this->automationService->runImmediate('project_created', $project);
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('project.created', WebhookDispatchService::projectPayload($project), $tenant);
+        }
 
         return redirect()->route('admin.projects.show', $project, 303);
     }
@@ -205,7 +214,12 @@ class ProjectController extends Controller
         }
 
         $this->generateContract($project);
-        $this->automationService->runImmediate('project_created', $project->load('lead', 'client'));
+        $project->load('lead', 'client');
+        $this->automationService->runImmediate('project_created', $project);
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('project.created', WebhookDispatchService::projectPayload($project), $tenant);
+        }
 
         return redirect()->route('admin.projects.show', $project, 303);
     }
@@ -818,7 +832,10 @@ class ProjectController extends Controller
             ->values()
             ->all();
 
-        $tenantId = $project->tenant_id;
+        $tenantId    = $project->tenant_id;
+        $projectName = $project->name;
+        $projectId   = $project->id;
+        $photosCount = count($photoData);
 
         // Delete all DB records (cascade via DB or explicit)
         $project->photos()->each(fn ($photo) => $photo->unknownDetections()->delete());
@@ -833,6 +850,12 @@ class ProjectController extends Controller
         $project->galleryFavoriteLogs()->delete();
         $project->downloadLogs()->delete();
         $project->delete();
+
+        $this->audit->log('project.deleted', [
+            'project_id'   => $projectId,
+            'project_name' => $projectName,
+            'photos_count' => $photosCount,
+        ]);
 
         // Dispatch background job to clean R2
         if (!empty($photoData) || !empty($identityPaths)) {

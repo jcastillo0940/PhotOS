@@ -17,6 +17,11 @@ class ResolveTenantFromHost
 {
     public function handle(Request $request, Closure $next): Response
     {
+        // API requests resolve their tenant from the Bearer token, not the host.
+        if (str_starts_with(ltrim($request->getPathInfo(), '/'), 'api/')) {
+            return $next($request);
+        }
+
         $context = app(TenantContext::class);
 
         // Detect surface first — must happen before StartSession so the correct

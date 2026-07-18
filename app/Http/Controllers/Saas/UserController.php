@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Saas;
 use App\Http\Controllers\Controller;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\AuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -12,6 +13,7 @@ use Inertia\Inertia;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly AuditService $audit) {}
     public function index()
     {
         return Inertia::render('Admin/Saas/Users/Index', [
@@ -53,13 +55,21 @@ class UserController extends Controller
             }
         }
 
-        User::create([
+        $newUser = User::create([
             'tenant_id' => $validated['tenant_id'],
             'name' => $validated['name'],
             'email' => Str::lower(trim($validated['email'])),
             'password' => Hash::make($validated['password']),
             'role' => $validated['role'],
             'email_verified_at' => now(),
+        ]);
+
+        $this->audit->log('user.created', [
+            'new_user_id'    => $newUser->id,
+            'new_user_name'  => $newUser->name,
+            'new_user_email' => $newUser->email,
+            'role'           => $newUser->role,
+            'tenant_id'      => $newUser->tenant_id,
         ]);
 
         return back()->with('success', 'Usuario creado correctamente.');
@@ -114,6 +124,14 @@ class UserController extends Controller
         if ($user->id === auth()->id()) {
             return back()->with('error', 'No puedes eliminarte a ti mismo.');
         }
+
+        $this->audit->log('user.deleted', [
+            'deleted_user_id'    => $user->id,
+            'deleted_user_name'  => $user->name,
+            'deleted_user_email' => $user->email,
+            'role'               => $user->role,
+            'tenant_id'          => $user->tenant_id,
+        ]);
 
         $user->delete();
 

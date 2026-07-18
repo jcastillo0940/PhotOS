@@ -7,6 +7,9 @@
  * Guards: auth, studio.operator, tenant.admin, tenant.finance, project.access
  */
 
+use App\Http\Controllers\ApiTokenController;
+use App\Http\Controllers\AuditLogController;
+use App\Http\Controllers\WebhookEndpointController;
 use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\ClientAccountingController;
 use App\Http\Controllers\ContractController;
@@ -34,6 +37,24 @@ Route::prefix('admin')->middleware('auth:studio')->group(function () {
     Route::get('/settings', [SettingsController::class, 'index'])->middleware('tenant.admin')->name('admin.settings');
     Route::get('/settings/branding', [SettingsController::class, 'branding'])->middleware('tenant.admin')->name('admin.settings.branding');
     Route::post('/settings/branding', [SettingsController::class, 'updateBranding'])->middleware('tenant.admin')->name('admin.settings.branding.update');
+
+    // Auditoría
+    Route::get('/audit-log', [AuditLogController::class, 'index'])->middleware('tenant.admin')->name('admin.audit-log');
+
+    // Webhooks salientes
+    Route::middleware('tenant.admin')->group(function () {
+        Route::get('/settings/webhooks', [WebhookEndpointController::class, 'index'])->name('admin.settings.webhooks');
+        Route::post('/settings/webhooks', [WebhookEndpointController::class, 'store'])->name('admin.settings.webhooks.store');
+        Route::put('/settings/webhooks/{webhookEndpoint}', [WebhookEndpointController::class, 'update'])->name('admin.settings.webhooks.update');
+        Route::delete('/settings/webhooks/{webhookEndpoint}', [WebhookEndpointController::class, 'destroy'])->name('admin.settings.webhooks.destroy');
+        Route::post('/settings/webhooks/{webhookEndpoint}/regenerate-secret', [WebhookEndpointController::class, 'regenerateSecret'])->name('admin.settings.webhooks.regenerate-secret');
+        Route::get('/settings/webhooks/{webhookEndpoint}/deliveries', [WebhookEndpointController::class, 'deliveries'])->name('admin.settings.webhooks.deliveries');
+    });
+
+    // Tokens de API (owner/operator)
+    Route::get('/settings/api-tokens', [ApiTokenController::class, 'index'])->middleware('tenant.admin')->name('admin.settings.api-tokens');
+    Route::post('/settings/api-tokens', [ApiTokenController::class, 'store'])->middleware('tenant.admin')->name('admin.settings.api-tokens.store');
+    Route::delete('/settings/api-tokens/{tokenId}', [ApiTokenController::class, 'destroy'])->middleware('tenant.admin')->name('admin.settings.api-tokens.destroy');
 
     // Las rutas de integraciones y configuración de plataforma viven en routes/saas.php
     // y solo son accesibles desde saas.misaeldavid.com (developer únicamente).

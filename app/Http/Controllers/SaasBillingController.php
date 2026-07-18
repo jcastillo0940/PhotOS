@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Purchase as GalleryPurchase;
 use App\Models\SaasRegistration;
 use App\Models\Tenant;
+use App\Services\AuditService;
 use App\Services\Billing\PayPalApiService;
 use App\Services\Billing\TenantBillingService;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class SaasBillingController extends Controller
     public function __construct(
         private readonly TenantBillingService $billing,
         private readonly PayPalApiService $paypal,
+        private readonly AuditService $audit,
     ) {}
 
     public function createPayPalSubscription(SaasRegistration $registration)
@@ -71,6 +73,14 @@ class SaasBillingController extends Controller
 
         $this->billing->manualOverride($tenant, $validated);
 
+        $this->audit->log('tenant.billing_override', [
+            'tenant_id'   => $tenant->id,
+            'tenant_name' => $tenant->name,
+            'action'      => $validated['action'],
+            'note'        => $validated['note'] ?? null,
+            'paid_until'  => $validated['paid_until'] ?? null,
+        ]);
+
         return redirect()->back()->with('success', 'Estado de facturacion actualizado para este tenant.');
     }
 
@@ -85,6 +95,13 @@ class SaasBillingController extends Controller
         ]);
 
         $this->billing->recordManualPayment($tenant, $validated);
+
+        $this->audit->log('tenant.payment_recorded', [
+            'tenant_id'   => $tenant->id,
+            'tenant_name' => $tenant->name,
+            'amount'      => $validated['amount'],
+            'reference'   => $validated['reference'] ?? null,
+        ]);
 
         return redirect()->back()->with('success', 'Cobro manual registrado y estado de cuenta actualizado.');
     }

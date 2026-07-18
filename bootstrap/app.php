@@ -15,7 +15,9 @@ use App\Http\Middleware\EnsureTenantAdmin;
 use App\Http\Middleware\EnsureTenantFinance;
 use App\Http\Middleware\EnsureProjectAccess;
 use App\Http\Middleware\GeminiRateLimit;
+use App\Http\Middleware\EnforceTenantBillingState;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\ResolveApiTenant;
 use App\Http\Middleware\ResolveTenantFromHost;
 use App\Http\Middleware\SecurityHeaders;
 
@@ -27,10 +29,14 @@ $app = Application::configure(basePath: dirname(__DIR__))
         then: function () {
             \Illuminate\Support\Facades\Route::middleware('web')
                 ->group(base_path('routes/saas.php'));
+
+            \Illuminate\Support\Facades\Route::middleware('api')
+                ->group(base_path('routes/api.php'));
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
+            'api.tenant'     => ResolveApiTenant::class,
             'developer'      => EnsureDeveloper::class,
             'saas.domain'    => EnsureSaasDomain::class,
             'client.role'    => EnsureClientRole::class,
@@ -49,6 +55,7 @@ $app = Application::configure(basePath: dirname(__DIR__))
             ],
             append: [
                 HandleInertiaRequests::class,
+                EnforceTenantBillingState::class,
                 EnsureTenantSessionMatchesHost::class,
             ],
         );

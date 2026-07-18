@@ -15,3 +15,4 @@ Schedule::command('gemini:backfill-usage-records')->daily()->withoutOverlapping(
 Schedule::command('horizon:snapshot')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('photos:recover-stuck --minutes=10')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('queue:prune-failed --hours=168')->daily()->withoutOverlapping();
+Schedule::command('tenants:reset-monthly-quotas')->dailyAt('00:05')->withoutOverlapping();

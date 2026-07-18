@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Billing\TenantBillingService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,8 +19,10 @@ class HandleInertiaRequests extends Middleware
 
     public function share(Request $request): array
     {
-        $guard = app(TenantContext::class)->guard();
-        $user  = Auth::guard($guard)->user();
+        $context = app(TenantContext::class);
+        $guard   = $context->guard();
+        $user    = Auth::guard($guard)->user();
+        $tenant  = $context->tenant();
 
         return array_merge(parent::share($request), [
             'auth' => [
@@ -38,8 +41,23 @@ class HandleInertiaRequests extends Middleware
                 'error'            => fn () => $request->session()->get('error'),
                 'integration_test' => fn () => $request->session()->get('integration_test'),
             ],
-            // Tells the login form which surface/guard to authenticate against
             'surface' => $guard,
+            'billing' => fn () => $tenant && $user && in_array($guard, ['studio', 'client'], true)
+                ? $this->billingSnapshot($tenant)
+                : null,
         ]);
+    }
+
+    private function billingSnapshot(\App\Models\Tenant $tenant): array
+    {
+        $state = app(TenantBillingService::class)->billingStateFor($tenant);
+
+        return [
+            'status'       => $state['status'],
+            'is_read_only' => $state['is_read_only'],
+            'banner'       => $state['banner'],
+            'grace_ends_at' => $state['grace_ends_at'],
+            'expires_at'   => $state['expires_at'],
+        ];
     }
 }

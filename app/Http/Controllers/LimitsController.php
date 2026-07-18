@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Project;
+use App\Models\User;
 use App\Support\Tenancy\TenantContext;
 use Inertia\Inertia;
 
@@ -23,6 +25,10 @@ class LimitsController extends Controller
         $aiRemaining = $photosLimit === null ? null : max(0, (int) $photosLimit - $aiUsed);
         $storageUsedBytes = $tenant?->calculateCurrentStorageUsage() ?? 0;
         $storageLimitBytes = $tenant?->storageLimitBytes();
+        $projectsCount = Project::count();
+        $projectsLimit = $tenant?->featureLimit('projects_limit');
+        $staffCount = User::whereIn('role', ['owner', 'operator', 'photographer'])->count();
+        $staffLimit = $tenant?->featureLimit('staff_limit');
 
         return Inertia::render('Admin/Limits/Index', [
             'tenant' => $tenant ? [
@@ -62,6 +68,10 @@ class LimitsController extends Controller
                 'storage_used_gb' => round($storageUsedBytes / 1073741824, 2),
                 'storage_limit_gb' => $storageLimitBytes ? round($storageLimitBytes / 1073741824, 2) : null,
                 'resets_at' => optional($tenant?->ai_scans_reset_at)?->toIso8601String(),
+                'projects_count' => $projectsCount,
+                'projects_limit' => $projectsLimit === null ? null : (int) $projectsLimit,
+                'staff_count' => $staffCount,
+                'staff_limit' => $staffLimit === null ? null : (int) $staffLimit,
             ],
         ]);
     }

@@ -11,6 +11,8 @@ use App\Support\CalendarAvailability;
 use App\Support\EventTypeSettings;
 use App\Support\LeadBriefingTemplate;
 use App\Services\CrmAutomationService;
+use App\Services\WebhookDispatchService;
+use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -20,6 +22,7 @@ class LeadController extends Controller
 {
     public function __construct(
         private readonly CrmAutomationService $automationService,
+        private readonly WebhookDispatchService $webhooks,
     ) {}
 
     public function create()
@@ -131,6 +134,11 @@ class LeadController extends Controller
         ]);
 
         $this->automationService->runImmediate('lead_created', $lead);
+
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('lead.created', WebhookDispatchService::leadPayload($lead), $tenant);
+        }
 
         if ($request->routeIs('admin.leads.store')) {
             return redirect()->route('admin.leads.show', $lead)->with('success', 'Lead creado correctamente.');

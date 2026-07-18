@@ -7,7 +7,10 @@ use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Project;
 use App\Models\Setting;
+use App\Services\AuditService;
 use App\Services\Billing\AccountStatementService;
+use App\Services\WebhookDispatchService;
+use App\Support\Tenancy\TenantContext;
 use App\Services\Billing\AlanubeService;
 use Illuminate\Http\Request;
 
@@ -16,6 +19,8 @@ class InvoiceController extends Controller
     public function __construct(
         private readonly AccountStatementService $statementService,
         private readonly AlanubeService $alanubeService,
+        private readonly AuditService $audit,
+        private readonly WebhookDispatchService $webhooks,
     ) {}
 
     public function store(Request $request, Project $project)
@@ -60,6 +65,18 @@ class InvoiceController extends Controller
 
         $this->statementService->recordInvoice($invoice);
 
+        $this->audit->log('invoice.created', [
+            'invoice_number' => $invoice->invoice_number,
+            'total'          => $invoice->total,
+            'project_id'     => $project->id,
+            'project_name'   => $project->name,
+        ], $invoice);
+
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('invoice.created', WebhookDispatchService::invoicePayload($invoice->load('project', 'client')), $tenant);
+        }
+
         return redirect()->back()->with('success', 'Invoice generated successfully.');
     }
 
@@ -81,6 +98,17 @@ class InvoiceController extends Controller
         ]);
 
         $this->statementService->recordPayment($payment);
+
+        $this->audit->log('invoice.paid', [
+            'invoice_number' => $invoice->invoice_number,
+            'amount'         => $payment->amount,
+        ], $invoice, $invoice->invoice_number);
+
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('invoice.paid', WebhookDispatchService::invoicePayload($invoice->fresh()->load('project', 'client')), $tenant);
+        }
+
         return redirect()->back()->with('success', 'Payment recorded.');
     }
 

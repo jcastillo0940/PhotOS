@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\InvoiceController;
+use App\Http\Controllers\Saas\AuditLogController as SaasAuditLogController;
 use App\Http\Controllers\Saas\CostController;
 use App\Http\Controllers\Saas\PaymentController as SaasPaymentController;
 use App\Http\Controllers\Saas\PlanController;
@@ -35,6 +36,9 @@ Route::middleware(['auth:saas', 'developer', 'saas.domain'])->group(function () 
     Route::post('/tenants/{tenant}/billing/manual-payment', [SaasBillingController::class, 'recordManualPayment'])->name('saas.tenants.billing.manual-payment');
     Route::post('/tenants/{tenant}/billing/discount', [SaasBillingController::class, 'applyDiscount'])->name('saas.tenants.billing.discount');
     Route::post('/tenants/{tenant}/billing/setup-token', [SaasBillingController::class, 'createSetupToken'])->name('saas.tenants.billing.setup-token');
+
+    // Auditoría global
+    Route::get('/audit-log', [SaasAuditLogController::class, 'index'])->name('saas.audit-log');
 
     // Usuarios de la plataforma
     Route::get('/users', [UserController::class, 'index'])->name('saas.users.index');

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
 import {
+    AlertTriangle,
     Bell,
     Bot,
     CalendarRange,
@@ -10,14 +11,17 @@ import {
     FolderKanban,
     Gauge,
     Globe2,
+    KeyRound,
     LayoutDashboard,
     LogOut,
     Menu,
     PanelLeftClose,
     PanelLeftOpen,
     Settings2,
+    ShieldCheck,
     Target,
     ScanFace,
+    Webhook,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -59,8 +63,11 @@ function getSections(userRole) {
                 { href: '/admin/automations', icon: Bot, label: 'Automatizaciones', match: ['/admin/automations'] },
                 { href: '/admin/limits', icon: Gauge, label: 'Limites', match: ['/admin/limits'] },
                 { href: '/admin/subscription', icon: CreditCard, label: 'Suscripcion', match: ['/admin/subscription'] },
+                { href: '/admin/audit-log', icon: ShieldCheck, label: 'Auditoria', match: ['/admin/audit-log'] },
                 { href: '/admin/settings', icon: Settings2, label: 'Branding', match: ['/admin/settings'] },
-            ].filter((item) => isTenantAdmin || item.href !== '/admin/settings'),
+                { href: '/admin/settings/api-tokens', icon: KeyRound, label: 'API Tokens', match: ['/admin/settings/api-tokens'] },
+                { href: '/admin/settings/webhooks', icon: Webhook, label: 'Webhooks', match: ['/admin/settings/webhooks'] },
+            ].filter((item) => isTenantAdmin || ![ '/admin/settings', '/admin/settings/api-tokens', '/admin/audit-log', '/admin/settings/webhooks' ].includes(item.href)),
         },
     ];
 }
@@ -78,6 +85,9 @@ function getPageTitles(userRole) {
         { match: ['/admin/limits'], title: 'Limites y consumo', description: 'Monitorea uso y restricciones operativas del plan.' },
         { match: ['/admin/subscription'], title: 'Suscripcion y pagos', description: 'Plan activo, dias restantes, comprobantes y cambios de plan.' },
         { match: ['/admin/settings'], title: 'Branding del estudio', description: 'Nombre, logo, favicon y elementos visuales del estudio.' },
+        { match: ['/admin/settings/api-tokens'], title: 'Tokens de API', description: 'Genera y revoca tokens para conectar integraciones externas.' },
+        { match: ['/admin/audit-log'], title: 'Auditoria', description: 'Registro inmutable de acciones criticas del estudio.' },
+        { match: ['/admin/settings/webhooks'], title: 'Webhooks', description: 'Endpoints salientes con firma HMAC para integraciones externas.' },
     ];
 }
 
@@ -109,10 +119,40 @@ function NavLink({ href, icon: Icon, label, active, compact, onNavigate }) {
     );
 }
 
+function BillingBanner({ billing }) {
+    if (!billing?.banner) return null;
+
+    const isBlocked = ['blocked', 'suspended', 'force_suspended'].includes(billing.status);
+
+    return (
+        <div className={clsx(
+            'flex items-center gap-3 px-4 py-2.5 text-sm font-medium',
+            isBlocked
+                ? 'bg-red-600 text-white'
+                : 'bg-amber-50 border-b border-amber-200 text-amber-800'
+        )}>
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            <span className="flex-1">{billing.banner}</span>
+            <Link
+                href="/admin/subscription"
+                className={clsx(
+                    'rounded-md px-3 py-1 text-xs font-bold transition-colors whitespace-nowrap',
+                    isBlocked
+                        ? 'bg-white/20 hover:bg-white/30 text-white'
+                        : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                )}
+            >
+                Ver suscripcion
+            </Link>
+        </div>
+    );
+}
+
 export default function AdminLayout({ children }) {
     const { url, props } = usePage();
     const user = props.auth?.user;
     const branding = props.branding || {};
+    const billing = props.billing;
     const [compact, setCompact] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
 
@@ -209,6 +249,7 @@ export default function AdminLayout({ children }) {
             )}
 
             <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                <BillingBanner billing={billing} />
                 <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 md:px-8 flex-shrink-0 shadow-sm z-20">
                     <div className="flex items-center gap-4">
                         <button

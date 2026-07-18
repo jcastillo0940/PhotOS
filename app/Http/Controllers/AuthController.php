@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Services\AuditService;
 use App\Support\Tenancy\TenantContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +18,8 @@ class AuthController extends Controller
 {
     private const MAX_ATTEMPTS = 5;
     private const DECAY_SECONDS = 900;
+
+    public function __construct(private readonly AuditService $audit) {}
 
     /**
      * Guards that each role is permitted to authenticate against.
@@ -86,6 +89,9 @@ class AuthController extends Controller
             $allowed = self::ROLE_GUARD_MAP[$guard] ?? [];
             if (! in_array($user->role, $allowed, true)) {
                 RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+                $this->audit->logAs('auth.login_failed', ['id' => $user->id, 'name' => $user->name, 'email' => $user->email], $user->tenant_id, [
+                    'reason' => 'role_mismatch', 'role' => $user->role, 'guard' => $guard,
+                ]);
                 throw ValidationException::withMessages([
                     'auth' => $this->guardMismatchMessage($user->role, $guard),
                 ]);
@@ -97,6 +103,9 @@ class AuthController extends Controller
                 && ! $user->hasActiveProjectAccessForTenant((int) $tenantId)
             ) {
                 RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+                $this->audit->logAs('auth.login_failed', ['id' => $user->id, 'name' => $user->name, 'email' => $user->email], $user->tenant_id, [
+                    'reason' => 'tenant_mismatch',
+                ]);
                 throw ValidationException::withMessages([
                     'auth' => 'Acceso denegado a este dominio.',
                 ]);
@@ -106,10 +115,17 @@ class AuthController extends Controller
             Auth::guard($guard)->login($user, (bool) ($credentials['remember'] ?? false));
             $request->session()->regenerate();
 
+            $this->audit->logAs('auth.login_success', ['id' => $user->id, 'name' => $user->name, 'email' => $user->email], $user->tenant_id, [
+                'guard' => $guard,
+            ]);
+
             return redirect()->intended($this->defaultRedirectForUser($user));
         }
 
         RateLimiter::hit($throttleKey, self::DECAY_SECONDS);
+        $this->audit->logAs('auth.login_failed', ['id' => null, 'name' => '', 'email' => $email], $tenantId, [
+            'reason' => 'invalid_credentials',
+        ]);
 
         throw ValidationException::withMessages([
             'auth' => 'Credenciales invalidas para este dominio.',
@@ -119,6 +135,7 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         $guard = app(TenantContext::class)->guard();
+        $this->audit->log('auth.logout', ['guard' => $guard]);
         Auth::guard($guard)->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
