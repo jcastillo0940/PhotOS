@@ -3,7 +3,7 @@ import { Link, useForm, usePage } from '@inertiajs/react';
 import AvailabilityCalendar from '@/Components/AvailabilityCalendar';
 import SeoHead from '@/Components/SeoHead';
 import { buildSlots } from '@/lib/availability';
-import { ArrowRight, Camera, Grip, Mail, MapPin, Menu, MessageSquare, Phone, Star, Trophy, Zap } from 'lucide-react';
+import { ArrowRight, Camera, CircleUserRound, Grip, Mail, MapPin, Menu, MessageSquare, Phone, Star, Trophy, Zap } from 'lucide-react';
 
 const sectionLabels = {
     hero: 'Inicio',
@@ -27,6 +27,25 @@ const defaultTheme = {
         accent_soft: '#f4eadf',
     },
 };
+
+function InstagramMark({ className = '' }) {
+    return (
+        <svg
+            aria-hidden="true"
+            className={className}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+            <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37Z" />
+            <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+        </svg>
+    );
+}
 
 const scrollToTarget = (target) => {
     if (!target?.startsWith('#')) {
@@ -1400,6 +1419,7 @@ Home.layout = (page) => page;
 
 const MA_ASSET_BASE = '/images/misael';
 const MA_LOGO = `${MA_ASSET_BASE}/misael-david-photography.png`;
+const MA_LOGO_BLACK = `${MA_ASSET_BASE}/misael-david-photography-black.png`;
 const MA_PROFILE_IMAGE = `${MA_ASSET_BASE}/misael-atencio.webp`;
 
 const MA_SPECIALTIES = [
@@ -1447,7 +1467,7 @@ function MisaelSignatureHome({
     const { flash } = usePage().props;
     const [scrolled, setScrolled] = React.useState(false);
     const [mobileOpen, setMobileOpen] = React.useState(false);
-    const accent = palette.accent || '#e8ff00';
+    const accent = '#ffffff';
 
     React.useEffect(() => {
         const onScroll = () => setScrolled(window.scrollY > 60);
@@ -1586,99 +1606,138 @@ function MisaelSignatureHome({
 
             {/* ── STICKY NAV ── */}
             <header
-                className="fixed top-0 inset-x-0 z-50 transition-all duration-500"
-                style={{
-                    backgroundColor: scrolled ? 'rgba(8,8,8,0.96)' : 'transparent',
-                    backdropFilter: scrolled ? 'blur(20px)' : 'none',
-                    borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none',
-                }}
+                className="fixed inset-x-0 top-0 z-50 border-b border-black/10 bg-white text-black transition-shadow duration-300"
+                style={{ boxShadow: scrolled ? '0 12px 36px rgba(0,0,0,.08)' : 'none' }}
             >
-                <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 md:px-10">
+                <div className="mx-auto flex h-20 max-w-[1320px] items-center justify-between px-5 md:h-24 md:px-10">
                     <a href="/" aria-label="Misael David Photography" className="flex items-center">
                         <img
-                            src={MA_LOGO}
+                            src={MA_LOGO_BLACK}
                             alt="Logotipo de Misael David Photography"
-                            className="h-12 w-[210px] object-contain object-left md:h-14 md:w-[260px]"
+                            className="h-10 w-[172px] object-contain object-left md:h-12 md:w-[220px]"
                         />
                     </a>
-                    <nav className="hidden items-center gap-8 md:flex">
-                        {navItems.map((s) => (
+
+                    <nav className="hidden items-center gap-8 lg:flex xl:gap-11">
+                        {[
+                            { label: 'Portafolio', target: '#gallery' },
+                            { label: 'Especialidades', target: '#specialties' },
+                            { label: 'Sobre mí', target: '#about' },
+                            { label: 'Contacto', target: '#contact' },
+                        ].map((item) => (
                             <button
-                                key={s}
-                                onClick={() => scrollToTarget(`#${s}`)}
-                                className="nav-link text-[10px] font-semibold uppercase tracking-widest text-white/50 hover:text-white transition-colors"
+                                key={item.target}
+                                type="button"
+                                onClick={() => scrollToTarget(item.target)}
+                                className="nav-link text-[13px] font-medium tracking-wide text-black/70 transition-colors hover:text-black"
                             >
-                                {sectionLabels[s] || s}
+                                {item.label}
                             </button>
                         ))}
-                        <button
-                            onClick={() => scrollToTarget('#contact')}
-                            className="ml-3 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
-                            style={{ backgroundColor: accent, color: '#080808' }}
+                        <Link
+                            href="/login?s=studio"
+                            className="inline-flex items-center gap-2 text-[13px] font-medium tracking-wide text-black/65 transition-colors hover:text-black"
                         >
-                            Reservar sesión
-                        </button>
+                            <CircleUserRound className="h-5 w-5" />
+                            Acceso
+                        </Link>
+                        <a
+                            href="https://instagram.com/misaeldavidph"
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="Instagram de Misael David"
+                            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/15 transition hover:bg-black hover:text-white"
+                        >
+                            <InstagramMark className="h-5 w-5" />
+                        </a>
                     </nav>
-                    <button className="md:hidden text-white/60 hover:text-white transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
+
+                    <button
+                        type="button"
+                        aria-label={mobileOpen ? 'Cerrar menú' : 'Abrir menú'}
+                        aria-expanded={mobileOpen}
+                        className="inline-flex h-11 w-11 items-center justify-center border border-black/15 text-black lg:hidden"
+                        onClick={() => setMobileOpen(!mobileOpen)}
+                    >
                         <Menu className="h-5 w-5" />
                     </button>
                 </div>
+
                 {mobileOpen && (
-                    <div className="md:hidden border-t border-white/8 bg-black/97 px-6 py-6 flex flex-col gap-5">
-                        {[...navItems, 'contact'].map((s) => (
-                            <button
-                                key={s}
-                                onClick={() => { scrollToTarget(`#${s}`); setMobileOpen(false); }}
-                                className="text-left text-sm font-semibold uppercase tracking-widest text-white/55 hover:text-white transition-colors"
-                            >
-                                {sectionLabels[s] || s}
-                            </button>
-                        ))}
+                    <div className="border-t border-black/10 bg-white px-5 py-6 lg:hidden">
+                        <div className="mx-auto flex max-w-[1320px] flex-col">
+                            {[
+                                { label: 'Portafolio', target: '#gallery' },
+                                { label: 'Especialidades', target: '#specialties' },
+                                { label: 'Sobre mí', target: '#about' },
+                                { label: 'Contacto', target: '#contact' },
+                            ].map((item) => (
+                                <button
+                                    key={item.target}
+                                    type="button"
+                                    onClick={() => { scrollToTarget(item.target); setMobileOpen(false); }}
+                                    className="border-b border-black/10 py-4 text-left text-sm font-medium text-black"
+                                >
+                                    {item.label}
+                                </button>
+                            ))}
+                            <div className="flex items-center justify-between pt-5">
+                                <Link href="/login?s=studio" className="inline-flex items-center gap-2 text-sm font-medium text-black">
+                                    <CircleUserRound className="h-5 w-5" /> Acceso
+                                </Link>
+                                <a href="https://instagram.com/misaeldavidph" target="_blank" rel="noreferrer" aria-label="Instagram de Misael David">
+                                    <InstagramMark className="h-6 w-6" />
+                                </a>
+                            </div>
+                        </div>
                     </div>
                 )}
             </header>
 
             {/* ── HERO ── */}
-            <section id="hero" className="relative flex h-screen min-h-[680px] items-end overflow-hidden">
-                <MaHeroSlideshow images={heroImages} brandName={homepage.brand?.name || 'Misael David'} />
-                <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 30%, rgba(8,8,8,0.65) 65%, #080808 100%)' }} />
-                <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to right, rgba(8,8,8,0.52) 0%, transparent 60%)' }} />
-
-                <div className="relative z-20 mx-auto w-full max-w-7xl px-6 pb-28 md:px-10 md:pb-40">
-                    <p className="ma-hero-1 mb-5 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
-                        <span className="inline-block h-px w-7" style={{ backgroundColor: accent }} />
-                        Misael Atencio · Panamá
-                    </p>
-                    <h1
-                        className="ma-hero-2 mb-7 max-w-4xl uppercase text-white"
-                        style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(3.8rem, 11vw, 9rem)', lineHeight: '.93', letterSpacing: '-0.025em' }}
-                    >
-                        El instante no espera.
-                    </h1>
-                    <p className="ma-hero-3 mb-12 max-w-sm text-base leading-relaxed text-white/45 md:text-lg">
-                        Fotografía de alto impacto para deportes, artistas, marcas, eventos y proyectos comerciales.
-                    </p>
-                    <div className="ma-hero-4 flex flex-wrap gap-3">
-                        <button
-                            onClick={() => scrollToTarget('#gallery')}
-                            className="inline-flex items-center gap-2 px-8 py-4 text-[11px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
-                            style={{ backgroundColor: accent, color: '#080808' }}
-                        >
-                            Ver portafolio <ArrowRight className="h-4 w-4" />
-                        </button>
-                        <button
-                            onClick={() => scrollToTarget('#contact')}
-                            className="inline-flex items-center gap-2 border border-white/22 px-8 py-4 text-[11px] font-medium text-white/65 backdrop-blur-sm transition hover:bg-white/6 hover:border-white/40"
-                        >
-                            Cuéntame tu proyecto
-                        </button>
+            <section id="hero" className="bg-white pt-20 md:pt-24">
+                <div className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-[1600px] bg-black md:min-h-[calc(100svh-6rem)] md:grid-cols-[40%_60%]">
+                    <div className="order-2 flex min-h-[440px] items-center justify-center bg-black px-8 py-16 text-white md:order-1 md:min-h-0 md:px-12 lg:px-16 xl:px-24">
+                        <div className="w-full max-w-md text-center">
+                            <div className="ma-hero-1 mx-auto mb-10 flex max-w-[290px] items-center justify-center border border-white/70 px-5 py-8 md:mb-12 md:px-7 md:py-10">
+                                <img
+                                    src={MA_LOGO}
+                                    alt="Misael David Photography"
+                                    className="h-auto w-full object-contain"
+                                />
+                            </div>
+                            <p className="ma-hero-2 text-sm font-light uppercase tracking-[0.14em] text-white md:text-base">
+                                Fotógrafo y creador visual con sede en Panamá
+                            </p>
+                            <div className="ma-hero-3 mt-10 flex flex-col items-stretch justify-center gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    onClick={() => scrollToTarget('#gallery')}
+                                    className="inline-flex items-center justify-center gap-2 border border-white bg-white px-7 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-black transition hover:bg-black hover:text-white"
+                                >
+                                    Portafolio <ArrowRight className="h-4 w-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => scrollToTarget('#contact')}
+                                    className="inline-flex items-center justify-center border border-white/60 px-7 py-3.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white transition hover:border-white hover:bg-white hover:text-black"
+                                >
+                                    Contacto
+                                </button>
+                            </div>
+                            <p className="ma-hero-4 mt-10 text-[9px] uppercase tracking-[0.32em] text-white/35">
+                                Deportes · Artistas · Retratos · Eventos
+                            </p>
+                        </div>
                     </div>
-                </div>
 
-                <div className="ma-hero-scroll absolute bottom-8 right-8 md:right-12 z-20 flex flex-col items-center gap-2">
-                    <span className="text-[9px] uppercase tracking-[0.22em] text-white/25" style={{ writingMode: 'vertical-rl' }}>Desliza</span>
-                    <div className="h-14 w-px bg-white/12 relative overflow-hidden">
-                        <div className="absolute inset-x-0 top-0 h-full animate-[slideDown_2.2s_ease-in-out_infinite]" style={{ background: `linear-gradient(to bottom, transparent, ${accent})` }} />
+                    <div className="relative order-1 min-h-[58svh] overflow-hidden bg-[#111] md:order-2 md:min-h-0">
+                        <MaHeroSlideshow images={heroImages} brandName={homepage.brand?.name || 'Misael David'} />
+                        <div className="pointer-events-none absolute inset-0 z-10 bg-gradient-to-t from-black/25 via-transparent to-black/5" />
+                        <div className="pointer-events-none absolute bottom-5 left-5 z-20 flex items-center gap-3 text-[9px] uppercase tracking-[0.3em] text-white/70 md:bottom-8 md:left-8">
+                            <span className="h-px w-8 bg-white/70" />
+                            Fotografía en movimiento
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1729,6 +1788,7 @@ function MisaelSignatureHome({
 
             {/* ── SPECIALTIES — numbered editorial list ── */}
             <section
+                id="specialties"
                 className="py-24 md:py-36"
                 style={{ backgroundColor: '#080808', '--ma-accent': accent }}
             >
