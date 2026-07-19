@@ -61,7 +61,21 @@ export default function AvailabilityCalendar({
         [value, busyEvents, businessHours, availabilitySettings],
     );
 
-    const palette = tone === 'public'
+    const palette = tone === 'dark'
+        ? {
+            field: 'border-white/10 bg-white/[0.04] text-white',
+            fieldIcon: 'text-white/45',
+            active: 'bg-white text-black',
+            disabled: 'text-white/15 bg-transparent',
+            available: 'text-white/75 hover:border-white/35 hover:bg-white/10',
+            label: 'text-white/45',
+            current: 'border-white/35',
+            icon: 'text-white/55 hover:border-white/15 hover:bg-white/10',
+            title: 'text-white',
+            helper: 'text-white/35',
+            panel: 'border-white/10 bg-[#111] shadow-[0_22px_60px_rgba(0,0,0,.45)]',
+        }
+        : tone === 'public'
         ? {
             field: 'border-[#e6dbcf] bg-[#faf6f1] text-[#241b16]',
             fieldIcon: 'text-[#8b6d54]',
@@ -180,7 +194,7 @@ export default function AvailabilityCalendar({
             )}
 
             {helperText && <p className={clsx('text-xs', palette.helper)}>{helperText}</p>}
-            {value && selectedSlots.length === 0 && <p className="text-sm text-amber-600">Ese dia ya no tiene horas disponibles. Elige otra fecha.</p>}
+            {value && selectedSlots.length === 0 && <p className="text-sm text-amber-600">Ese día ya no tiene horas disponibles. Elige otra fecha.</p>}
             {error && <p className="text-xs text-rose-600">{error}</p>}
         </div>
     );

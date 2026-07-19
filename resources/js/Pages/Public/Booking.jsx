@@ -16,12 +16,19 @@ const defaultTheme = {
     },
 };
 
+const bookingStatusLabel = (status) => ({
+    pending: 'Pendiente',
+    confirmed: 'Confirmada',
+    completed: 'Completada',
+    cancelled: 'Cancelada',
+}[status] || status);
+
 export default function Booking({ homepage, theme = defaultTheme, seo = null, events = [] }) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
         phone: '',
-        event_type: 'Portrait',
+        event_type: 'Retratos',
         start: '',
         end: '',
         message: '',
@@ -36,13 +43,13 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
 
     return (
         <div className="min-h-screen px-6 py-10 md:px-10" style={{ backgroundColor: palette.surface, color: palette.text }}>
-            <SeoHead seo={seo} fallbackTitle={`Booking | ${homepage?.brand?.name || 'Studio'}`} fallbackDescription={homepage?.brand?.tagline} />
+            <SeoHead seo={seo} fallbackTitle={`Reservas | ${homepage?.brand?.name || 'Estudio'}`} fallbackDescription={homepage?.brand?.tagline} />
 
             <div className="mx-auto mb-8 flex max-w-7xl items-center justify-between gap-4">
                 <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>{homepage?.brand?.name || 'Studio'}</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>{homepage?.brand?.name || 'Estudio'}</p>
                     <h1 className="mt-3 text-3xl md:text-4xl" style={{ fontFamily: headingFont }}>
-                        Reserva una sesion con la identidad de tu estudio
+                        Reserva una sesión con la identidad de tu estudio
                     </h1>
                 </div>
                 <Link
@@ -57,12 +64,12 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
 
             <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[1.1fr_.9fr]">
                 <section className="rounded-[2rem] bg-white p-8 shadow-sm">
-                    <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>Booking</p>
+                    <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>Reservas</p>
                     <h2 className="mt-4 text-4xl font-semibold leading-tight" style={{ fontFamily: headingFont }}>
-                        Reserva una sesion sin bloquear el horario hasta confirmar
+                        Reserva una sesión sin bloquear el horario hasta confirmar
                     </h2>
                     <p className="mt-4 max-w-2xl text-sm leading-7" style={{ color: palette.muted }}>
-                        El horario que elijas queda como pendiente. Solo se bloquea cuando el estudio confirma la sesion o el pago.
+                        El horario que elijas queda como pendiente. Solo se bloquea cuando el estudio confirma la sesión o el pago.
                     </p>
 
                     <form onSubmit={submit} className="mt-8 space-y-5">
@@ -71,8 +78,8 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
                             <Field label="Email" type="email" value={data.email} onChange={(value) => setData('email', value)} error={errors.email} palette={palette} />
                         </div>
                         <div className="grid gap-5 md:grid-cols-2">
-                            <Field label="Telefono" value={data.phone} onChange={(value) => setData('phone', value)} error={errors.phone} palette={palette} />
-                            <Field label="Tipo de sesion" value={data.event_type} onChange={(value) => setData('event_type', value)} error={errors.event_type} palette={palette} />
+                            <Field label="Teléfono" value={data.phone} onChange={(value) => setData('phone', value)} error={errors.phone} palette={palette} />
+                            <Field label="Tipo de sesión" value={data.event_type} onChange={(value) => setData('event_type', value)} error={errors.event_type} palette={palette} />
                         </div>
                         <div className="grid gap-5 md:grid-cols-2">
                             <Field label="Inicio" type="datetime-local" value={data.start} onChange={(value) => setData('start', value)} error={errors.start} palette={palette} />
@@ -86,7 +93,7 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
                                 rows={5}
                                 className="w-full rounded-[1.5rem] border px-4 py-4 text-sm outline-none"
                                 style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt }}
-                                placeholder="Cuentanos el tipo de sesion, locacion o idea general."
+                                placeholder="Cuéntanos el tipo de sesión, ubicación o idea general."
                             />
                             {errors.message && <p className="text-sm text-rose-600">{errors.message}</p>}
                         </div>
@@ -108,7 +115,7 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
                             <p className="text-xs uppercase tracking-[0.28em] text-white/70">Estado de reserva</p>
                         </div>
                         <p className="mt-4 text-sm leading-7 text-white/80">
-                            Todas las solicitudes del formulario entran en estado pendiente. No se bloquea el calendario publico hasta que el estudio confirme.
+                            Todas las solicitudes del formulario entran en estado pendiente. No se bloquea el calendario público hasta que el estudio confirme.
                         </p>
                     </article>
 
@@ -120,19 +127,19 @@ export default function Booking({ homepage, theme = defaultTheme, seo = null, ev
                         <div className="mt-6 space-y-4">
                             {events.length > 0 ? events.map((event) => (
                                 <div key={event.id} className="rounded-[1.4rem] border px-4 py-4" style={{ borderColor: palette.accent_soft, backgroundColor: palette.surface_alt }}>
-                                    <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>{event.status}</p>
+                                    <p className="text-xs font-semibold uppercase tracking-[0.2em]" style={{ color: palette.accent }}>{bookingStatusLabel(event.status)}</p>
                                     <p className="mt-1 font-semibold">{event.title}</p>
                                     <p className="mt-1 text-sm" style={{ color: palette.muted }}>
-                                        {new Date(event.start).toLocaleString()} - {new Date(event.end).toLocaleTimeString()}
+                                        {new Date(event.start).toLocaleString('es-PA')} - {new Date(event.end).toLocaleTimeString('es-PA')}
                                     </p>
                                 </div>
                             )) : (
-                                <p className="text-sm" style={{ color: palette.muted }}>Aun no hay sesiones confirmadas en el rango visible.</p>
+                                <p className="text-sm" style={{ color: palette.muted }}>Aún no hay sesiones confirmadas en el rango visible.</p>
                             )}
                         </div>
                         <div className="mt-6 flex items-start gap-3 rounded-[1.3rem] border border-dashed px-4 py-4 text-sm" style={{ borderColor: palette.accent_soft, color: palette.muted }}>
                             <Clock3 className="mt-0.5 h-4 w-4" style={{ color: palette.accent }} />
-                            <p>Si ves un horario libre aqui, aun puede solicitarse. La confirmacion final se hace manualmente.</p>
+                            <p>Si ves un horario libre aquí, aún puede solicitarse. La confirmación final se hace manualmente.</p>
                         </div>
                     </article>
                 </section>

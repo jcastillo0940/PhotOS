@@ -6,11 +6,11 @@ import { buildSlots } from '@/lib/availability';
 import { ArrowRight, Camera, Grip, Mail, MapPin, Menu, MessageSquare, Phone, Star, Trophy, Zap } from 'lucide-react';
 
 const sectionLabels = {
-    hero: 'Home',
-    about: 'About',
-    gallery: 'Gallery',
-    featured: 'Featured',
-    contact: 'Contact',
+    hero: 'Inicio',
+    about: 'Sobre mí',
+    gallery: 'Portafolio',
+    featured: 'Destacados',
+    contact: 'Contacto',
 };
 
 const defaultTheme = {
@@ -230,13 +230,13 @@ export default function Home({
                                 <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background={palette.accent_soft} color={palette.text} />
                                 <OutlineHeroButton label={homepage.hero.secondary_cta_label} onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)} />
                                 <LinkButton href="/portfolio" label="Portafolio" background={palette.accent} />
-                                <OutlineLinkButton href="/booking" label="Reservar sesion" />
+                                <OutlineLinkButton href="/booking" label="Reservar sesión" />
                             </div>
                         </Reveal>
 
                         <Reveal delay={120} className="self-end rounded-[2rem] border border-white/14 bg-white/8 p-6 text-white/82 backdrop-blur transition duration-500 hover:-translate-y-2 hover:bg-white/12">
                             <div className="flex items-center justify-between border-b border-white/14 pb-5">
-                                <p className="text-xs uppercase tracking-[0.32em]">Studio note</p>
+                                <p className="text-xs uppercase tracking-[0.32em]">Nota del estudio</p>
                                 <Camera className="h-4 w-4" />
                             </div>
                             <p className="mt-6 text-3xl leading-tight text-white" style={{ fontFamily: fonts.heading }}>
@@ -271,7 +271,7 @@ export default function Home({
                             </div>
                         </div>
                         <div className="overflow-hidden rounded-[2.4rem] shadow-[0_30px_60px_rgba(60,40,24,.12)]" style={{ backgroundColor: palette.accent_soft }}>
-                            <img src={homepage.about.image_url} alt="Photographer portrait" className="h-full min-h-[420px] w-full object-cover" />
+                            <img src={homepage.about.image_url} alt="Retrato del fotógrafo" className="h-full min-h-[420px] w-full object-cover" />
                         </div>
                     </div>
                 </div>
@@ -330,7 +330,7 @@ export default function Home({
                         </div>
                     ) : (
                         <div className="rounded-[2rem] border border-dashed px-8 py-16 text-center" style={{ borderColor: palette.accent_soft, color: palette.muted }}>
-                            No portfolio images have been selected yet. Mark photos from the admin panel to publish them on the website.
+                            Aún no hay imágenes seleccionadas para el portafolio. Marca fotografías desde el panel de administración para publicarlas en el sitio.
                         </div>
                     )}
                 </div>
@@ -354,7 +354,7 @@ export default function Home({
                             >
                                 <img src={item.image_url} alt={item.title} className="h-80 w-full object-cover" />
                                 <div className="space-y-4 p-7">
-                                    <p className="text-[11px] uppercase tracking-[0.32em]" style={{ color: palette.accent }}>Featured</p>
+                                    <p className="text-[11px] uppercase tracking-[0.32em]" style={{ color: palette.accent }}>Destacado</p>
                                     <h3 className="text-3xl leading-tight" style={{ fontFamily: fonts.heading }}>{item.title}</h3>
                                     <p className="text-sm leading-7 text-white/68">{item.category}</p>
                                     <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-white">
@@ -407,11 +407,11 @@ export default function Home({
                             </div>
                             <div className="grid gap-5 md:grid-cols-2">
                                 <Field label="Phone" icon={Phone} value={data.phone} error={errors.phone} onChange={(value) => setData('phone', value)} placeholder="+506 0000 0000" palette={palette} />
-                                <SelectField label="Project type" value={data.event_type} error={errors.event_type} onChange={(value) => setData('event_type', value)} options={eventTypes} palette={palette} />
+                                <SelectField label="Tipo de proyecto" value={data.event_type} error={errors.event_type} onChange={(value) => setData('event_type', value)} options={eventTypes} palette={palette} />
                             </div>
                             <div className="grid gap-5 md:grid-cols-[1.15fr_.85fr]">
                                 <AvailabilityCalendar
-                                    label="Tentative date"
+                                    label="Fecha tentativa"
                                     value={data.tentative_date}
                                     onChange={(value) => setData('tentative_date', value)}
                                     error={errors.tentative_date}
@@ -422,12 +422,12 @@ export default function Home({
                                     tone="public"
                                 />
                                 <SelectField
-                                    label="Available time"
+                                    label="Hora disponible"
                                     value={data.tentative_time}
                                     error={errors.tentative_time}
                                     onChange={(value) => setData('tentative_time', value)}
                                     options={availableSlots}
-                                    placeholder={data.tentative_date ? 'Select an available time' : 'Select a date first'}
+                                    placeholder={data.tentative_date ? 'Selecciona una hora disponible' : 'Selecciona primero una fecha'}
                                     disabled={!data.tentative_date || availableSlots.length === 0}
                                     palette={palette}
                                 />
@@ -443,7 +443,7 @@ export default function Home({
                                         value={data.message}
                                         onChange={(event) => setData('message', event.target.value)}
                                         rows={5}
-                                        placeholder="Tell me about the story, mood, or date you have in mind."
+                                        placeholder="Cuéntame la historia, el estilo o la fecha que tienes en mente."
                                         className="w-full resize-none bg-transparent text-sm outline-none"
                                         style={{ color: palette.text }}
                                     />
@@ -451,7 +451,7 @@ export default function Home({
                                 {errors.message && <p className="text-sm text-rose-600">{errors.message}</p>}
                             </div>
                             <button type="submit" disabled={processing} className="inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-4 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-70" style={{ backgroundColor: palette.text }}>
-                                {processing ? 'Sending...' : homepage.contact.submit_label}
+                                {processing ? 'Enviando...' : 'Enviar solicitud'}
                                 <ArrowRight className="h-4 w-4" />
                             </button>
                         </form>
@@ -464,7 +464,7 @@ export default function Home({
                     <p>Desarrollado por PixelPRO</p>
                     <Link href="/login" className="inline-flex items-center gap-2 uppercase tracking-[0.22em] transition" style={{ color: palette.accent }}>
                         <Grip className="h-4 w-4" />
-                        Login
+                        Iniciar sesión
                     </Link>
                 </div>
             </footer>
@@ -488,7 +488,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                     <aside className="relative z-10 flex min-h-[52vh] flex-col justify-between bg-[#090909] px-7 py-8 md:px-12 lg:min-h-screen">
                         <div className="flex items-center justify-between">
                             <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-3xl font-black tracking-tight" />
-                            <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-white/55">Login</Link>
+                            <Link href="/login" className="rounded-full border border-white/10 px-4 py-2 text-[10px] uppercase tracking-[0.28em] text-white/55">Iniciar sesión</Link>
                         </div>
                         <div className="animate-in fade-in slide-in-from-bottom-6 duration-500">
                             <div className="mb-8 h-px w-16 bg-white" />
@@ -497,7 +497,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                         <div className="flex gap-5 text-xs uppercase tracking-[0.24em] text-white/40">
                             <span>Instagram</span>
                             <span>Behance</span>
-                            <span>Studio</span>
+                            <span>Estudio</span>
                         </div>
                     </aside>
 
@@ -518,7 +518,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                                     {sectionLabels[item]}
                                 </button>
                             ))}
-                            <Link href="/portfolio" className="rounded-full bg-white px-5 py-2 text-black">Portfolio</Link>
+                            <Link href="/portfolio" className="rounded-full bg-white px-5 py-2 text-black">Portafolio</Link>
                         </header>
                         <div className="relative z-10 flex min-h-[calc(100vh-96px)] items-center px-7 pb-16 md:px-12">
                             <Reveal className="-ml-[2px] max-w-6xl">
@@ -545,7 +545,7 @@ function TettaExplorerHome({ homepage, palette, fonts, navItems, filteredPortfol
                         {homepage.about.stats.map((item) => <DarkMetric key={`${item.value}-${item.label}`} value={item.value} label={item.label} />)}
                     </div>
                 </div>
-                <img src={homepage.about.image_url || featuredPhoto} alt="About" className="h-full min-h-[520px] w-full object-cover" />
+                <img src={homepage.about.image_url || featuredPhoto} alt="Sobre el fotógrafo" className="h-full min-h-[520px] w-full object-cover" />
             </section>
 
             <TettaGallery homepage={homepage} filteredPortfolio={filteredPortfolio} fonts={fonts} />
@@ -570,7 +570,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                         <button key={item} type="button" onClick={() => scrollToTarget(`#${item}`)}>{sectionLabels[item]}</button>
                     ))}
                 </nav>
-                <Link href="/booking" className="rounded-full bg-[#221a14] px-5 py-2.5 text-sm font-semibold text-white">Book now</Link>
+                <Link href="/booking" className="rounded-full bg-[#221a14] px-5 py-2.5 text-sm font-semibold text-white">Reservar ahora</Link>
             </header>
 
             <section id="hero" className="mx-auto grid max-w-7xl gap-10 px-6 pb-20 pt-8 md:px-10 lg:grid-cols-[.85fr_1.15fr] lg:items-center">
@@ -580,7 +580,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                     <p className="mt-7 max-w-xl text-base leading-8 text-[#716052]">{homepage.hero.description}</p>
                     <div className="mt-9 flex flex-wrap gap-4">
                         <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#221a14" color="#fff" />
-                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full border border-[#d9c7b3] px-7 py-3 text-sm font-semibold text-[#221a14]">View portfolio</Link>
+                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full border border-[#d9c7b3] px-7 py-3 text-sm font-semibold text-[#221a14]">Ver portafolio</Link>
                     </div>
                 </Reveal>
                 <Reveal delay={120} className="relative">
@@ -600,7 +600,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
 
             <section id="about" className="bg-white px-6 py-24 md:px-10">
                 <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-[.9fr_1.1fr] lg:items-center">
-                    <img src={portrait} alt="Portrait" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
+                    <img src={portrait} alt="Retrato" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
                     <div>
                         <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#b68156]">{homepage.about.eyebrow}</p>
                         <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
@@ -623,7 +623,7 @@ function HardyPortraitHome({ homepage, palette, fonts, filteredPortfolio, leadFo
 function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const storyImages = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 5)
-        : homepage.gallery.images.slice(0, 5).map((image_url, id) => ({ id, image_url, project_name: `Story ${id + 1}`, category: 'Wedding' }));
+        : homepage.gallery.images.slice(0, 5).map((image_url, id) => ({ id, image_url, project_name: `Historia ${id + 1}`, category: 'Bodas' }));
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
@@ -651,7 +651,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
                 </header>
                 <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-center px-6 pb-16 md:px-10">
                     <Reveal className="max-w-3xl rounded-[3rem] border border-white/14 bg-white/10 p-8 text-white shadow-[0_40px_100px_rgba(50,28,31,.25)] backdrop-blur md:p-12">
-                        <p className="mb-5 text-[11px] uppercase tracking-[0.36em] text-white/62">{homepage.hero.eyebrow || 'Wedding stories'}</p>
+                        <p className="mb-5 text-[11px] uppercase tracking-[0.36em] text-white/62">{homepage.hero.eyebrow || 'Historias de boda'}</p>
                         <h1 className="text-5xl leading-[1.02] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.hero.title}</h1>
                         <p className="mt-7 max-w-2xl text-base leading-8 text-white/76">{homepage.hero.description}</p>
                         <div className="mt-9 flex flex-wrap gap-4">
@@ -682,7 +682,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
 
             <section id="featured" className="px-6 py-24 md:px-10" style={{ backgroundColor: palette.surface_alt }}>
                 <div className="mx-auto max-w-7xl">
-                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Event collections'}</p>
+                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Colecciones de eventos'}</p>
                     <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                     <div className="mt-12 grid gap-6 lg:grid-cols-3">
                         {homepage.featured.items.map((item, index) => (
@@ -724,7 +724,7 @@ function WeddingEventHome({ homepage, palette, fonts, filteredPortfolio, leadFor
 function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm, branding, seo, pointerX, pointerY, scrollProgress }) {
     const natureItems = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 6)
-        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Expedition ${id + 1}`, category: 'Nature' }));
+        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Expedición ${id + 1}`, category: 'Naturaleza' }));
 
     return (
         <div style={{ backgroundColor: palette.surface, color: palette.text, fontFamily: fonts.body }}>
@@ -744,7 +744,7 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
                 <div className="absolute inset-0" style={{ background: `linear-gradient(180deg, ${palette.hero_overlay}, rgba(23,36,25,.8))` }} />
                 <header className="relative z-10 mx-auto flex max-w-7xl items-center justify-between px-6 py-7 text-white md:px-10">
                     <BrandMark homepage={homepage} branding={branding} fonts={fonts} className="text-white" textClassName="text-2xl font-black uppercase tracking-[0.08em]" />
-                    <Link href="/portfolio" className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/78">Explore</Link>
+                    <Link href="/portfolio" className="rounded-full border border-white/20 px-5 py-2.5 text-sm font-semibold text-white/78">Explorar</Link>
                 </header>
                 <div className="relative z-10 mx-auto flex min-h-[calc(100vh-92px)] max-w-7xl items-end px-6 pb-16 md:px-10">
                     <div className="grid w-full gap-10 lg:grid-cols-[1.15fr_.85fr] lg:items-end">
@@ -770,13 +770,13 @@ function WildNatureHome({ homepage, palette, fonts, filteredPortfolio, leadForm,
                         <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.about.heading}</h2>
                         <p className="mt-6 text-base leading-8 text-white/68">{homepage.about.body}</p>
                     </div>
-                    <img src={homepage.about.image_url} alt="Nature story" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
+                    <img src={homepage.about.image_url} alt="Historia en la naturaleza" className="h-[560px] w-full rounded-[2.5rem] object-cover" />
                 </div>
             </section>
 
             <section id="featured" className="px-6 py-24 md:px-10">
                 <div className="mx-auto max-w-7xl">
-                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Field notes'}</p>
+                    <p className="mb-4 text-[11px] uppercase tracking-[0.34em]" style={{ color: palette.accent }}>{homepage.featured.eyebrow || 'Notas de campo'}</p>
                     <h2 className="max-w-4xl text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                     <div className="mt-12 grid gap-5 lg:grid-cols-3">
                         {homepage.featured.items.map((item) => (
@@ -837,7 +837,7 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
                         <p className="mt-7 max-w-2xl text-lg leading-8 text-white/66">{homepage.hero.description}</p>
                         <div className="mt-9 flex flex-wrap gap-4">
                             <ActionButton label={homepage.hero.primary_cta_label} onClick={() => scrollToTarget(homepage.hero.primary_cta_target)} background="#b7ff3c" color="#051015" />
-                            <OutlineHeroButton label="Ver highlights" onClick={() => scrollToTarget('#gallery')} />
+                            <OutlineHeroButton label="Ver destacados" onClick={() => scrollToTarget('#gallery')} />
                         </div>
                     </div>
                     <div className="relative">
@@ -856,7 +856,7 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
 
             <section id="featured" className="px-6 py-24 md:px-10">
                 <div className="mx-auto max-w-7xl">
-                    <SectionKicker icon={Trophy} label={homepage.featured.eyebrow || 'Services'} />
+                    <SectionKicker icon={Trophy} label={homepage.featured.eyebrow || 'Servicios'} />
                     <h2 className="max-w-4xl text-5xl font-black uppercase leading-[.9] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                     <div className="mt-12 grid gap-5 lg:grid-cols-3">
                         {homepage.featured.items.map((item, index) => <SportCard key={`${item.title}-${index}`} item={item} index={index} />)}
@@ -866,13 +866,13 @@ function SportsDynamicHome({ homepage, palette, fonts, filteredPortfolio, leadFo
 
             <section id="gallery" className="bg-[#0a1a20] px-6 py-24 md:px-10">
                 <div className="mx-auto max-w-7xl">
-                    <SectionKicker icon={Zap} label={homepage.gallery.eyebrow || 'Highlights'} />
+                    <SectionKicker icon={Zap} label={homepage.gallery.eyebrow || 'Destacados'} />
                     <div className="mb-10 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                         <h2 className="max-w-3xl text-5xl font-black uppercase leading-[.9] md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
-                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full bg-[#b7ff3c] px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#051015]">Portfolio <ArrowRight className="h-4 w-4" /></Link>
+                        <Link href="/portfolio" className="inline-flex items-center gap-2 rounded-full bg-[#b7ff3c] px-6 py-3 text-sm font-black uppercase tracking-[0.18em] text-[#051015]">Portafolio <ArrowRight className="h-4 w-4" /></Link>
                     </div>
                     <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                        {(filteredPortfolio.length ? filteredPortfolio : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Highlight ${id + 1}`, category: 'Sports' }))).slice(0, 6).map((item) => (
+                        {(filteredPortfolio.length ? filteredPortfolio : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Destacado ${id + 1}`, category: 'Deportes' }))).slice(0, 6).map((item) => (
                             <article key={item.id} className="motion-card group overflow-hidden rounded-[1.8rem] bg-white/5">
                                 <img src={item.image_url} alt={item.project_name} className="h-80 w-full object-cover transition duration-500 group-hover:scale-105" />
                                 <div className="p-5">
@@ -934,11 +934,11 @@ function LeadForm({ homepage, palette, leadForm }) {
                 <Field label="Name" icon={Camera} value={data.name} error={errors.name} onChange={(value) => setData('name', value)} placeholder="Your full name" palette={palette} />
                 <Field label="Email" icon={Mail} type="email" value={data.email} error={errors.email} onChange={(value) => setData('email', value)} placeholder="you@example.com" palette={palette} />
                 <Field label="Phone" icon={Phone} value={data.phone} error={errors.phone} onChange={(value) => setData('phone', value)} placeholder="+506 0000 0000" palette={palette} />
-                <SelectField label="Project type" value={data.event_type} error={errors.event_type} onChange={(value) => setData('event_type', value)} options={eventTypes} palette={palette} />
+                <SelectField label="Tipo de proyecto" value={data.event_type} error={errors.event_type} onChange={(value) => setData('event_type', value)} options={eventTypes} palette={palette} />
             </div>
             <div className="grid gap-5 md:grid-cols-[1.15fr_.85fr]">
                 <AvailabilityCalendar
-                    label="Tentative date"
+                    label="Fecha tentativa"
                     value={data.tentative_date}
                     onChange={(value) => setData('tentative_date', value)}
                     error={errors.tentative_date}
@@ -949,12 +949,12 @@ function LeadForm({ homepage, palette, leadForm }) {
                     tone="public"
                 />
                 <SelectField
-                    label="Available time"
+                    label="Hora disponible"
                     value={data.tentative_time}
                     error={errors.tentative_time}
                     onChange={(value) => setData('tentative_time', value)}
                     options={availableSlots}
-                    placeholder={data.tentative_date ? 'Select an available time' : 'Select a date first'}
+                    placeholder={data.tentative_date ? 'Selecciona una hora disponible' : 'Selecciona primero una fecha'}
                     disabled={!data.tentative_date || availableSlots.length === 0}
                     palette={palette}
                 />
@@ -965,14 +965,14 @@ function LeadForm({ homepage, palette, leadForm }) {
                     value={data.message}
                     onChange={(event) => setData('message', event.target.value)}
                     rows={4}
-                    placeholder="Tell me about the project."
+                    placeholder="Cuéntame sobre el proyecto."
                     className="w-full resize-none rounded-[1.5rem] border bg-transparent px-4 py-4 text-sm outline-none"
                     style={{ borderColor: palette.accent_soft, color: palette.text }}
                 />
                 {errors.message && <p className="text-sm text-rose-600">{errors.message}</p>}
             </div>
             <button type="submit" disabled={processing} className="inline-flex w-full items-center justify-center gap-2 rounded-full px-7 py-4 text-sm font-semibold transition disabled:opacity-70" style={{ backgroundColor: palette.accent, color: palette.surface_dark }}>
-                {processing ? 'Sending...' : homepage.contact.submit_label}
+                {processing ? 'Enviando...' : 'Enviar solicitud'}
                 <ArrowRight className="h-4 w-4" />
             </button>
         </form>
@@ -982,7 +982,7 @@ function LeadForm({ homepage, palette, leadForm }) {
 function TettaGallery({ homepage, filteredPortfolio, fonts }) {
     const items = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 6)
-        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Frame ${id + 1}`, category: 'Editorial' }));
+        : homepage.gallery.images.map((image_url, id) => ({ id, image_url, project_name: `Encuadre ${id + 1}`, category: 'Editorial' }));
 
     return (
         <section id="gallery" className="bg-[#090909] px-7 py-24 md:px-12">
@@ -1009,7 +1009,7 @@ function HardyServices({ homepage, fonts }) {
     return (
         <section id="featured" className="px-6 py-24 md:px-10">
             <div className="mx-auto max-w-7xl">
-                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#b68156]">{homepage.featured.eyebrow || 'Our Services'}</p>
+                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#b68156]">{homepage.featured.eyebrow || 'Nuestros servicios'}</p>
                 <h2 className="text-4xl leading-tight md:text-6xl" style={{ fontFamily: fonts.heading }}>{homepage.featured.heading}</h2>
                 <div className="mt-12 grid gap-6 lg:grid-cols-3">
                     {homepage.featured.items.map((item, index) => (
@@ -1031,12 +1031,12 @@ function HardyServices({ homepage, fonts }) {
 function HardyProjects({ homepage, filteredPortfolio, fonts }) {
     const photos = filteredPortfolio.length
         ? filteredPortfolio.slice(0, 4)
-        : homepage.gallery.images.slice(0, 4).map((image_url, id) => ({ id, image_url, project_name: `Project ${id + 1}`, category: 'Portrait' }));
+        : homepage.gallery.images.slice(0, 4).map((image_url, id) => ({ id, image_url, project_name: `Proyecto ${id + 1}`, category: 'Retratos' }));
 
     return (
         <section id="gallery" className="bg-[#211915] px-6 py-24 text-white md:px-10">
             <div className="mx-auto max-w-7xl">
-                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#d7a676]">{homepage.gallery.eyebrow || 'Our Project'}</p>
+                <p className="mb-4 text-[11px] uppercase tracking-[0.34em] text-[#d7a676]">{homepage.gallery.eyebrow || 'Nuestros proyectos'}</p>
                 <h2 className="text-5xl leading-tight md:text-7xl" style={{ fontFamily: fonts.heading }}>{homepage.gallery.heading}</h2>
                 <div className="mt-12 grid gap-5 md:grid-cols-2">
                     {photos.map((item) => (
@@ -1109,7 +1109,7 @@ function MinimalFooter({ palette }) {
                 <p>Desarrollado por PixelPRO</p>
                 <Link href="/login" className="inline-flex items-center gap-2 uppercase tracking-[0.22em]" style={{ color: palette.accent }}>
                     <Grip className="h-4 w-4" />
-                    Login
+                    Iniciar sesión
                 </Link>
             </div>
         </footer>
@@ -1398,19 +1398,42 @@ Home.layout = (page) => page;
    Dark · Bold · Nike editorial style
    ───────────────────────────────────────────── */
 
+const MA_ASSET_BASE = '/images/misael';
+const MA_LOGO = `${MA_ASSET_BASE}/misael-david-photography.png`;
+const MA_PROFILE_IMAGE = `${MA_ASSET_BASE}/misael-atencio.webp`;
+
 const MA_SPECIALTIES = [
-    { label: 'Deportiva', desc: 'Acción real, velocidad y precisión en cada disparo.' },
-    { label: 'Artistas', desc: 'Conciertos, presentaciones y branding musical.' },
-    { label: 'Perfiles', desc: 'Headshots y branding personal de alto impacto.' },
-    { label: 'Individual', desc: 'Retratos únicos que cuentan tu historia.' },
-    { label: 'Eventos', desc: 'Corporativos, bodas, quinceaños y más.' },
+    { label: 'Deportiva', filter: 'Eventos', desc: 'Acción real, velocidad y precisión en cada disparo.', cover: `${MA_ASSET_BASE}/deportiva-retrato.webp` },
+    { label: 'Artistas', filter: 'Eventos', desc: 'Conciertos, presentaciones y contenido visual para artistas.', cover: `${MA_ASSET_BASE}/artista-escenario.webp` },
+    { label: 'Perfiles', filter: 'Retratos', desc: 'Retratos profesionales y marca personal de alto impacto.', cover: `${MA_ASSET_BASE}/perfil-estudio.webp` },
+    { label: 'Individual', filter: 'Sesiones', desc: 'Retratos editoriales que expresan una identidad propia.', cover: `${MA_ASSET_BASE}/individual-editorial.webp` },
+    { label: 'Eventos', filter: 'Bodas', desc: 'Bodas, quinceaños, eventos corporativos y experiencias.', cover: `${MA_ASSET_BASE}/evento-boda.webp` },
 ];
 
-const MA_STRIP_ITEMS = [
-    'Fotografía Deportiva', 'Artistas', 'Retratos de Perfil', 'Sesiones Individuales', 'Eventos',
-    'Deportes', 'Músicos', 'Branding Personal', 'Corporativo', 'Bodas & Quinceaños',
-    'Fotografía Deportiva', 'Artistas', 'Retratos de Perfil', 'Sesiones Individuales', 'Eventos',
-    'Deportes', 'Músicos', 'Branding Personal', 'Corporativo', 'Bodas & Quinceaños',
+const MA_SIGNATURE_PHOTOS = [
+    { id: 'ma-sport-01', image_url: `${MA_ASSET_BASE}/hero-futbol-panama.webp`, category: 'Eventos', project_name: 'Fútbol internacional en Panamá' },
+    { id: 'ma-artist-01', image_url: `${MA_ASSET_BASE}/hero-concierto.webp`, category: 'Eventos', project_name: 'Concierto en vivo' },
+    { id: 'ma-event-01', image_url: `${MA_ASSET_BASE}/hero-boda.webp`, category: 'Bodas', project_name: 'Celebración de boda' },
+    { id: 'ma-sport-02', image_url: `${MA_ASSET_BASE}/hero-celebracion.webp`, category: 'Eventos', project_name: 'Selección de Panamá' },
+    { id: 'ma-individual-01', image_url: `${MA_ASSET_BASE}/individual-editorial.webp`, category: 'Sesiones', project_name: 'Retrato editorial' },
+    { id: 'ma-artist-02', image_url: `${MA_ASSET_BASE}/artista-escenario.webp`, category: 'Eventos', project_name: 'Artista en escena' },
+    { id: 'ma-event-02', image_url: `${MA_ASSET_BASE}/evento-playa.webp`, category: 'Bodas', project_name: 'Boda frente al mar' },
+    { id: 'ma-profile-01', image_url: `${MA_ASSET_BASE}/perfil-estudio.webp`, category: 'Retratos', project_name: 'Retrato de estudio' },
+    { id: 'ma-sport-03', image_url: `${MA_ASSET_BASE}/deportiva-neymar.webp`, category: 'Eventos', project_name: 'Cobertura deportiva' },
+    { id: 'ma-artist-03', image_url: `${MA_ASSET_BASE}/artista-retrato.webp`, category: 'Eventos', project_name: 'Retrato de artista' },
+    { id: 'ma-event-03', image_url: `${MA_ASSET_BASE}/evento-detalles.webp`, category: 'Bodas', project_name: 'Detalles de evento' },
+    { id: 'ma-sport-04', image_url: `${MA_ASSET_BASE}/deportiva-pesas.webp`, category: 'Eventos', project_name: 'Alto rendimiento' },
+    { id: 'ma-individual-02', image_url: `${MA_ASSET_BASE}/individual-quince.webp`, category: 'Quinceaños', project_name: 'Retrato de quinceaños' },
+    { id: 'ma-artist-04', image_url: `${MA_ASSET_BASE}/artista-guitarra.webp`, category: 'Eventos', project_name: 'Música en vivo' },
+    { id: 'ma-sport-05', image_url: `${MA_ASSET_BASE}/deportiva-estadio.webp`, category: 'Eventos', project_name: 'El momento decisivo' },
+    { id: 'ma-artist-05', image_url: `${MA_ASSET_BASE}/artista-bn.webp`, category: 'Eventos', project_name: 'Escena en blanco y negro' },
+];
+
+const MA_HERO_IMAGES = [
+    `${MA_ASSET_BASE}/hero-futbol-panama.webp`,
+    `${MA_ASSET_BASE}/hero-concierto.webp`,
+    `${MA_ASSET_BASE}/hero-celebracion.webp`,
+    `${MA_ASSET_BASE}/hero-boda.webp`,
 ];
 
 const MA_MANIFESTO = ['CADA DISPARO,', 'UNA HISTORIA.'];
@@ -1433,22 +1456,35 @@ function MisaelSignatureHome({
     }, []);
 
     const heroImage = homepage?.hero?.image_url;
-    const aboutImage = homepage?.about?.image_url;
+    const aboutImage = MA_PROFILE_IMAGE;
 
-    // One representative photo per specialty for the category showcase
-    const allPhotos = portfolioPhotos.length > 0 ? portfolioPhotos : filteredPortfolio;
+    // The curated Misael portfolio is always present; CMS photos can extend it.
+    const cmsPhotos = portfolioPhotos.length > 0 ? portfolioPhotos : filteredPortfolio;
+    const allPhotos = [
+        ...MA_SIGNATURE_PHOTOS,
+        ...cmsPhotos.filter((photo) => !MA_SIGNATURE_PHOTOS.some((item) => item.image_url === photo.image_url)),
+    ];
+    const misaelCategories = ['All', ...new Set(leadForm.eventTypes.filter(Boolean))];
+    const visiblePortfolio = activeCategory === 'All'
+        ? allPhotos
+        : allPhotos.filter((photo) => {
+            const category = (photo.category || '').toLocaleLowerCase('es');
+            const selected = activeCategory.toLocaleLowerCase('es');
+            return category.includes(selected) || selected.includes(category);
+        });
+    const heroImages = [...new Set([...MA_HERO_IMAGES, heroImage, ...cmsPhotos.slice(0, 2).map((photo) => photo.image_url)].filter(Boolean))];
     const categoryShowcase = MA_SPECIALTIES.map((spec) => ({
         ...spec,
-        photo: allPhotos.find((p) => {
-            const cat = (p.category || '').toLowerCase();
-            const lbl = spec.label.toLowerCase();
-            return cat.includes(lbl) || lbl.includes(cat);
-        }) || null,
+        photo: { image_url: spec.cover },
     }));
 
     return (
         <div style={{ backgroundColor: '#080808', color: '#f0f0f0', fontFamily: fonts.body }} className="min-h-screen">
-            <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
+            <SeoHead
+                seo={seo}
+                fallbackTitle="Misael David Photography"
+                fallbackDescription="Fotografía profesional de deportes, artistas, eventos, marcas y proyectos comerciales en Panamá."
+            />
 
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600&display=swap');
@@ -1495,10 +1531,6 @@ function MisaelSignatureHome({
                     0%   { transform: translateY(-100%); opacity: 0; }
                     50%  { opacity: 1; }
                     100% { transform: translateY(100%); opacity: 0; }
-                }
-                @keyframes marquee {
-                    from { transform: translateX(0); }
-                    to   { transform: translateX(-50%); }
                 }
                 @keyframes maManifestoIn {
                     from { opacity: 0; transform: translateY(70px); }
@@ -1562,8 +1594,12 @@ function MisaelSignatureHome({
                 }}
             >
                 <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 md:px-10">
-                    <a href="/" style={{ fontFamily: 'Anton, sans-serif', fontSize: '1.1rem', letterSpacing: '0.08em', color: '#fff' }}>
-                        {homepage.brand.name}
+                    <a href="/" aria-label="Misael David Photography" className="flex items-center">
+                        <img
+                            src={MA_LOGO}
+                            alt="Logotipo de Misael David Photography"
+                            className="h-12 w-[210px] object-contain object-left md:h-14 md:w-[260px]"
+                        />
                     </a>
                     <nav className="hidden items-center gap-8 md:flex">
                         {navItems.map((s) => (
@@ -1604,43 +1640,43 @@ function MisaelSignatureHome({
 
             {/* ── HERO ── */}
             <section id="hero" className="relative flex h-screen min-h-[680px] items-end overflow-hidden">
-                <MaHeroSlideshow images={[heroImage, ...allPhotos.slice(0, 5).map(p => p.image_url)].filter(Boolean)} />
+                <MaHeroSlideshow images={heroImages} />
                 <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 30%, rgba(8,8,8,0.65) 65%, #080808 100%)' }} />
                 <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to right, rgba(8,8,8,0.52) 0%, transparent 60%)' }} />
 
                 <div className="relative z-20 mx-auto w-full max-w-7xl px-6 pb-28 md:px-10 md:pb-40">
                     <p className="ma-hero-1 mb-5 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
                         <span className="inline-block h-px w-7" style={{ backgroundColor: accent }} />
-                        {homepage.hero.eyebrow}
+                        Misael Atencio · Panamá
                     </p>
                     <h1
                         className="ma-hero-2 mb-7 max-w-4xl uppercase text-white"
                         style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(3.8rem, 11vw, 9rem)', lineHeight: '.93', letterSpacing: '-0.025em' }}
                     >
-                        Historias que conectan.
+                        El instante no espera.
                     </h1>
                     <p className="ma-hero-3 mb-12 max-w-sm text-base leading-relaxed text-white/45 md:text-lg">
-                        {homepage.hero.description}
+                        Fotografía de alto impacto para deportes, artistas, marcas, eventos y proyectos comerciales.
                     </p>
                     <div className="ma-hero-4 flex flex-wrap gap-3">
                         <button
-                            onClick={() => scrollToTarget(homepage.hero.primary_cta_target)}
+                            onClick={() => scrollToTarget('#gallery')}
                             className="inline-flex items-center gap-2 px-8 py-4 text-[11px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
                             style={{ backgroundColor: accent, color: '#080808' }}
                         >
-                            {homepage.hero.primary_cta_label} <ArrowRight className="h-4 w-4" />
+                            Ver portafolio <ArrowRight className="h-4 w-4" />
                         </button>
                         <button
-                            onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)}
+                            onClick={() => scrollToTarget('#contact')}
                             className="inline-flex items-center gap-2 border border-white/22 px-8 py-4 text-[11px] font-medium text-white/65 backdrop-blur-sm transition hover:bg-white/6 hover:border-white/40"
                         >
-                            {homepage.hero.secondary_cta_label}
+                            Cuéntame tu proyecto
                         </button>
                     </div>
                 </div>
 
                 <div className="ma-hero-scroll absolute bottom-8 right-8 md:right-12 z-20 flex flex-col items-center gap-2">
-                    <span className="text-[9px] uppercase tracking-[0.22em] text-white/25" style={{ writingMode: 'vertical-rl' }}>Scroll</span>
+                    <span className="text-[9px] uppercase tracking-[0.22em] text-white/25" style={{ writingMode: 'vertical-rl' }}>Desliza</span>
                     <div className="h-14 w-px bg-white/12 relative overflow-hidden">
                         <div className="absolute inset-x-0 top-0 h-full animate-[slideDown_2.2s_ease-in-out_infinite]" style={{ background: `linear-gradient(to bottom, transparent, ${accent})` }} />
                     </div>
@@ -1654,7 +1690,7 @@ function MisaelSignatureHome({
                         <MaReveal key={cat.label} delay={i * 55}>
                             <button
                                 onClick={() => {
-                                    const next = cat.label === activeCategory ? 'All' : cat.label;
+                                    const next = cat.filter === activeCategory ? 'All' : cat.filter;
                                     setActiveCategory(next);
                                     scrollToTarget('#gallery');
                                 }}
@@ -1690,18 +1726,6 @@ function MisaelSignatureHome({
                     ))}
                 </div>
             </section>
-
-            {/* ── MARQUEE ── */}
-            <div className="overflow-hidden border-y py-6" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#0a0a0a' }}>
-                <div className="flex animate-[marquee_28s_linear_infinite] whitespace-nowrap gap-10">
-                    {MA_STRIP_ITEMS.map((s, i) => (
-                        <span key={i} className="flex items-center gap-10 text-[10px] uppercase tracking-[0.25em] text-white/18 font-semibold">
-                            {s}
-                            <span style={{ color: accent, opacity: 0.5 }}>·</span>
-                        </span>
-                    ))}
-                </div>
-            </div>
 
             {/* ── SPECIALTIES — numbered editorial list ── */}
             <section
@@ -1761,7 +1785,7 @@ function MisaelSignatureHome({
                         <div className="order-1 md:order-2 space-y-8">
                             <MaReveal>
                                 <p className="text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
-                                    {homepage.about.eyebrow}
+                                    Detrás de la cámara
                                 </p>
                             </MaReveal>
                             <MaReveal delay={100}>
@@ -1769,36 +1793,30 @@ function MisaelSignatureHome({
                                     className="leading-none text-white uppercase"
                                     style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)' }}
                                 >
-                                    {homepage.about.heading}
+                                    Misael Atencio
                                 </h2>
                             </MaReveal>
                             <MaReveal delay={180}>
                                 <p className="text-base leading-relaxed text-white/48 md:text-lg">
-                                    {homepage.about.body}
+                                    Fotógrafo profesional enfocado en crear contenido visual de alto impacto para marcas, eventos, deportes y proyectos comerciales.
                                 </p>
                             </MaReveal>
                             <MaReveal delay={240}>
                                 <p className="text-sm leading-relaxed text-white/28">
-                                    {homepage.about.detail}
+                                    Cada proyecto es una oportunidad para contar una historia, fortalecer una marca y dejar un impacto duradero. Excelencia, creatividad y profesionalismo guían cada imagen.
                                 </p>
                             </MaReveal>
-                            {homepage.about.stats?.length > 0 && (
-                                <MaReveal delay={320}>
-                                    <div className="grid grid-cols-3 gap-8 pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
-                                        {homepage.about.stats.map((stat, i) => (
-                                            <div key={i}>
-                                                <p
-                                                    className="leading-none"
-                                                    style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3rem)', color: accent }}
-                                                >
-                                                    {stat.value}
-                                                </p>
-                                                <p className="mt-2 text-[10px] text-white/28 leading-snug uppercase tracking-widest">{stat.label}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </MaReveal>
-                            )}
+                            <MaReveal delay={320}>
+                                <div className="grid grid-cols-3 gap-5 border-t pt-6 md:gap-8" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                                    {[
+                                        { value: 10, suffix: '+', label: 'Años de experiencia' },
+                                        { value: 500, suffix: '+', label: 'Proyectos entregados' },
+                                        { value: 100, suffix: '%', label: 'Compromiso con cada cliente' },
+                                    ].map((stat) => (
+                                        <MaAnimatedStat key={stat.label} {...stat} accent={accent} />
+                                    ))}
+                                </div>
+                            </MaReveal>
                         </div>
                     </div>
                 </div>
@@ -1814,7 +1832,7 @@ function MisaelSignatureHome({
                         <div>
                             <MaReveal>
                                 <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
-                                    {homepage.gallery?.eyebrow || 'Portafolio'}
+                                    Portafolio
                                 </p>
                             </MaReveal>
                             <MaReveal delay={100}>
@@ -1822,14 +1840,14 @@ function MisaelSignatureHome({
                                     className="text-white uppercase"
                                     style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)', lineHeight: '.95' }}
                                 >
-                                    {homepage.gallery?.heading || 'Trabajo seleccionado'}
+                                    Historias en imágenes
                                 </h2>
                             </MaReveal>
                         </div>
-                        {allCategories.length > 1 && (
+                        {misaelCategories.length > 1 && (
                             <MaReveal delay={180}>
                                 <div className="flex flex-wrap gap-2">
-                                    {allCategories.map((cat) => (
+                                    {misaelCategories.map((cat) => (
                                         <button
                                             key={cat}
                                             onClick={() => setActiveCategory(cat)}
@@ -1839,7 +1857,7 @@ function MisaelSignatureHome({
                                                 : { color: 'rgba(255,255,255,0.32)', border: '1px solid rgba(255,255,255,0.1)' }
                                             }
                                         >
-                                            {cat}
+                                            {cat === 'All' ? 'Todos' : cat}
                                         </button>
                                     ))}
                                 </div>
@@ -1848,12 +1866,12 @@ function MisaelSignatureHome({
                     </div>
 
                     {/* Featured hero image */}
-                    {filteredPortfolio.length > 0 && (
+                    {visiblePortfolio.length > 0 && (
                         <MaReveal>
                             <div className="photo-item mb-2 w-full overflow-hidden" style={{ height: 'clamp(240px, 42vw, 560px)' }}>
                                 <img
-                                    src={filteredPortfolio[0].image_url}
-                                    alt={filteredPortfolio[0].project_name || 'Featured'}
+                                    src={visiblePortfolio[0].image_url}
+                                    alt={visiblePortfolio[0].project_name || 'Fotografía destacada de Misael Atencio'}
                                     className="w-full h-full object-cover"
                                     fetchPriority="high"
                                     decoding="async"
@@ -1862,9 +1880,9 @@ function MisaelSignatureHome({
                         </MaReveal>
                     )}
 
-                    {filteredPortfolio.length > 1 && (
+                    {visiblePortfolio.length > 1 && (
                         <div className="columns-2 gap-2 md:columns-3 lg:columns-4">
-                            {filteredPortfolio.slice(1).map((photo, i) => (
+                            {visiblePortfolio.slice(1).map((photo, i) => (
                                 <MaReveal key={photo.id} delay={Math.min(i * 40, 280)} className="photo-item mb-2 break-inside-avoid">
                                     <img
                                         src={photo.image_url}
@@ -1878,7 +1896,7 @@ function MisaelSignatureHome({
                         </div>
                     )}
 
-                    {filteredPortfolio.length === 0 && (
+                    {visiblePortfolio.length === 0 && (
                         <div className="py-28 text-center">
                             <p className="text-white/20 text-xs uppercase tracking-widest">No hay fotos en esta categoría.</p>
                         </div>
@@ -1894,7 +1912,7 @@ function MisaelSignatureHome({
                             <div>
                                 <MaReveal>
                                     <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
-                                        {homepage.contact?.eyebrow || 'Contacto'}
+                                        Contacto directo
                                     </p>
                                 </MaReveal>
                                 <MaReveal delay={100}>
@@ -1902,12 +1920,12 @@ function MisaelSignatureHome({
                                         className="leading-none text-white uppercase"
                                         style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)' }}
                                     >
-                                        {homepage.contact?.heading || '¿Hablamos?'}
+                                        Hagamos realidad tu visión.
                                     </h2>
                                 </MaReveal>
                                 <MaReveal delay={180}>
                                     <p className="mt-5 text-base leading-relaxed text-white/38">
-                                        {homepage.contact?.description}
+                                        Ya sea una cobertura deportiva, un evento, una campaña comercial o una producción audiovisual, conversemos sobre tu próximo proyecto.
                                     </p>
                                 </MaReveal>
                             </div>
@@ -1952,9 +1970,7 @@ function MisaelSignatureHome({
             <footer className="border-t py-10" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#020202' }}>
                 <div className="mx-auto max-w-7xl px-6 md:px-10">
                     <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-                        <span style={{ fontFamily: 'Anton, sans-serif', fontSize: '1rem', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.2)' }}>
-                            {homepage.brand.name}
-                        </span>
+                        <img src={MA_LOGO} alt="Misael David Photography" className="h-12 w-auto opacity-35" />
                         <div className="flex flex-wrap items-center gap-6">
                             <a href="https://instagram.com/misaeldavidph" target="_blank" rel="noreferrer"
                                className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
@@ -1962,11 +1978,11 @@ function MisaelSignatureHome({
                             </a>
                             <button onClick={() => scrollToTarget('#gallery')}
                                className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
-                                Portfolio
+                                Portafolio
                             </button>
                             <button onClick={() => scrollToTarget('#about')}
                                className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
-                                About
+                                Sobre mí
                             </button>
                             <button onClick={() => scrollToTarget('#contact')}
                                className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
@@ -1975,7 +1991,7 @@ function MisaelSignatureHome({
                         </div>
                         <div className="flex items-center gap-5">
                             <span className="text-[10px] text-white/14">© {new Date().getFullYear()} {homepage.brand.name}</span>
-                            <Link href="/login?s=studio" className="text-[10px] text-white/10 hover:text-white/25 transition-colors">Admin</Link>
+                            <Link href="/login?s=studio" className="text-[10px] text-white/10 hover:text-white/25 transition-colors">Administración</Link>
                         </div>
                     </div>
                 </div>
@@ -2049,6 +2065,62 @@ function MaReveal({ children, delay = 0, className = '' }) {
     return (
         <div ref={ref} className={`ma-reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>
             {children}
+        </div>
+    );
+}
+
+function MaAnimatedStat({ value, suffix = '', label, accent }) {
+    const ref = React.useRef(null);
+    const [displayValue, setDisplayValue] = React.useState(0);
+
+    React.useEffect(() => {
+        const element = ref.current;
+        if (!element) return undefined;
+
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (reduceMotion) {
+            setDisplayValue(value);
+            return undefined;
+        }
+
+        let animationFrame;
+        const observer = new IntersectionObserver(([entry]) => {
+            if (!entry.isIntersecting) return;
+
+            const startedAt = performance.now();
+            const duration = 1600;
+            const animate = (now) => {
+                const progress = Math.min((now - startedAt) / duration, 1);
+                const eased = 1 - Math.pow(1 - progress, 3);
+                setDisplayValue(Math.round(value * eased));
+
+                if (progress < 1) {
+                    animationFrame = requestAnimationFrame(animate);
+                }
+            };
+
+            animationFrame = requestAnimationFrame(animate);
+            observer.disconnect();
+        }, { threshold: 0.45 });
+
+        observer.observe(element);
+
+        return () => {
+            observer.disconnect();
+            if (animationFrame) cancelAnimationFrame(animationFrame);
+        };
+    }, [value]);
+
+    return (
+        <div ref={ref}>
+            <p
+                className="leading-none tabular-nums"
+                style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3rem)', color: accent }}
+                aria-label={`${value}${suffix} ${label}`}
+            >
+                {displayValue.toLocaleString('es-PA')}{suffix}
+            </p>
+            <p className="mt-2 text-[10px] leading-snug uppercase tracking-widest text-white/28">{label}</p>
         </div>
     );
 }
@@ -2153,7 +2225,19 @@ function MaAboutImage({ src }) {
 
 /* Dark contact form */
 function MisaelLeadForm({ leadForm, accent, flash }) {
-    const { data, setData, processing, errors, recentlySuccessful, submit, eventTypes } = leadForm;
+    const {
+        data,
+        setData,
+        processing,
+        errors,
+        recentlySuccessful,
+        submit,
+        eventTypes,
+        availableSlots,
+        busyCalendarEvents,
+        businessHours,
+        availabilitySettings,
+    } = leadForm;
     const inputBase = {
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid rgba(255,255,255,0.09)',
@@ -2199,11 +2283,44 @@ function MisaelLeadForm({ leadForm, accent, flash }) {
                 style={inputBase} onFocus={focus} onBlur={blur} />
             {eventTypes.length > 0 && (
                 <select value={data.event_type} onChange={(e) => setData('event_type', e.target.value)}
+                    className="[&>option]:bg-[#111] [&>option]:text-white"
                     style={{ ...inputBase, appearance: 'none', cursor: 'pointer' }} onFocus={focus} onBlur={blur}>
                     <option value="">Tipo de sesión</option>
                     {eventTypes.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
             )}
+            {errors.event_type && <p className="mt-1 text-xs text-red-400">{errors.event_type}</p>}
+            <div className="grid gap-3.5 sm:grid-cols-2">
+                <AvailabilityCalendar
+                    label="Fecha tentativa"
+                    value={data.tentative_date}
+                    onChange={(value) => setData('tentative_date', value)}
+                    error={errors.tentative_date}
+                    busyEvents={busyCalendarEvents}
+                    businessHours={businessHours}
+                    availabilitySettings={availabilitySettings}
+                    helperText="Elige un día con disponibilidad."
+                    tone="dark"
+                />
+                <div className="space-y-2">
+                    <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Hora disponible</label>
+                    <select
+                        value={data.tentative_time}
+                        onChange={(event) => setData('tentative_time', event.target.value)}
+                        disabled={!data.tentative_date || availableSlots.length === 0}
+                        className="[&>option]:bg-[#111] [&>option]:text-white"
+                        style={{ ...inputBase, appearance: 'none', cursor: data.tentative_date ? 'pointer' : 'not-allowed', opacity: data.tentative_date ? 1 : 0.5 }}
+                        onFocus={focus}
+                        onBlur={blur}
+                    >
+                        <option value="">
+                            {data.tentative_date ? 'Selecciona una hora' : 'Selecciona primero una fecha'}
+                        </option>
+                        {availableSlots.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+                    </select>
+                    {errors.tentative_time && <p className="text-xs text-red-400">{errors.tentative_time}</p>}
+                </div>
+            </div>
             <textarea placeholder="Cuéntame tu proyecto..." value={data.message}
                 onChange={(e) => setData('message', e.target.value)}
                 rows={4} style={{ ...inputBase, resize: 'none' }} onFocus={focus} onBlur={blur} />
@@ -2213,7 +2330,7 @@ function MisaelLeadForm({ leadForm, accent, flash }) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl py-4 text-sm font-bold uppercase tracking-wider transition-all hover:brightness-90 active:scale-[0.98] disabled:opacity-50"
                 style={{ backgroundColor: accent, color: '#080808' }}
             >
-                {processing ? 'Enviando...' : 'Enviar mensaje'}
+                {processing ? 'Enviando...' : 'Enviar solicitud'}
                 {!processing && <ArrowRight className="h-4 w-4" />}
             </button>
         </form>

@@ -27,9 +27,9 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
             <header className="border-b backdrop-blur" style={{ borderColor: palette.accent_soft, backgroundColor: `${palette.surface}f2` }}>
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 md:px-10">
                     <div>
-                        <p className="text-[11px] uppercase tracking-[0.32em]" style={{ color: palette.accent }}>Portfolio</p>
+                        <p className="text-[11px] uppercase tracking-[0.32em]" style={{ color: palette.accent }}>Portafolio</p>
                         <h1 className="mt-3 text-4xl md:text-5xl" style={{ fontFamily: headingFont }}>
-                            Featured projects
+                            Historias en imágenes
                         </h1>
                         <p className="mt-4 max-w-2xl text-sm leading-7" style={{ color: palette.muted }}>
                             Historias publicadas para clientes que buscan una mirada editorial, humana y coherente con su tipo de evento.
@@ -57,7 +57,7 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
                             active={selectedCategory === category}
                             palette={palette}
                         >
-                            {category}
+                            {category === 'Direct Upload' ? 'Sesiones' : category}
                         </CategoryChip>
                     ))}
                 </div>
@@ -78,7 +78,7 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
                                     <div className="space-y-4 p-6">
                                         <div className="flex items-center justify-between gap-4">
                                             <span className="rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]" style={{ backgroundColor: palette.surface_alt, color: palette.accent }}>
-                                                {project.category}
+                                                {project.category === 'Direct Upload' ? 'Sesiones' : project.category}
                                             </span>
                                             <span className="text-xs" style={{ color: palette.accent }}>{project.photos_count} fotos</span>
                                         </div>
@@ -92,7 +92,7 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
 
                                         <div className="flex items-center justify-between gap-4 pt-2">
                                             <span className="text-xs uppercase tracking-[0.18em]" style={{ color: palette.accent }}>
-                                                {project.event_date || 'Coleccion publicada'}
+                                                {project.event_date || 'Colección publicada'}
                                             </span>
 
                                             {project.gallery_url ? (
@@ -101,11 +101,11 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
                                                     className="inline-flex items-center gap-2 rounded-full px-5 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-white transition"
                                                     style={{ backgroundColor: palette.surface_dark }}
                                                 >
-                                                    Ver galeria
+                                                    Ver galería
                                                     <ArrowRight className="h-4 w-4" />
                                                 </Link>
                                             ) : (
-                                                <span className="text-xs" style={{ color: palette.accent }}>Sin enlace publico</span>
+                                                <span className="text-xs" style={{ color: palette.accent }}>Sin enlace público</span>
                                             )}
                                         </div>
                                     </div>
@@ -141,10 +141,10 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
                     <div className="rounded-[2rem] border border-dashed bg-white/70 px-8 py-20 text-center" style={{ borderColor: palette.accent_soft }}>
                         <p className="text-[11px] uppercase tracking-[0.28em]" style={{ color: palette.accent }}>Sin proyectos</p>
                         <h2 className="mt-4 text-3xl" style={{ fontFamily: headingFont }}>
-                            Aun no hay proyectos publicados para esta categoria
+                            Aún no hay proyectos publicados para esta categoría
                         </h2>
                         <p className="mt-4 text-sm leading-7" style={{ color: palette.muted }}>
-                            Publica fotografias desde el panel admin y asigna su tipo de proyecto para mostrar colecciones aqui.
+                            Publica fotografías desde el panel de administración y asigna su tipo de proyecto para mostrar colecciones aquí.
                         </p>
                     </div>
                 )}
@@ -155,7 +155,7 @@ export default function Portfolio({ homepage, theme = defaultTheme, seo = null, 
                     <p>Desarrollado por PixelPRO</p>
                     <Link href="/login" className="inline-flex items-center gap-2 uppercase tracking-[0.22em] transition" style={{ color: palette.accent }}>
                         <Grip className="h-4 w-4" />
-                        Login
+                        Iniciar sesión
                     </Link>
                 </div>
             </footer>

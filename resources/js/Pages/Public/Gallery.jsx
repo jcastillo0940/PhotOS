@@ -91,6 +91,8 @@ const TEMPLATE_STYLES = {
     },
 };
 
+const galleryFilterLabel = (value) => value === 'All' ? 'Todos' : value;
+
 function Lightbox({ photo, isSelected, onClose, onPrev, onNext, onToggleHeart, access }) {
     const touchStartX = React.useRef(null);
 
@@ -340,33 +342,33 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                                 </div>
                                 <div className="flex flex-col">
                                     <span className="mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none text-black/35">
-                                        {galleryTemplate?.name || 'Portfolio'}
+                                        {galleryTemplate?.name || 'Portafolio'}
                                     </span>
                                     <span className="text-xs text-[#666]">
-                                        {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                                        {project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : project.name}
                                     </span>
                                 </div>
                             </div>
 
                             <button onClick={shareGallery} className="flex items-center rounded-full border border-black/10 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-[#444] transition-all hover:border-black/30 hover:text-[#111]">
-                                <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                                <Share2 className="mr-2 h-3.5 w-3.5" /> Compartir
                             </button>
                         </div>
                         <div className="w-14 h-14 rounded-2xl bg-[#f0e6d6] border border-[#e1d3bc] flex items-center justify-center mb-8">
                             <Camera className="w-6 h-6 text-[#8c7340]" />
                         </div>
-                        <p className="text-[10px] uppercase tracking-[0.35em] font-black text-[#8f8068] mb-4">{project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Galeria privada'}</p>
+                        <p className="text-[10px] uppercase tracking-[0.35em] font-black text-[#8f8068] mb-4">{project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : 'Galería privada'}</p>
                         <h1 className={clsx('font-heading font-black mb-4', styles.title)}>{project.name}</h1>
-                        <p className={clsx('text-sm md:text-base leading-relaxed max-w-xl', styles.subtitle)}>Explora la galeria completa. Las descargas de alta calidad se gestionan de forma privada con tu fotografo.</p>
+                        <p className={clsx('text-sm md:text-base leading-relaxed max-w-xl', styles.subtitle)}>Explora la galería completa. Las descargas de alta calidad se gestionan de forma privada con tu fotógrafo.</p>
                         <button onClick={shareGallery} className={clsx('mt-8 inline-flex w-fit items-center px-6 py-3 rounded-2xl text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-xl', templateCode === 'sunset-split' ? 'bg-[#d89a57]' : 'bg-[#b59c6b]')}>
-                            <Share2 className="w-4 h-4 mr-2" /> Compartir galeria
+                            <Share2 className="w-4 h-4 mr-2" /> Compartir galería
                         </button>
                     </div>
                     <div className="bg-[#f3ede2] rounded-[40px] p-4 md:p-6 shadow-[0_20px_80px_rgba(181,156,107,0.12)]">
                         <div className="overflow-hidden rounded-[28px] h-full min-h-[320px]">
                             <img
                                 src={heroPhoto.url}
-                                alt="Gallery Cover"
+                                alt="Portada de la galería"
                                 className="w-full h-full object-cover"
                                 style={{ objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}` }}
                             />
@@ -388,22 +390,22 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                             </div>
                             <div className="flex flex-col">
                                 <span className="mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none text-black/35">
-                                    {galleryTemplate?.name || 'Portfolio'}
+                                    {galleryTemplate?.name || 'Portafolio'}
                                 </span>
                                 <span className="text-xs text-[#666]">
-                                    {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                                    {project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : project.name}
                                 </span>
                             </div>
                         </div>
 
                         <button onClick={shareGallery} className="flex items-center rounded-full border border-black/10 bg-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-[#444] transition-all hover:border-black/30 hover:text-[#111]">
-                            <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                            <Share2 className="mr-2 h-3.5 w-3.5" /> Compartir
                         </button>
                     </div>
                     <div className={clsx('relative overflow-hidden min-h-[72svh] md:min-h-[100svh]', styles.heroHeight)}>
                         <img
                             src={heroPhoto.url}
-                            alt="Gallery Cover"
+                            alt="Portada de la galería"
                             className="w-full h-full object-cover"
                             style={{ objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}` }}
                         />
@@ -411,12 +413,12 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                     </div>
                     <div className="px-8 md:px-12 py-8 flex flex-col md:flex-row md:items-end md:justify-between gap-6">
                         <div>
-                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-[#7a7a73] mb-3">{project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Galeria privada'}</p>
+                            <p className="text-[10px] uppercase tracking-[0.35em] font-black text-[#7a7a73] mb-3">{project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : 'Galería privada'}</p>
                             <h1 className={clsx('font-heading font-black mb-3', styles.title)}>{project.name}</h1>
-                            <p className={clsx('text-sm md:text-base leading-relaxed max-w-2xl', styles.subtitle)}>Explora la galeria completa. Las descargas de alta calidad se gestionan de forma privada con tu fotografo.</p>
+                            <p className={clsx('text-sm md:text-base leading-relaxed max-w-2xl', styles.subtitle)}>Explora la galería completa. Las descargas de alta calidad se gestionan de forma privada con tu fotógrafo.</p>
                         </div>
                         <button onClick={shareGallery} className="inline-flex items-center px-6 py-3 rounded-2xl border border-[#111111] text-[#111111] text-[10px] font-black uppercase tracking-[0.2em] hover:bg-[#111111] hover:text-white transition-all">
-                            <Share2 className="w-4 h-4 mr-2" /> Compartir galeria
+                            <Share2 className="w-4 h-4 mr-2" /> Compartir galería
                         </button>
                     </div>
                 </div>
@@ -441,7 +443,7 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                 {/* 2. Sharp Focal layer with Mask */}
                 <img
                     src={heroPhoto.url}
-                    alt="Gallery Cover"
+                    alt="Portada de la galería"
                     className="absolute inset-0 h-full w-full object-cover transition-opacity duration-1000"
                     style={{
                         objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}`,
@@ -467,26 +469,26 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                         </div>
                         <div className="flex flex-col">
                             <span className={clsx('mb-1 font-heading text-[10px] font-black uppercase tracking-[0.3em] leading-none', isDarkChrome ? 'text-white/55' : 'text-black/35')}>
-                                {galleryTemplate?.name || 'Portfolio'}
+                                {galleryTemplate?.name || 'Portafolio'}
                             </span>
                             <span className={clsx('text-xs', isDarkChrome ? 'text-white/80' : 'text-[#666]')}>
-                                {project.event_date ? new Date(project.event_date).toLocaleDateString() : project.name}
+                                {project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : project.name}
                             </span>
                         </div>
                     </div>
 
                     <button onClick={shareGallery} className={clsx('flex items-center rounded-full border px-5 py-2.5 text-[10px] font-black uppercase tracking-widest backdrop-blur-md transition-all', isDarkChrome ? 'bg-black/30 border-white/10 text-[#ddd] hover:text-white hover:bg-black/50' : 'bg-white border-black/10 text-[#444] hover:border-black/30 hover:text-[#111]')}>
-                        <Share2 className="mr-2 h-3.5 w-3.5" /> Share
+                        <Share2 className="mr-2 h-3.5 w-3.5" /> Compartir
                     </button>
                 </div>
             </div>
 
             <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-5 pt-24 text-center md:px-12 md:pt-28">
-                <p className={clsx('font-black text-[10px] uppercase tracking-[0.4em] mb-4 text-white/70 shadow-sm', styles.subtitle)}>{project.event_date ? new Date(project.event_date).toLocaleDateString() : 'Exclusive Gallery'}</p>
+                <p className={clsx('font-black text-[10px] uppercase tracking-[0.4em] mb-4 text-white/70 shadow-sm', styles.subtitle)}>{project.event_date ? new Date(project.event_date).toLocaleDateString('es-PA') : 'Galería exclusiva'}</p>
                 <h1 className={clsx('font-heading font-black drop-shadow-2xl text-4xl sm:text-5xl md:text-7xl lg:text-8xl max-w-6xl text-white', styles.title)}>{project.name}</h1>
-                <p className={clsx('mt-8 max-w-2xl mx-auto text-sm md:text-base font-medium tracking-wide text-white/80', styles.subtitle)}>Explora la galeria completa. Las descargas de alta calidad se gestionan de forma privada con tu fotografo.</p>
+                <p className={clsx('mt-8 max-w-2xl mx-auto text-sm md:text-base font-medium tracking-wide text-white/80', styles.subtitle)}>Explora la galería completa. Las descargas de alta calidad se gestionan de forma privada con tu fotógrafo.</p>
                 <button onClick={shareGallery} className={clsx('mt-10 inline-flex items-center px-8 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] border transition-all', templateCode === 'editorial-frame' ? 'border-[#f5efe7] text-[#f5efe7] hover:bg-[#f5efe7] hover:text-[#1f1914]' : 'border-white/20 bg-white/10 text-white hover:bg-white hover:text-black')}>
-                    <Share2 className="w-4 h-4 mr-2" /> Compartir galeria
+                    <Share2 className="w-4 h-4 mr-2" /> Compartir galería
                 </button>
             </div>
         </section>
@@ -641,7 +643,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
         }
 
         await navigator.clipboard.writeText(url);
-        window.alert('Link de la galeria copiado.');
+        window.alert('Enlace de la galería copiado.');
     };
 
     const filteredPhotos = photos.filter((photo) => {
@@ -700,7 +702,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
 
     return (
         <div className={clsx('min-h-screen selection:bg-accent/30 selection:text-white pb-24', styles.page)}>
-            <Head title={galleryTitle || `${branding?.app_name || 'Gallery'} | ${project.name}`} />
+            <Head title={galleryTitle || `${branding?.app_name || 'Galería'} | ${project.name}`} />
 
                 <>
 
@@ -724,24 +726,24 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <div>
                             <p className={clsx('text-[10px] font-black uppercase tracking-[0.28em]', isPageDark ? 'text-white/70' : 'text-black/60')}>
-                                {isClientView ? 'Client gallery unlocked' : 'Public portfolio view'}
+                                {isClientView ? 'Galería completa desbloqueada' : 'Vista pública del portafolio'}
                             </p>
                             <p className={clsx('mt-2 text-xs uppercase tracking-[0.24em] font-bold', isPageDark ? 'text-white/65' : 'text-[#6b4f3a]')}>
-                                {branding?.app_name || 'Studio'}
+                                {branding?.app_name || 'Estudio'}
                             </p>
                             <h2 className={clsx('mt-2 text-xl font-black leading-tight md:text-2xl', isPageDark ? 'text-white' : 'text-[#241b16]')}>
-                                {galleryTitle || 'Selected work: A gallery shaped by emotion, landscape, and movement'}
+                                {galleryTitle || 'Una galería construida con emoción, luz y movimiento'}
                             </h2>
                             <p className={clsx('mt-2 max-w-2xl text-sm leading-7', isPageDark ? 'text-white/90' : 'text-[#3d2b1e]')}>
                                 {isClientView
-                                    ? 'Estas viendo la galeria completa del cliente. Aqui se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
+                                    ? 'Estás viendo la galería completa del cliente. Aquí se habilitan favoritos y descargas originales si la ventana de entrega sigue activa.'
                                     : sportsModeEnabled
-                                        ? 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa y aprovechar filtros deportivos cuando esten disponibles.'
-                                        : 'Esta vista publica solo muestra las fotos marcadas por el fotografo para web. Si eres el cliente, usa Acceso cliente para ver la galeria completa, marcar favoritos y descargar.'}
+                                        ? 'Esta vista pública solo muestra las fotos marcadas por el fotógrafo para web. Si eres el cliente, usa Acceso cliente para ver la galería completa y aprovechar filtros deportivos cuando estén disponibles.'
+                                        : 'Esta vista pública solo muestra las fotos marcadas por el fotógrafo para web. Si eres el cliente, usa Acceso cliente para ver la galería completa, marcar favoritos y descargar.'}
                             </p>
                             {typeof access?.public_photo_count === 'number' && typeof access?.client_photo_count === 'number' && (
                                 <p className={clsx('mt-2 text-xs uppercase tracking-[0.2em] font-bold', isPageDark ? 'text-white/70' : 'text-[#6b4f3a]')}>
-                                    {isClientView ? `${access.client_photo_count} fotos visibles` : `${access.public_photo_count} fotos publicas visibles`}
+                                    {isClientView ? `${access.client_photo_count} fotos visibles` : `${access.public_photo_count} fotos públicas visibles`}
                                 </p>
                             )}
                             {access?.registered_email && (
@@ -814,7 +816,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                         filter === cat ? styles.filterActive : styles.filterIdle
                                     )}
                                 >
-                                    {cat}
+                                    {galleryFilterLabel(cat)}
                                 </motion.button>
                             ))}
                         </div>
@@ -823,7 +825,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <UserRound className="h-3.5 w-3.5" />
-                                    Personas en la galeria
+                                    Personas en la galería
                                 </div>
                                 <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
                                     {peopleCategories.map(person => (
@@ -837,7 +839,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 peopleFilter === person ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {person}
+                                            {galleryFilterLabel(person)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -862,7 +864,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 brandFilter === brand ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {brand}
+                                            {galleryFilterLabel(brand)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -887,7 +889,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 peopleCountFilter === countLabel ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {countLabel}
+                                            {galleryFilterLabel(countLabel)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -912,7 +914,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 jerseyFilter === jersey ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            #{jersey}
+                                            {jersey === 'All' ? 'Todos' : `#${jersey}`}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -923,7 +925,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                             <div className="flex w-full flex-col items-center gap-3">
                                 <div className={clsx('inline-flex items-center gap-2 rounded-full px-4 py-2 text-[10px] font-black uppercase tracking-[0.25em]', isDarkChrome ? 'bg-white/5 text-white/60' : 'bg-black/5 text-[#6b5442]')}>
                                     <Camera className="h-3.5 w-3.5" />
-                                    Sponsors
+                                    Patrocinadores
                                 </div>
                                 <div className="flex items-center space-x-2 md:space-x-4 overflow-x-auto no-scrollbar py-2">
                                     {sponsorCategories.map((sponsor) => (
@@ -937,7 +939,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 sponsorFilter === sponsor ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {sponsor}
+                                            {galleryFilterLabel(sponsor)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -962,7 +964,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 contextFilter === contextTag ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {contextTag}
+                                            {galleryFilterLabel(contextTag)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -987,7 +989,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                                 actionFilter === actionTag ? styles.filterActive : styles.filterIdle
                                             )}
                                         >
-                                            {actionTag}
+                                            {galleryFilterLabel(actionTag)}
                                         </motion.button>
                                     ))}
                                 </div>
@@ -1030,7 +1032,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                             <div className="w-24 h-24 bg-white/5 border border-white/5 rounded-full flex items-center justify-center mx-auto mb-10">
                                 <LayoutGrid className="w-10 h-10 text-white/10" />
                             </div>
-                            <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografÃ­as disponibles</p>
+                            <p className="font-black uppercase tracking-[0.5em] text-xs opacity-30">No hay fotografías disponibles</p>
                         </motion.div>
                     )}
 
@@ -1038,7 +1040,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
             </div>
 
             <footer className={clsx('mt-24 px-16 text-center', styles.footer)}>
-                <p className="text-[10px] uppercase font-black tracking-[0.6em] mb-4 italic">{branding?.app_name || 'Artisan Processing and Delivery Platform'}</p>
+                <p className="text-[10px] uppercase font-black tracking-[0.6em] mb-4 italic">{branding?.app_name || 'Plataforma de selección y entrega fotográfica'}</p>
                 <div className={clsx('w-12 h-[1px] mx-auto', isDarkChrome ? 'bg-white/5' : 'bg-black/10')} />
             </footer>
 
@@ -1102,9 +1104,9 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                     <p className={clsx('text-[11px] font-black uppercase tracking-[0.28em]', isPageDark ? 'text-white/65' : 'text-[#6b4f3a]')}>
                                         Acceso cliente
                                     </p>
-                                    <h2 className="mt-3 text-2xl font-black tracking-tight">Ver galeria completa</h2>
+                                    <h2 className="mt-3 text-2xl font-black tracking-tight">Ver galería completa</h2>
                                     <p className={clsx('mt-3 text-sm leading-7', isPageDark ? 'text-white/80' : 'text-[#4a3728]')}>
-                                        Ingresa tu correo y la clave privada para desbloquear toda la galeria, activar favoritos y habilitar descargas.
+                                        Ingresa tu correo y la clave privada para desbloquear toda la galería, activar favoritos y habilitar descargas.
                                     </p>
                                 </div>
                                 <button
@@ -1154,7 +1156,7 @@ export default function Gallery({ project, photos, heroPhoto: heroPhotoProp, gal
                                     type="text"
                                     value={unlockForm.data.gallery_access_code}
                                     onChange={(event) => unlockForm.setData('gallery_access_code', event.target.value.toUpperCase())}
-                                    placeholder={access?.has_password ? 'Clave o codigo de acceso' : 'Sin clave configurada'}
+                                    placeholder={access?.has_password ? 'Clave o código de acceso' : 'Sin clave configurada'}
                                     disabled={!access?.has_password || unlockForm.processing}
                                     className={clsx(
                                         'w-full rounded-[1.2rem] border px-4 py-3 text-sm outline-none',
