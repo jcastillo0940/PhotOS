@@ -123,6 +123,7 @@ export default function Home({
         fonts,
         navItems,
         portfolioCategories,
+        portfolioPhotos,
         allCategories,
         filteredPortfolio,
         activeCategory,
@@ -1394,7 +1395,7 @@ Home.layout = (page) => page;
 
 /* ─────────────────────────────────────────────
    MISAEL SIGNATURE LAYOUT
-   Dark · Bold · Nike / Apple inspired
+   Dark · Bold · Nike editorial style
    ───────────────────────────────────────────── */
 
 const MA_SPECIALTIES = [
@@ -1412,9 +1413,12 @@ const MA_STRIP_ITEMS = [
     'Deportes', 'Músicos', 'Branding Personal', 'Corporativo', 'Bodas & Quinceaños',
 ];
 
+const MA_MANIFESTO = ['CADA DISPARO,', 'UNA HISTORIA.'];
+
 function MisaelSignatureHome({
     homepage, palette, fonts, navItems,
     filteredPortfolio, allCategories, activeCategory, setActiveCategory,
+    portfolioPhotos = [],
     branding, leadForm, seo,
 }) {
     const { flash } = usePage().props;
@@ -1431,24 +1435,62 @@ function MisaelSignatureHome({
     const heroImage = homepage?.hero?.image_url;
     const aboutImage = homepage?.about?.image_url;
 
+    // One representative photo per specialty for the category showcase
+    const allPhotos = portfolioPhotos.length > 0 ? portfolioPhotos : filteredPortfolio;
+    const categoryShowcase = MA_SPECIALTIES.map((spec) => ({
+        ...spec,
+        photo: allPhotos.find((p) => {
+            const cat = (p.category || '').toLowerCase();
+            const lbl = spec.label.toLowerCase();
+            return cat.includes(lbl) || lbl.includes(cat);
+        }) || null,
+    }));
+
     return (
         <div style={{ backgroundColor: '#080808', color: '#f0f0f0', fontFamily: fonts.body }} className="min-h-screen">
             <SeoHead seo={seo} fallbackTitle={homepage.brand.name} fallbackDescription={homepage.brand.tagline} />
 
-            {/* ── Fonts + base styles ── */}
             <style>{`
                 @import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@300;400;500;600&display=swap');
                 html { scroll-behavior: smooth; }
 
-                /* Hero entrance (CSS keyframes — fires on load, no JS needed) */
                 @keyframes maFadeUp {
-                    from { opacity: 0; transform: translateY(36px); }
+                    from { opacity: 0; transform: translateY(40px); }
                     to   { opacity: 1; transform: translateY(0); }
                 }
                 @keyframes maFadeIn {
                     from { opacity: 0; }
                     to   { opacity: 1; }
                 }
+
+                /* Ken Burns variants */
+                @keyframes kbZoomIn {
+                    from { transform: scale(1.0) translate(0%, 0%); }
+                    to   { transform: scale(1.18) translate(-2%, -2%); }
+                }
+                @keyframes kbZoomOut {
+                    from { transform: scale(1.18) translate(2%, 1%); }
+                    to   { transform: scale(1.0) translate(0%, 0%); }
+                }
+                @keyframes kbPanRight {
+                    from { transform: scale(1.1) translate(-3%, 0%); }
+                    to   { transform: scale(1.1) translate(3%, -1.5%); }
+                }
+                @keyframes kbPanLeft {
+                    from { transform: scale(1.1) translate(3%, -1%); }
+                    to   { transform: scale(1.1) translate(-3%, 1%); }
+                }
+                @keyframes kbZoomInUp {
+                    from { transform: scale(1.0) translate(0%, 2%); }
+                    to   { transform: scale(1.16) translate(1.5%, -2%); }
+                }
+
+                /* Slideshow */
+                .ma-slide { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 30%; will-change: transform, opacity; transition: opacity 1.4s cubic-bezier(.4,0,.2,1); }
+                .ma-slide-hidden { opacity: 0; z-index: 0; animation: none !important; }
+                .ma-slide-prev   { opacity: 0; z-index: 1; }
+                .ma-slide-active { opacity: 1; z-index: 2; }
+
                 @keyframes slideDown {
                     0%   { transform: translateY(-100%); opacity: 0; }
                     50%  { opacity: 1; }
@@ -1458,46 +1500,69 @@ function MisaelSignatureHome({
                     from { transform: translateX(0); }
                     to   { transform: translateX(-50%); }
                 }
+                @keyframes maManifestoIn {
+                    from { opacity: 0; transform: translateY(70px); }
+                    to   { opacity: 1; transform: translateY(0); }
+                }
 
-                .ma-hero-img  { animation: maFadeIn  1.6s ease .05s both; }
-                .ma-hero-1    { animation: maFadeUp  .9s cubic-bezier(.22,1,.36,1) .25s both; }
-                .ma-hero-2    { animation: maFadeUp  .9s cubic-bezier(.22,1,.36,1) .45s both; }
-                .ma-hero-3    { animation: maFadeUp  .9s cubic-bezier(.22,1,.36,1) .65s both; }
-                .ma-hero-4    { animation: maFadeUp  .9s cubic-bezier(.22,1,.36,1) .85s both; }
-                .ma-hero-scroll { animation: maFadeIn 1s ease 1.4s both; }
+                .ma-hero-img    { animation: maFadeIn 1.6s ease .05s both; }
+                .ma-hero-1      { animation: maFadeUp .9s cubic-bezier(.22,1,.36,1) .2s  both; }
+                .ma-hero-2      { animation: maFadeUp .9s cubic-bezier(.22,1,.36,1) .38s both; }
+                .ma-hero-3      { animation: maFadeUp .9s cubic-bezier(.22,1,.36,1) .56s both; }
+                .ma-hero-4      { animation: maFadeUp .9s cubic-bezier(.22,1,.36,1) .74s both; }
+                .ma-hero-scroll { animation: maFadeIn 1s ease 1.3s both; }
 
-                /* Below-fold scroll reveal */
-                .ma-reveal { opacity: 0; transform: translateY(30px); transition: opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1); }
+                .ma-reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.22,1,.36,1), transform .8s cubic-bezier(.22,1,.36,1); }
                 .ma-reveal.visible { opacity: 1; transform: translateY(0); }
                 .ma-reveal-left { opacity: 0; transform: translateX(-44px); transition: opacity .9s cubic-bezier(.22,1,.36,1), transform .9s cubic-bezier(.22,1,.36,1); }
                 .ma-reveal-left.visible { opacity: 1; transform: translateX(0); }
 
-                /* Photo grid */
-                .photo-item { overflow: hidden; border-radius: 12px; }
+                /* Photo masonry */
+                .photo-item { overflow: hidden; }
                 .photo-item img { transition: transform .7s cubic-bezier(.22,1,.36,1); display: block; width: 100%; }
-                .photo-item:hover img { transform: scale(1.06); }
+                .photo-item:hover img { transform: scale(1.05); }
 
-                /* Nav underline */
+                /* Nav link underline */
                 .nav-link { position: relative; }
                 .nav-link::after { content:''; position:absolute; bottom:-3px; left:0; width:0; height:1px; background:currentColor; transition: width .3s ease; }
                 .nav-link:hover::after { width:100%; }
 
-                /* Specialty cards */
-                .spec-card { transition: background .3s ease, border-color .3s ease, transform .35s cubic-bezier(.22,1,.36,1); }
-                .spec-card:hover { transform: translateY(-6px); border-color: rgba(232,255,0,0.25) !important; background: rgba(232,255,0,0.04) !important; }
+                /* Category tile */
+                .cat-tile { position: relative; overflow: hidden; display: block; cursor: pointer; }
+                .cat-tile-bg { width:100%; height:100%; object-fit:cover; transition: transform .85s cubic-bezier(.22,1,.36,1); display:block; }
+                .cat-tile:hover .cat-tile-bg { transform: scale(1.07); }
+                .cat-tile-overlay { position:absolute; inset:0; background: linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.25) 55%, transparent 100%); transition: background .4s ease; }
+                .cat-tile:hover .cat-tile-overlay { background: linear-gradient(to top, rgba(0,0,0,.95) 0%, rgba(0,0,0,.45) 60%, rgba(0,0,0,.08) 100%); }
+                .cat-tile-label { transition: transform .35s cubic-bezier(.22,1,.36,1); }
+                .cat-tile:hover .cat-tile-label { transform: translateY(-6px); }
+                .cat-tile-cta { opacity:0; transform: translateY(12px); transition: opacity .3s ease .05s, transform .3s cubic-bezier(.22,1,.36,1) .05s; }
+                .cat-tile:hover .cat-tile-cta { opacity:1; transform: translateY(0); }
+
+                /* Specialty row */
+                .spec-row { transition: padding-left .3s ease; }
+                .spec-row:hover { padding-left: 1rem; }
+                .spec-num { transition: color .3s ease; }
+                .spec-row:hover .spec-num { color: var(--ma-accent, #e8ff00); }
+                .spec-arrow { transition: transform .3s ease, opacity .3s ease; }
+                .spec-row:hover .spec-arrow { transform: translateX(6px); opacity: .7; }
+
+                /* Manifesto */
+                .ma-manifesto-line { opacity:0; }
+                .ma-manifesto-line.fired { animation: maManifestoIn .95s cubic-bezier(.22,1,.36,1) both; }
+                .ma-manifesto-line.fired:nth-child(2) { animation-delay: .18s; }
             `}</style>
 
             {/* ── STICKY NAV ── */}
             <header
                 className="fixed top-0 inset-x-0 z-50 transition-all duration-500"
                 style={{
-                    backgroundColor: scrolled ? 'rgba(8,8,8,0.95)' : 'transparent',
+                    backgroundColor: scrolled ? 'rgba(8,8,8,0.96)' : 'transparent',
                     backdropFilter: scrolled ? 'blur(20px)' : 'none',
                     borderBottom: scrolled ? '1px solid rgba(255,255,255,0.06)' : 'none',
                 }}
             >
                 <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6 md:px-10">
-                    <a href="/" style={{ fontFamily: 'Anton, sans-serif', fontSize: '1.05rem', letterSpacing: '0.06em', color: '#fff' }}>
+                    <a href="/" style={{ fontFamily: 'Anton, sans-serif', fontSize: '1.1rem', letterSpacing: '0.08em', color: '#fff' }}>
                         {homepage.brand.name}
                     </a>
                     <nav className="hidden items-center gap-8 md:flex">
@@ -1505,30 +1570,30 @@ function MisaelSignatureHome({
                             <button
                                 key={s}
                                 onClick={() => scrollToTarget(`#${s}`)}
-                                className="nav-link text-[11px] font-medium uppercase tracking-widest text-white/55 hover:text-white transition-colors"
+                                className="nav-link text-[10px] font-semibold uppercase tracking-widest text-white/50 hover:text-white transition-colors"
                             >
                                 {sectionLabels[s] || s}
                             </button>
                         ))}
                         <button
                             onClick={() => scrollToTarget('#contact')}
-                            className="ml-2 rounded-full px-5 py-2 text-[11px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
+                            className="ml-3 px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
                             style={{ backgroundColor: accent, color: '#080808' }}
                         >
                             Reservar sesión
                         </button>
                     </nav>
-                    <button className="md:hidden text-white/70 hover:text-white transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
+                    <button className="md:hidden text-white/60 hover:text-white transition-colors" onClick={() => setMobileOpen(!mobileOpen)}>
                         <Menu className="h-5 w-5" />
                     </button>
                 </div>
                 {mobileOpen && (
-                    <div className="md:hidden border-t border-white/8 bg-black/96 px-6 py-6 flex flex-col gap-5">
+                    <div className="md:hidden border-t border-white/8 bg-black/97 px-6 py-6 flex flex-col gap-5">
                         {[...navItems, 'contact'].map((s) => (
                             <button
                                 key={s}
                                 onClick={() => { scrollToTarget(`#${s}`); setMobileOpen(false); }}
-                                className="text-left text-sm font-medium uppercase tracking-widest text-white/65 hover:text-white transition-colors"
+                                className="text-left text-sm font-semibold uppercase tracking-widest text-white/55 hover:text-white transition-colors"
                             >
                                 {sectionLabels[s] || s}
                             </button>
@@ -1538,128 +1603,197 @@ function MisaelSignatureHome({
             </header>
 
             {/* ── HERO ── */}
-            <section id="hero" className="relative flex h-screen min-h-[640px] items-end overflow-hidden">
-                {heroImage
-                    ? <MaHeroImage src={heroImage} className="ma-hero-img" />
-                    : <div className="absolute inset-0 bg-zinc-900" />
-                }
-                {/* Dark gradient vignette */}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.08) 35%, rgba(8,8,8,0.75) 72%, #080808 100%)' }} />
-                {/* Left vignette */}
-                <div className="absolute inset-0" style={{ background: 'linear-gradient(to right, rgba(8,8,8,0.6) 0%, transparent 55%)' }} />
+            <section id="hero" className="relative flex h-screen min-h-[680px] items-end overflow-hidden">
+                <MaHeroSlideshow images={[heroImage, ...allPhotos.slice(0, 5).map(p => p.image_url)].filter(Boolean)} />
+                <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 30%, rgba(8,8,8,0.65) 65%, #080808 100%)' }} />
+                <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to right, rgba(8,8,8,0.52) 0%, transparent 60%)' }} />
 
-                <div className="relative z-10 mx-auto w-full max-w-7xl px-6 pb-24 md:px-10 md:pb-32">
-                    <p className="ma-hero-1 mb-4 text-xs font-semibold uppercase tracking-[0.32em]" style={{ color: accent }}>
+                <div className="relative z-20 mx-auto w-full max-w-7xl px-6 pb-28 md:px-10 md:pb-40">
+                    <p className="ma-hero-1 mb-5 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
+                        <span className="inline-block h-px w-7" style={{ backgroundColor: accent }} />
                         {homepage.hero.eyebrow}
                     </p>
                     <h1
-                        className="ma-hero-2 mb-6 max-w-3xl leading-[1.03] text-white"
-                        style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.6rem, 7vw, 5.5rem)', letterSpacing: '-0.01em' }}
+                        className="ma-hero-2 mb-7 max-w-4xl uppercase text-white"
+                        style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(3.8rem, 11vw, 9rem)', lineHeight: '.93', letterSpacing: '-0.025em' }}
                     >
-                        {homepage.hero.title}
+                        Historias que conectan.
                     </h1>
-                    <p className="ma-hero-3 mb-10 max-w-lg text-base leading-relaxed text-white/55 md:text-lg">
+                    <p className="ma-hero-3 mb-12 max-w-sm text-base leading-relaxed text-white/45 md:text-lg">
                         {homepage.hero.description}
                     </p>
-                    <div className="ma-hero-4 flex flex-wrap gap-4">
+                    <div className="ma-hero-4 flex flex-wrap gap-3">
                         <button
                             onClick={() => scrollToTarget(homepage.hero.primary_cta_target)}
-                            className="inline-flex items-center gap-2 rounded-full px-7 py-3.5 text-sm font-bold uppercase tracking-wider transition-all hover:brightness-90 active:scale-95"
+                            className="inline-flex items-center gap-2 px-8 py-4 text-[11px] font-bold uppercase tracking-widest transition-all hover:brightness-90 active:scale-95"
                             style={{ backgroundColor: accent, color: '#080808' }}
                         >
                             {homepage.hero.primary_cta_label} <ArrowRight className="h-4 w-4" />
                         </button>
                         <button
                             onClick={() => scrollToTarget(homepage.hero.secondary_cta_target)}
-                            className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3.5 text-sm font-medium text-white/75 backdrop-blur-sm transition hover:bg-white/8 hover:border-white/40"
+                            className="inline-flex items-center gap-2 border border-white/22 px-8 py-4 text-[11px] font-medium text-white/65 backdrop-blur-sm transition hover:bg-white/6 hover:border-white/40"
                         >
                             {homepage.hero.secondary_cta_label}
                         </button>
                     </div>
                 </div>
 
-                {/* Scroll indicator */}
-                <div className="ma-hero-scroll absolute bottom-8 right-8 md:right-12 z-10 flex flex-col items-center gap-2">
-                    <span className="text-[9px] uppercase tracking-[0.22em] text-white/30" style={{ writingMode: 'vertical-rl' }}>Scroll</span>
-                    <div className="h-12 w-px bg-white/15 relative overflow-hidden">
+                <div className="ma-hero-scroll absolute bottom-8 right-8 md:right-12 z-20 flex flex-col items-center gap-2">
+                    <span className="text-[9px] uppercase tracking-[0.22em] text-white/25" style={{ writingMode: 'vertical-rl' }}>Scroll</span>
+                    <div className="h-14 w-px bg-white/12 relative overflow-hidden">
                         <div className="absolute inset-x-0 top-0 h-full animate-[slideDown_2.2s_ease-in-out_infinite]" style={{ background: `linear-gradient(to bottom, transparent, ${accent})` }} />
                     </div>
                 </div>
             </section>
 
-            {/* ── SPECIALTIES ── */}
-            <section className="py-20" style={{ backgroundColor: '#0c0c0c' }}>
+            {/* ── CATEGORY SHOWCASE ── Nike-style editorial image grid */}
+            <section className="p-1.5" style={{ backgroundColor: '#020202' }}>
+                <div className="grid grid-cols-2 gap-1.5 lg:grid-cols-5">
+                    {categoryShowcase.map((cat, i) => (
+                        <MaReveal key={cat.label} delay={i * 55}>
+                            <button
+                                onClick={() => {
+                                    const next = cat.label === activeCategory ? 'All' : cat.label;
+                                    setActiveCategory(next);
+                                    scrollToTarget('#gallery');
+                                }}
+                                className="cat-tile w-full text-left"
+                                style={{ height: 'clamp(260px, 30vw, 440px)', backgroundColor: '#111' }}
+                            >
+                                {cat.photo?.image_url ? (
+                                    <img src={cat.photo.image_url} alt={cat.label} className="cat-tile-bg" loading="lazy" />
+                                ) : (
+                                    <div
+                                        className="cat-tile-bg"
+                                        style={{ background: `linear-gradient(160deg, #181818 0%, #${['131313','151515','121212','141414','161616'][i]} 100%)` }}
+                                    />
+                                )}
+                                <div className="cat-tile-overlay" />
+                                <div className="absolute inset-0 flex flex-col justify-end p-5 md:p-6">
+                                    <p
+                                        className="cat-tile-label leading-none text-white uppercase mb-2"
+                                        style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(1.4rem, 2.8vw, 2rem)' }}
+                                    >
+                                        {cat.label}
+                                    </p>
+                                    <p className="text-[11px] text-white/40 leading-snug mb-4 max-w-[16ch]">{cat.desc}</p>
+                                    <span
+                                        className="cat-tile-cta inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest"
+                                        style={{ color: accent }}
+                                    >
+                                        Ver fotos <ArrowRight className="h-3 w-3" />
+                                    </span>
+                                </div>
+                            </button>
+                        </MaReveal>
+                    ))}
+                </div>
+            </section>
+
+            {/* ── MARQUEE ── */}
+            <div className="overflow-hidden border-y py-6" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#0a0a0a' }}>
+                <div className="flex animate-[marquee_28s_linear_infinite] whitespace-nowrap gap-10">
+                    {MA_STRIP_ITEMS.map((s, i) => (
+                        <span key={i} className="flex items-center gap-10 text-[10px] uppercase tracking-[0.25em] text-white/18 font-semibold">
+                            {s}
+                            <span style={{ color: accent, opacity: 0.5 }}>·</span>
+                        </span>
+                    ))}
+                </div>
+            </div>
+
+            {/* ── SPECIALTIES — numbered editorial list ── */}
+            <section
+                className="py-24 md:py-36"
+                style={{ backgroundColor: '#080808', '--ma-accent': accent }}
+            >
                 <div className="mx-auto max-w-7xl px-6 md:px-10">
                     <MaReveal>
-                        <p className="mb-10 text-center text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: accent }}>
-                            Especialidades
-                        </p>
+                        <div className="mb-14 flex items-end justify-between border-b pb-6" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.4em]" style={{ color: accent }}>Especialidades</p>
+                            <p className="text-[10px] uppercase tracking-widest text-white/18">{MA_SPECIALTIES.length} servicios</p>
+                        </div>
                     </MaReveal>
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-                        {MA_SPECIALTIES.map((spec, i) => (
-                            <MaReveal key={spec.label} delay={i * 70}>
-                                <div
-                                    className="spec-card rounded-2xl p-6 text-center cursor-default"
-                                    style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                    {MA_SPECIALTIES.map((spec, i) => (
+                        <MaReveal key={spec.label} delay={i * 55}>
+                            <div
+                                className="spec-row group flex items-center gap-6 md:gap-10 border-b py-8 md:py-10 cursor-default"
+                                style={{ borderColor: 'rgba(255,255,255,0.05)', paddingLeft: 0 }}
+                            >
+                                <span
+                                    className="spec-num flex-shrink-0 leading-none text-white/10"
+                                    style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.2rem, 5vw, 3.8rem)' }}
                                 >
-                                    <p className="text-sm font-bold uppercase tracking-wider text-white">{spec.label}</p>
-                                    <div className="mx-auto mt-3 h-px w-8" style={{ backgroundColor: accent }} />
-                                    <p className="mt-3 text-xs leading-snug text-white/35">{spec.desc}</p>
+                                    0{i + 1}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                    <p
+                                        className="font-bold uppercase tracking-wide text-white group-hover:text-white/85 transition-colors"
+                                        style={{ fontSize: 'clamp(1rem, 2.2vw, 1.5rem)' }}
+                                    >
+                                        {spec.label}
+                                    </p>
+                                    <p className="mt-1.5 text-sm leading-snug text-white/32 md:text-base">{spec.desc}</p>
                                 </div>
-                            </MaReveal>
-                        ))}
-                    </div>
+                                <ArrowRight className="spec-arrow flex-shrink-0 h-5 w-5 text-white/12" />
+                            </div>
+                        </MaReveal>
+                    ))}
                 </div>
             </section>
 
             {/* ── ABOUT ── */}
-            <section id="about" className="overflow-hidden py-24 md:py-36" style={{ backgroundColor: '#080808' }}>
+            <section id="about" className="overflow-hidden py-28 md:py-44" style={{ backgroundColor: '#050505' }}>
                 <div className="mx-auto max-w-7xl px-6 md:px-10">
-                    <div className="grid gap-16 md:grid-cols-2 md:gap-24 items-center">
-                        {/* Image */}
+                    <div className="grid gap-16 md:grid-cols-2 md:gap-28 items-center">
                         <MaReveal className="ma-reveal-left order-2 md:order-1">
-                            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl">
+                            <div className="relative overflow-hidden" style={{ aspectRatio: '3/4' }}>
                                 {aboutImage
                                     ? <MaAboutImage src={aboutImage} />
                                     : <div className="absolute inset-0" style={{ backgroundColor: '#111' }} />
                                 }
-                                <div className="absolute bottom-0 left-0 h-[3px] w-20" style={{ backgroundColor: accent }} />
-                                <div className="absolute bottom-0 left-0 h-20 w-[3px]" style={{ backgroundColor: accent }} />
+                                <div className="absolute bottom-0 left-0 h-[2px] w-14" style={{ backgroundColor: accent }} />
+                                <div className="absolute bottom-0 left-0 h-14 w-[2px]" style={{ backgroundColor: accent }} />
                             </div>
                         </MaReveal>
 
-                        {/* Text */}
                         <div className="order-1 md:order-2 space-y-8">
                             <MaReveal>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: accent }}>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
                                     {homepage.about.eyebrow}
                                 </p>
                             </MaReveal>
                             <MaReveal delay={100}>
-                                <h2 className="leading-tight text-white" style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3.2rem)' }}>
+                                <h2
+                                    className="leading-none text-white uppercase"
+                                    style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)' }}
+                                >
                                     {homepage.about.heading}
                                 </h2>
                             </MaReveal>
                             <MaReveal delay={180}>
-                                <p className="text-base leading-relaxed text-white/55 md:text-lg">
+                                <p className="text-base leading-relaxed text-white/48 md:text-lg">
                                     {homepage.about.body}
                                 </p>
                             </MaReveal>
                             <MaReveal delay={240}>
-                                <p className="text-sm leading-relaxed text-white/35">
+                                <p className="text-sm leading-relaxed text-white/28">
                                     {homepage.about.detail}
                                 </p>
                             </MaReveal>
-
                             {homepage.about.stats?.length > 0 && (
                                 <MaReveal delay={320}>
-                                    <div className="grid grid-cols-3 gap-6 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                                    <div className="grid grid-cols-3 gap-8 pt-6 border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                                         {homepage.about.stats.map((stat, i) => (
                                             <div key={i}>
-                                                <p className="text-3xl font-black" style={{ fontFamily: 'Anton, sans-serif', color: accent }}>
+                                                <p
+                                                    className="leading-none"
+                                                    style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3rem)', color: accent }}
+                                                >
                                                     {stat.value}
                                                 </p>
-                                                <p className="mt-1.5 text-xs text-white/35 leading-snug">{stat.label}</p>
+                                                <p className="mt-2 text-[10px] text-white/28 leading-snug uppercase tracking-widest">{stat.label}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -1670,30 +1804,24 @@ function MisaelSignatureHome({
                 </div>
             </section>
 
-            {/* ── SERVICES MARQUEE ── */}
-            <div className="overflow-hidden border-y py-7" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#0a0a0a' }}>
-                <div className="flex animate-[marquee_28s_linear_infinite] whitespace-nowrap gap-10">
-                    {MA_STRIP_ITEMS.map((s, i) => (
-                        <span key={i} className="flex items-center gap-10 text-[11px] uppercase tracking-[0.22em] text-white/20 font-semibold">
-                            {s}
-                            <span style={{ color: accent, opacity: 0.6 }}>·</span>
-                        </span>
-                    ))}
-                </div>
-            </div>
+            {/* ── MANIFESTO ── pure typography statement */}
+            <MaManifesto accent={accent} />
 
             {/* ── PORTFOLIO ── */}
-            <section id="gallery" className="py-24 md:py-36" style={{ backgroundColor: '#050505' }}>
+            <section id="gallery" className="py-24 md:py-36" style={{ backgroundColor: '#040404' }}>
                 <div className="mx-auto max-w-7xl px-6 md:px-10">
                     <div className="mb-14 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
                         <div>
                             <MaReveal>
-                                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: accent }}>
+                                <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
                                     {homepage.gallery?.eyebrow || 'Portafolio'}
                                 </p>
                             </MaReveal>
                             <MaReveal delay={100}>
-                                <h2 className="text-white" style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3rem)' }}>
+                                <h2
+                                    className="text-white uppercase"
+                                    style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)', lineHeight: '.95' }}
+                                >
                                     {homepage.gallery?.heading || 'Trabajo seleccionado'}
                                 </h2>
                             </MaReveal>
@@ -1705,10 +1833,10 @@ function MisaelSignatureHome({
                                         <button
                                             key={cat}
                                             onClick={() => setActiveCategory(cat)}
-                                            className="rounded-full px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider transition-all active:scale-95"
+                                            className="px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest transition-all active:scale-95"
                                             style={activeCategory === cat
                                                 ? { backgroundColor: accent, color: '#080808' }
-                                                : { backgroundColor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.45)', border: '1px solid rgba(255,255,255,0.08)' }
+                                                : { color: 'rgba(255,255,255,0.32)', border: '1px solid rgba(255,255,255,0.1)' }
                                             }
                                         >
                                             {cat}
@@ -1719,10 +1847,25 @@ function MisaelSignatureHome({
                         )}
                     </div>
 
-                    {filteredPortfolio.length > 0 ? (
-                        <div className="columns-2 gap-3 md:columns-3 lg:columns-4">
-                            {filteredPortfolio.map((photo, i) => (
-                                <MaReveal key={photo.id} delay={Math.min(i * 50, 350)} className="photo-item mb-3 break-inside-avoid">
+                    {/* Featured hero image */}
+                    {filteredPortfolio.length > 0 && (
+                        <MaReveal>
+                            <div className="photo-item mb-2 w-full overflow-hidden" style={{ height: 'clamp(240px, 42vw, 560px)' }}>
+                                <img
+                                    src={filteredPortfolio[0].image_url}
+                                    alt={filteredPortfolio[0].project_name || 'Featured'}
+                                    className="w-full h-full object-cover"
+                                    fetchPriority="high"
+                                    decoding="async"
+                                />
+                            </div>
+                        </MaReveal>
+                    )}
+
+                    {filteredPortfolio.length > 1 && (
+                        <div className="columns-2 gap-2 md:columns-3 lg:columns-4">
+                            {filteredPortfolio.slice(1).map((photo, i) => (
+                                <MaReveal key={photo.id} delay={Math.min(i * 40, 280)} className="photo-item mb-2 break-inside-avoid">
                                     <img
                                         src={photo.image_url}
                                         alt={photo.project_name || 'Foto'}
@@ -1733,9 +1876,11 @@ function MisaelSignatureHome({
                                 </MaReveal>
                             ))}
                         </div>
-                    ) : (
-                        <div className="py-24 text-center">
-                            <p className="text-white/25 text-sm">No hay fotos en esta categoría.</p>
+                    )}
+
+                    {filteredPortfolio.length === 0 && (
+                        <div className="py-28 text-center">
+                            <p className="text-white/20 text-xs uppercase tracking-widest">No hay fotos en esta categoría.</p>
                         </div>
                     )}
                 </div>
@@ -1745,21 +1890,23 @@ function MisaelSignatureHome({
             <section id="contact" className="py-24 md:py-36" style={{ backgroundColor: '#080808' }}>
                 <div className="mx-auto max-w-7xl px-6 md:px-10">
                     <div className="grid gap-16 md:grid-cols-2 md:gap-24">
-                        {/* Info column */}
                         <div className="space-y-10">
                             <div>
                                 <MaReveal>
-                                    <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.35em]" style={{ color: accent }}>
+                                    <p className="mb-3 text-[10px] font-bold uppercase tracking-[0.42em]" style={{ color: accent }}>
                                         {homepage.contact?.eyebrow || 'Contacto'}
                                     </p>
                                 </MaReveal>
                                 <MaReveal delay={100}>
-                                    <h2 className="leading-tight text-white" style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2rem, 4vw, 3.2rem)' }}>
+                                    <h2
+                                        className="leading-none text-white uppercase"
+                                        style={{ fontFamily: 'Anton, sans-serif', fontSize: 'clamp(2.4rem, 5vw, 4rem)' }}
+                                    >
                                         {homepage.contact?.heading || '¿Hablamos?'}
                                     </h2>
                                 </MaReveal>
                                 <MaReveal delay={180}>
-                                    <p className="mt-5 text-base leading-relaxed text-white/45">
+                                    <p className="mt-5 text-base leading-relaxed text-white/38">
                                         {homepage.contact?.description}
                                     </p>
                                 </MaReveal>
@@ -1768,25 +1915,25 @@ function MisaelSignatureHome({
                             <MaReveal delay={280}>
                                 <div className="space-y-4">
                                     {[
-                                        { icon: Mail,   text: 'info@misaeldavid.com',  href: 'mailto:info@misaeldavid.com' },
-                                        { icon: Phone,  text: '+(507) 6662-1144',       href: 'tel:+5076662114' },
-                                        { icon: Camera, text: '@misaeldavidph',         href: 'https://instagram.com/misaeldavidph' },
-                                        { icon: MapPin, text: 'Panamá',                 href: null },
+                                        { icon: Mail,   text: 'info@misaeldavid.com', href: 'mailto:info@misaeldavid.com' },
+                                        { icon: Phone,  text: '+(507) 6662-1144',      href: 'tel:+5076662114' },
+                                        { icon: Camera, text: '@misaeldavidph',        href: 'https://instagram.com/misaeldavidph' },
+                                        { icon: MapPin, text: 'Panamá',                href: null },
                                     ].map(({ icon: Icon, text, href }) => (
                                         <div key={text} className="flex items-center gap-4">
                                             <div
-                                                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl"
-                                                style={{ backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                                                className="flex h-10 w-10 flex-shrink-0 items-center justify-center"
+                                                style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                                             >
                                                 <Icon className="h-4 w-4" style={{ color: accent }} />
                                             </div>
                                             {href ? (
                                                 <a href={href} target={href.startsWith('http') ? '_blank' : undefined} rel="noreferrer"
-                                                   className="text-sm text-white/55 hover:text-white transition-colors">
+                                                   className="text-sm text-white/48 hover:text-white transition-colors">
                                                     {text}
                                                 </a>
                                             ) : (
-                                                <span className="text-sm text-white/55">{text}</span>
+                                                <span className="text-sm text-white/48">{text}</span>
                                             )}
                                         </div>
                                     ))}
@@ -1794,7 +1941,6 @@ function MisaelSignatureHome({
                             </MaReveal>
                         </div>
 
-                        {/* Form column */}
                         <MaReveal delay={120}>
                             <MisaelLeadForm leadForm={leadForm} accent={accent} flash={flash} />
                         </MaReveal>
@@ -1803,20 +1949,83 @@ function MisaelSignatureHome({
             </section>
 
             {/* ── FOOTER ── */}
-            <footer className="border-t py-8" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#040404' }}>
-                <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 md:flex-row md:px-10">
-                    <span className="text-xs text-white/20" style={{ fontFamily: 'Anton, sans-serif', letterSpacing: '0.06em' }}>
-                        {homepage.brand.name}
-                    </span>
-                    <span className="text-xs text-white/15">
-                        © {new Date().getFullYear()} · Desarrollado por{' '}
-                        <a href="/" className="text-white/30 hover:text-white/50 transition-colors">PixelPRO</a>
-                    </span>
-                    <Link href="/login?s=studio" className="text-xs text-white/12 hover:text-white/25 transition-colors">
-                        Admin
-                    </Link>
+            <footer className="border-t py-10" style={{ borderColor: 'rgba(255,255,255,0.05)', backgroundColor: '#020202' }}>
+                <div className="mx-auto max-w-7xl px-6 md:px-10">
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
+                        <span style={{ fontFamily: 'Anton, sans-serif', fontSize: '1rem', letterSpacing: '0.1em', color: 'rgba(255,255,255,0.2)' }}>
+                            {homepage.brand.name}
+                        </span>
+                        <div className="flex flex-wrap items-center gap-6">
+                            <a href="https://instagram.com/misaeldavidph" target="_blank" rel="noreferrer"
+                               className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
+                                Instagram
+                            </a>
+                            <button onClick={() => scrollToTarget('#gallery')}
+                               className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
+                                Portfolio
+                            </button>
+                            <button onClick={() => scrollToTarget('#about')}
+                               className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
+                                About
+                            </button>
+                            <button onClick={() => scrollToTarget('#contact')}
+                               className="text-[10px] uppercase tracking-widest text-white/22 hover:text-white/55 transition-colors">
+                                Contacto
+                            </button>
+                        </div>
+                        <div className="flex items-center gap-5">
+                            <span className="text-[10px] text-white/14">© {new Date().getFullYear()} {homepage.brand.name}</span>
+                            <Link href="/login?s=studio" className="text-[10px] text-white/10 hover:text-white/25 transition-colors">Admin</Link>
+                        </div>
+                    </div>
                 </div>
             </footer>
+        </div>
+    );
+}
+
+/* Full-bleed typographic manifesto strip */
+function MaManifesto({ accent }) {
+    const ref = React.useRef(null);
+    React.useEffect(() => {
+        const el = ref.current;
+        if (!el) return;
+        const lines = el.querySelectorAll('.ma-manifesto-line');
+        const obs = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    lines.forEach((l) => l.classList.add('fired'));
+                    obs.disconnect();
+                }
+            },
+            { threshold: 0.25 },
+        );
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, []);
+
+    return (
+        <div
+            ref={ref}
+            className="overflow-hidden py-28 md:py-44"
+            style={{ backgroundColor: '#020202' }}
+        >
+            <div className="mx-auto max-w-7xl px-6 md:px-10">
+                {MA_MANIFESTO.map((line, i) => (
+                    <p
+                        key={i}
+                        className="ma-manifesto-line select-none leading-none text-white"
+                        style={{
+                            fontFamily: 'Anton, sans-serif',
+                            fontSize: 'clamp(3.5rem, 13vw, 10rem)',
+                            letterSpacing: '-0.03em',
+                            color: i === 1 ? accent : '#fff',
+                        }}
+                    >
+                        {line}
+                    </p>
+                ))}
+            </div>
         </div>
     );
 }
@@ -1840,6 +2049,59 @@ function MaReveal({ children, delay = 0, className = '' }) {
     return (
         <div ref={ref} className={`ma-reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>
             {children}
+        </div>
+    );
+}
+
+const KB_VARIANTS = [
+    'kbZoomIn 7s ease-in-out forwards',
+    'kbZoomOut 7s ease-in-out forwards',
+    'kbPanRight 7s ease-in-out forwards',
+    'kbPanLeft 7s ease-in-out forwards',
+    'kbZoomInUp 7s ease-in-out forwards',
+];
+
+/* Multi-image hero slideshow with Ken Burns per slide */
+function MaHeroSlideshow({ images }) {
+    const [current, setCurrent] = React.useState(0);
+    const [prev, setPrev] = React.useState(null);
+    const [tick, setTick] = React.useState(0);
+
+    React.useEffect(() => {
+        if (images.length <= 1) return;
+        const id = setInterval(() => {
+            setCurrent(c => {
+                setPrev(c);
+                return (c + 1) % images.length;
+            });
+            setTick(t => t + 1);
+        }, 6500);
+        return () => clearInterval(id);
+    }, [images.length]);
+
+    if (!images.length) return <div className="absolute inset-0 bg-zinc-900" />;
+
+    return (
+        <div className="absolute inset-0 overflow-hidden">
+            {images.map((src, i) => {
+                const state = i === current ? 'active' : i === prev ? 'prev' : 'hidden';
+                return (
+                    <img
+                        key={src}
+                        src={src}
+                        alt=""
+                        className={`ma-slide ma-slide-${state}`}
+                        style={{
+                            animation: state === 'active'
+                                ? `${KB_VARIANTS[i % KB_VARIANTS.length]}`
+                                : 'none',
+                        }}
+                        fetchPriority={i === 0 ? 'high' : 'low'}
+                        loading={i === 0 ? 'eager' : 'lazy'}
+                        decoding="async"
+                    />
+                );
+            })}
         </div>
     );
 }

@@ -161,7 +161,7 @@ class SaasTenantController extends Controller
 
         TenantBrandPreset::apply($tenant, $validated['preset_key'] ?? null);
 
-        return redirect()->route('admin.saas.tenants.show', $tenant)->with('success', 'Tenant creado con su acceso inicial y preset white-label.');
+        return redirect()->route('saas.tenants.show', $tenant)->with('success', 'Tenant creado con su acceso inicial y preset white-label.');
     }
 
     public function show(Tenant $tenant)
@@ -188,7 +188,7 @@ class SaasTenantController extends Controller
                 'billing_email' => $tenant->billing_email,
                 'custom_domain' => $tenant->custom_domain,
                 'storage_limit_bytes' => $tenant->storage_limit_bytes,
-                'website_edit_url' => route('admin.saas.tenants.website.edit', $tenant),
+                'website_edit_url' => route('saas.tenants.website.edit', $tenant),
                 'login_url' => 'https://'.($tenant->domains->firstWhere('is_primary', true)?->hostname ?? $tenant->domains->first()?->hostname).'/login',
                 'billing' => $billing,
                 'subscription' => $subscription ? [

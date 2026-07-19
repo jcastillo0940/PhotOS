@@ -31,8 +31,8 @@ class EnsureTenantSessionMatchesHost
             return $next($request);
         }
 
-        // Developer accounts have no tenant_id — they can operate globally.
-        if ($user->tenant_id === null && $user->isDeveloper()) {
+        // Developer and operator accounts have no tenant_id — they can operate globally.
+        if ($user->tenant_id === null && in_array($user->role, ['developer', 'operator'])) {
             return $next($request);
         }
 

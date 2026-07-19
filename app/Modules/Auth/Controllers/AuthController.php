@@ -30,7 +30,7 @@ class AuthController extends Controller
     private const ROLE_GUARD_MAP = [
         'saas'   => ['developer'],
         'client' => ['client'],
-        'studio' => ['owner', 'operator', 'photographer'],
+        'studio' => ['owner', 'operator', 'photographer', 'developer'],
         'web'    => ['owner', 'operator', 'photographer', 'developer', 'client'], // fallback
     ];
 

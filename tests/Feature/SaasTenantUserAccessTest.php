@@ -59,7 +59,7 @@ class SaasTenantUserAccessTest extends TestCase
             'email' => 'movido@example.com',
         ]);
 
-        $this->actingAs($admin)->put(route('admin.saas.users.update', $user), [
+        $this->actingAs($admin, 'saas')->put(route('saas.users.update', $user), [
             'tenant_id' => (string) $destinationTenant->id,
             'name' => $user->name,
             'email' => $user->email,
@@ -72,8 +72,8 @@ class SaasTenantUserAccessTest extends TestCase
             'tenant_id' => $destinationTenant->id,
         ]);
 
-        $this->actingAs($admin)
-            ->get(route('admin.saas.tenants.show', $destinationTenant))
+        $this->actingAs($admin, 'saas')
+            ->get(route('saas.tenants.show', $destinationTenant))
             ->assertOk()
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Admin/Saas/Show')

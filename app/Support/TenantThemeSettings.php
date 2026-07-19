@@ -113,6 +113,19 @@ class TenantThemeSettings
                     'accent_soft' => '#dfe4c1',
                 ],
             ],
+            'misael-signature' => [
+                'label' => 'Misael Signature',
+                'palette' => [
+                    'hero_overlay' => 'rgba(0,0,0,0.55)',
+                    'surface' => '#080808',
+                    'surface_alt' => '#111111',
+                    'surface_dark' => '#000000',
+                    'text' => '#f5f5f5',
+                    'muted' => '#888888',
+                    'accent' => '#e8ff00',
+                    'accent_soft' => '#1a1f00',
+                ],
+            ],
         ];
     }
 
@@ -171,6 +184,15 @@ class TenantThemeSettings
                 'recommended_fonts' => [
                     'heading' => 'Anton, Impact, sans-serif',
                     'body' => 'Barlow Condensed, Inter, system-ui, sans-serif',
+                ],
+            ],
+            'misael-signature' => [
+                'label' => 'Misael Signature',
+                'description' => 'Diseño editorial oscuro estilo Nike — tipografía bold, accent neón y galería editorial.',
+                'recommended_preset' => 'misael-signature',
+                'recommended_fonts' => [
+                    'heading' => 'Anton, Impact, sans-serif',
+                    'body' => 'Inter, system-ui, sans-serif',
                 ],
             ],
         ];

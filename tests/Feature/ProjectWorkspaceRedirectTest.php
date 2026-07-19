@@ -67,7 +67,7 @@ class ProjectWorkspaceRedirectTest extends TestCase
             'gallery_password' => 'OWNER123',
         ]);
 
-        $response = $this->actingAs($owner)->get("http://redirect.test/admin/projects/{$project->id}");
+        $response = $this->actingAs($owner, 'studio')->get("http://redirect.test/admin/projects/{$project->id}");
 
         $response->assertRedirect("http://redirect.test/admin/projects/{$project->id}/details");
     }
@@ -135,7 +135,7 @@ class ProjectWorkspaceRedirectTest extends TestCase
             'access_token' => str_repeat('a', 40),
         ]);
 
-        $response = $this->actingAs($photographer)->get("http://redirect-photo.test/admin/projects/{$project->id}");
+        $response = $this->actingAs($photographer, 'studio')->get("http://redirect-photo.test/admin/projects/{$project->id}");
 
         $response->assertRedirect("http://redirect-photo.test/admin/projects/{$project->id}/gallery");
     }
