@@ -7,6 +7,8 @@ use App\Models\Client;
 use App\Models\Event;
 use App\Models\Lead;
 use App\Models\Project;
+use App\Modules\Integrations\Services\WebhookDispatchService;
+use App\Modules\Leads\Services\CrmAutomationService;
 use App\Support\HomepageSettings;
 use App\Support\TenantSeoSettings;
 use App\Support\TenantThemeSettings;
@@ -16,6 +18,11 @@ use Inertia\Inertia;
 
 class BookingController extends Controller
 {
+    public function __construct(
+        private readonly CrmAutomationService $automationService,
+        private readonly WebhookDispatchService $webhooks,
+    ) {}
+
     public function index(Request $request)
     {
         $tenantId = app(TenantContext::class)->id();
@@ -96,6 +103,13 @@ class BookingController extends Controller
             'client_email' => $validated['email'],
             'client_phone' => $validated['phone'] ?? null,
         ]);
+
+        $this->automationService->runImmediate('lead_created', $lead);
+
+        $tenant = app(TenantContext::class)->tenant();
+        if ($tenant) {
+            $this->webhooks->fire('lead.created', WebhookDispatchService::leadPayload($lead), $tenant);
+        }
 
         return redirect()->back()->with('success', 'Tu solicitud fue registrada como pendiente. El horario no se bloquea hasta confirmar la sesion.');
     }

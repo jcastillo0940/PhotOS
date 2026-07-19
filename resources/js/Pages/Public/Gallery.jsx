@@ -165,7 +165,7 @@ function Lightbox({ photo, isSelected, onClose, onPrev, onNext, onToggleHeart, a
 
                 <img
                     src={photo.url}
-                    alt=""
+                    alt={photo.category ? `Fotografía ${photo.category}` : 'Fotografía en galería'}
                     className="max-h-full max-w-full object-contain rounded pointer-events-none select-none"
                     style={{ maxHeight: 'calc(100svh - 140px)' }}
                     draggable={false}
@@ -233,7 +233,7 @@ const PhotoCard = ({ photo, isSelected, onClick, onToggleHeart, cardClass, showD
             {photo.thumbnail_url || photo.url ? (
                 <img
                     src={photo.thumbnail_url || photo.url}
-                    alt=""
+                    alt={photo.category ? `Fotografía ${photo.category}` : 'Fotografía'}
                     className="w-full h-auto object-cover md:transition-transform md:duration-1000 md:group-hover:scale-110 block"
                     onClick={onClick}
                     loading="lazy"
@@ -434,6 +434,7 @@ function GalleryHero({ templateCode, styles, heroPhoto, project, shareGallery, g
                 <img
                     src={heroPhoto.url}
                     alt=""
+                    aria-hidden="true"
                     className="absolute inset-0 h-full w-full object-cover blur-[10px] scale-105 opacity-60"
                     style={{ 
                         objectPosition: `${project.hero_focus_x || '50%'} ${project.hero_focus_y || '50%'}`

@@ -3,6 +3,7 @@
 namespace App\Modules\Domains\Controllers;
 use App\Http\Controllers\Controller;
 
+use App\Models\Photo;
 use App\Models\Project;
 use App\Support\HomepageSettings;
 use App\Support\TenantSeoSettings;
@@ -27,6 +28,7 @@ class SeoController extends Controller
             'Disallow: /client',
             'Disallow: /login',
             'Sitemap: '.$host.'/sitemap.xml',
+            'Sitemap: '.$host.'/sitemap-images.xml',
             '',
         ];
 
@@ -60,6 +62,51 @@ class SeoController extends Controller
         }
 
         $xml = view('seo.sitemap', ['urls' => $urls])->render();
+
+        return Response::make($xml, 200, ['Content-Type' => 'application/xml']);
+    }
+
+    public function imageSitemap(Request $request)
+    {
+        $host = $request->getSchemeAndHttpHost();
+        $tenantId = app(TenantContext::class)->id();
+        $homepage = HomepageSettings::toFrontend(HomepageSettings::get($tenantId));
+        $businessName = $homepage['brand']['name'] ?? 'Fotógrafo';
+
+        $entries = [];
+
+        if (Schema::hasTable('projects') && Schema::hasTable('photos')) {
+            Project::query()
+                ->whereNotNull('gallery_token')
+                ->with(['photos' => fn ($q) => $q->where('show_on_website', true)
+                    ->whereNotNull('url')
+                    ->orderBy('order_index')
+                    ->limit(50)])
+                ->whereHas('photos', fn ($q) => $q->where('show_on_website', true))
+                ->latest('updated_at')
+                ->limit(50)
+                ->get()
+                ->each(function (Project $project) use (&$entries, $host, $businessName) {
+                    $pageUrl = $host.'/gallery/'.$project->gallery_token;
+                    $images = $project->photos->map(fn (Photo $photo) => [
+                        'loc' => $photo->url,
+                        'title' => trim(($project->name ?? '').' — '.$businessName, ' —'),
+                        'caption' => $photo->category
+                            ? ucfirst($photo->category).' · '.$businessName
+                            : $businessName,
+                    ])->filter(fn ($img) => !empty($img['loc']))->values()->all();
+
+                    if (!empty($images)) {
+                        $entries[] = [
+                            'loc' => $pageUrl,
+                            'lastmod' => optional($project->updated_at)->toAtomString(),
+                            'images' => $images,
+                        ];
+                    }
+                });
+        }
+
+        $xml = view('seo.image-sitemap', ['entries' => $entries])->render();
 
         return Response::make($xml, 200, ['Content-Type' => 'application/xml']);
     }

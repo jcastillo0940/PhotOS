@@ -27,7 +27,15 @@ class TenantSeoSettings
             'og_title' => '',
             'og_description' => '',
             'og_image_url' => '',
+            'og_image_width' => '1200',
+            'og_image_height' => '630',
+            'og_image_alt' => '',
+            'og_image_type' => 'image/webp',
+            'og_locale' => 'es_PA',
+            'og_site_name' => '',
             'twitter_card' => 'summary_large_image',
+            'twitter_site' => '',
+            'twitter_creator' => '',
             'google_site_verification' => '',
             'schema_type' => 'LocalBusiness',
             'business_name' => $name,
@@ -98,7 +106,15 @@ class TenantSeoSettings
             'og_title' => self::clean($content['og_title'] ?? '', 90),
             'og_description' => self::clean($content['og_description'] ?? '', 180),
             'og_image_url' => self::clean($content['og_image_url'] ?? '', 255),
+            'og_image_width' => self::clean($content['og_image_width'] ?? '1200', 10),
+            'og_image_height' => self::clean($content['og_image_height'] ?? '630', 10),
+            'og_image_alt' => self::clean($content['og_image_alt'] ?? '', 120),
+            'og_image_type' => self::clean($content['og_image_type'] ?? 'image/webp', 40),
+            'og_locale' => self::clean($content['og_locale'] ?? 'es_PA', 20),
+            'og_site_name' => self::clean($content['og_site_name'] ?? '', 120),
             'twitter_card' => $twitterCard,
+            'twitter_site' => self::clean($content['twitter_site'] ?? '', 60),
+            'twitter_creator' => self::clean($content['twitter_creator'] ?? '', 60),
             'google_site_verification' => self::clean($content['google_site_verification'] ?? '', 180),
             'schema_type' => $schemaType,
             'business_name' => self::clean($content['business_name'] ?? $defaults['business_name'], 120),
@@ -123,16 +139,18 @@ class TenantSeoSettings
     {
         $seo = self::sanitize($settings, $homepage);
         $url = $seo['canonical_url'] ?: $request->url();
+        $host = $request->getSchemeAndHttpHost();
         $title = $seo['title'] ?: ($homepage['brand']['name'] ?? 'PhotOS');
         $description = $seo['description'] ?: ($homepage['brand']['tagline'] ?? '');
         $image = $seo['og_image_url'] ?: ($homepage['hero']['image_url'] ?? null);
+        $businessName = $seo['business_name'] ?: $title;
         $sameAs = self::csv($seo['same_as']);
         $services = self::csv($seo['services']);
 
         $organization = array_filter([
             '@context' => 'https://schema.org',
             '@type' => $seo['schema_type'],
-            'name' => $seo['business_name'] ?: $title,
+            'name' => $businessName,
             'description' => $seo['business_description'] ?: $description,
             'url' => $url,
             'telephone' => $seo['phone'] ?: null,
@@ -145,6 +163,16 @@ class TenantSeoSettings
             'address' => self::address($seo),
             'geo' => self::geo($seo),
         ]);
+
+        $breadcrumb = [
+            '@context' => 'https://schema.org',
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'Inicio', 'item' => $host.'/'],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'Portafolio', 'item' => $host.'/portfolio'],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => 'Reservas', 'item' => $host.'/booking'],
+            ],
+        ];
 
         return [
             ...$seo,
@@ -160,10 +188,16 @@ class TenantSeoSettings
                     [
                         '@context' => 'https://schema.org',
                         '@type' => 'WebSite',
-                        'name' => $seo['business_name'] ?: $title,
-                        'url' => $request->getSchemeAndHttpHost(),
+                        'name' => $businessName,
+                        'url' => $host,
+                        'potentialAction' => [
+                            '@type' => 'SearchAction',
+                            'target' => $host.'/portfolio?q={search_term_string}',
+                            'query-input' => 'required name=search_term_string',
+                        ],
                     ],
                     $organization,
+                    $breadcrumb,
                 ])),
             ],
         ];

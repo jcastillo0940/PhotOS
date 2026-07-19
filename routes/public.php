@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/', [HomeController::class, 'index'])->name('home');
 Route::get('/robots.txt', [SeoController::class, 'robots'])->name('seo.robots');
 Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('seo.sitemap');
+Route::get('/sitemap-images.xml', [SeoController::class, 'imageSitemap'])->name('seo.sitemap.images');
 Route::get('/portfolio', [HomeController::class, 'portfolio'])->name('public.portfolio');
 Route::post('/leads', [LeadController::class, 'store'])->name('leads.store');
 Route::get('/booking', [BookingController::class, 'index'])->name('public.booking');

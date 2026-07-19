@@ -1640,7 +1640,7 @@ function MisaelSignatureHome({
 
             {/* ── HERO ── */}
             <section id="hero" className="relative flex h-screen min-h-[680px] items-end overflow-hidden">
-                <MaHeroSlideshow images={heroImages} />
+                <MaHeroSlideshow images={heroImages} brandName={homepage.brand?.name || 'Misael David'} />
                 <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.12) 0%, transparent 30%, rgba(8,8,8,0.65) 65%, #080808 100%)' }} />
                 <div className="absolute inset-0 z-10" style={{ background: 'linear-gradient(to right, rgba(8,8,8,0.52) 0%, transparent 60%)' }} />
 
@@ -2134,7 +2134,7 @@ const KB_VARIANTS = [
 ];
 
 /* Multi-image hero slideshow with Ken Burns per slide */
-function MaHeroSlideshow({ images }) {
+function MaHeroSlideshow({ images, brandName = 'Fotografía' }) {
     const [current, setCurrent] = React.useState(0);
     const [prev, setPrev] = React.useState(null);
     const [tick, setTick] = React.useState(0);
@@ -2161,7 +2161,7 @@ function MaHeroSlideshow({ images }) {
                     <img
                         key={src}
                         src={src}
-                        alt=""
+                        alt={`${brandName} — imagen ${i + 1}`}
                         className={`ma-slide ma-slide-${state}`}
                         style={{
                             animation: state === 'active'
@@ -2179,7 +2179,7 @@ function MaHeroSlideshow({ images }) {
 }
 
 /* Hero background image with parallax */
-function MaHeroImage({ src, className = '' }) {
+function MaHeroImage({ src, alt = 'Fotografía de portada', className = '' }) {
     const [offset, setOffset] = React.useState(0);
     React.useEffect(() => {
         const onScroll = () => setOffset(window.scrollY * 0.22);
@@ -2189,7 +2189,7 @@ function MaHeroImage({ src, className = '' }) {
     return (
         <img
             src={src}
-            alt=""
+            alt={alt}
             className={`absolute inset-0 h-full w-full object-cover ${className}`}
             style={{ transform: `translateY(${offset}px) scale(1.1)`, objectPosition: 'center 30%', willChange: 'transform' }}
             fetchPriority="high"
@@ -2198,7 +2198,7 @@ function MaHeroImage({ src, className = '' }) {
 }
 
 /* About image with subtle parallax */
-function MaAboutImage({ src }) {
+function MaAboutImage({ src, alt = 'Fotografía del fotógrafo' }) {
     const ref = React.useRef(null);
     const [offset, setOffset] = React.useState(0);
     React.useEffect(() => {
@@ -2215,7 +2215,7 @@ function MaAboutImage({ src }) {
         <img
             ref={ref}
             src={src}
-            alt=""
+            alt={alt}
             className="absolute inset-0 h-full w-full object-cover"
             style={{ transform: `translateY(${offset}px) scale(1.06)`, objectPosition: 'center top', willChange: 'transform' }}
             loading="lazy"
